@@ -17,6 +17,7 @@ class MarineTerminalForecastFormatTests(unittest.TestCase):
                 "phase": "Flood/Rising",
                 "current": 0.1,
                 "wind": 4.0,
+                "wind_source": "live",
             },
             {
                 "activity": "Fish",
@@ -27,11 +28,13 @@ class MarineTerminalForecastFormatTests(unittest.TestCase):
                 "phase": "Ebb/Falling",
                 "current": 2.1,
                 "wind": 6.0,
+                "wind_source": "fallback",
             },
         ]
         self.forecast = {
-            "sources": {"tide": "live", "current": "derived"},
+            "sources": {"tide": "live", "current": "derived", "wind": "live"},
             "fallback_reason": None,
+            "wind_fallback_reason": None,
         }
         self.confidence = {
             "level": "Medium",
@@ -48,6 +51,7 @@ class MarineTerminalForecastFormatTests(unittest.TestCase):
 
         self.assertIn("Confidence:", output)
         self.assertIn("Medium", output)
+        self.assertIn("Wind: live", output)
         self.assertIn("Kayak", output)
         self.assertIn("Fish", output)
 

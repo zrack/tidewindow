@@ -32,12 +32,16 @@ class MarineSafetyEngine:
         self,
         tide_predictions: list,
         wind_knots: float,
+        wind_predictions: list | None = None,
+        wind_source: str = "fallback",
         max_windows_per_activity: int = FORECAST_MAX_WINDOWS_PER_ACTIVITY,
     ) -> list:
         """Scores upcoming tide-prediction intervals for paddling and fishing."""
         hourly_windows = self._build_hourly_forecast_windows(
             tide_predictions,
             wind_knots,
+            wind_predictions or [],
+            wind_source,
         )
         if not hourly_windows:
             return []
@@ -96,12 +100,21 @@ class MarineSafetyEngine:
             telemetry_sources.get("wind"),
             forecast_sources.get("tide"),
             forecast_sources.get("current"),
+            forecast_sources.get("wind"),
         ]
         has_seed = "seed" in all_sources
         has_derived = "derived" in all_sources
+        has_missing = "missing" in all_sources
         has_fallback = bool(fallback_reasons) or "fallback" in all_sources
 
-        if not has_seed and not has_fallback and wind_knots < 12.0 and not has_derived:
+        if has_seed or has_missing:
+            return {
+                "level": "Low",
+                "color": "red",
+                "note": "Seed or missing forecast data is involved.",
+            }
+
+        if not has_fallback and wind_knots < 12.0 and not has_derived:
             return {
                 "level": "High",
                 "color": "green",
@@ -121,7 +134,13 @@ class MarineSafetyEngine:
             "note": "Fallback or seed data is involved.",
         }
 
-    def _build_hourly_forecast_windows(self, tide_predictions: list, wind_knots: float) -> list:
+    def _build_hourly_forecast_windows(
+        self,
+        tide_predictions: list,
+        wind_knots: float,
+        wind_predictions: list,
+        wind_source: str,
+    ) -> list:
         windows = []
 
         for current_point, next_point in zip(tide_predictions, tide_predictions[1:]):
@@ -133,6 +152,13 @@ class MarineSafetyEngine:
             base_current = abs(tide_delta / hours) * TIDE_SLOPE_TO_CURRENT_KNOTS
             average_tide = (current_point["tide_feet"] + next_point["tide_feet"]) / 2
             phase = self._forecast_phase(tide_delta, base_current)
+            window_wind, window_wind_source = self._wind_for_window(
+                current_point["time"],
+                next_point["time"],
+                wind_knots,
+                wind_predictions,
+                wind_source,
+            )
 
             windows.append(
                 {
@@ -141,10 +167,12 @@ class MarineSafetyEngine:
                     "phase": phase,
                     "base_current": base_current,
                     "average_tide": average_tide,
+                    "base_wind": window_wind,
+                    "wind_source": window_wind_source,
                     "zones": self.get_zone_telemetry(
                         base_current=base_current,
                         base_tide=average_tide,
-                        base_wind=wind_knots,
+                        base_wind=window_wind,
                     ),
                 }
             )
@@ -163,9 +191,34 @@ class MarineSafetyEngine:
             "score": self._forecast_score(activity, evaluation["status"], zone_data),
             "current": zone_data["current"],
             "wind": zone_data["wind"],
+            "wind_source": window["wind_source"],
             "tide": zone_data["tide"],
             "note": evaluation["note"],
         }
+
+    @staticmethod
+    def _wind_for_window(
+        start,
+        end,
+        fallback_wind_knots: float,
+        wind_predictions: list,
+        wind_source: str,
+    ) -> tuple[float, str]:
+        if not wind_predictions:
+            if wind_source == "missing":
+                return fallback_wind_knots, "fallback"
+            return fallback_wind_knots, wind_source
+
+        midpoint = start + (end - start) / 2
+        nearest = min(
+            wind_predictions,
+            key=lambda item: abs((item["time"] - midpoint).total_seconds()),
+        )
+        distance_seconds = abs((nearest["time"] - midpoint).total_seconds())
+        if distance_seconds <= 5400:
+            return nearest["wind_knots"], "live"
+
+        return fallback_wind_knots, "fallback"
 
     @staticmethod
     def _forecast_phase(tide_delta: float, base_current: float) -> str:

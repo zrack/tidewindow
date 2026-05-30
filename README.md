@@ -49,7 +49,9 @@ Press `a` for all forecast windows, `k` for kayak windows, and `f` for fishing w
 
 The forecast panel uses official NOAA tide predictions and estimates current strength from the hourly tide slope. Tide forecast data is labeled as `live`; current forecast data is labeled as `derived` because the app is calculating local planning guidance from the tide curve and zone multipliers.
 
-The app also displays a confidence label. `High` means live tide, current, and wind data with light wind. `Medium` means live tide forecast with derived current guidance. `Low` means seed or fallback data is involved.
+When `OPENWEATHER_API_KEY` has access to OpenWeather One Call 3.0, TideWindow also uses hourly wind forecast points for each window. Forecast wind is labeled as `live`, `fallback`, or `missing`; if hourly wind is unavailable, the app falls back to the current wind value for scoring and says so in the panel.
+
+The app also displays a confidence label. `High` means live tide, current, and wind data with light wind. `Medium` means live tide forecast with derived current guidance. `Low` means seed or missing forecast data is involved.
 
 ## Configuration
 
@@ -66,5 +68,6 @@ python -m unittest discover
 - NOAA CO-OPS API for tide and current observations
 - NOAA CO-OPS API for tide predictions
 - OpenWeather current weather API for optional wind observations
+- OpenWeather One Call 3.0 API for optional hourly wind forecasts
 
 This is a planning aid, not a substitute for marine forecasts, local knowledge, or personal judgment on the water.

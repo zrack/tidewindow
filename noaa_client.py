@@ -26,6 +26,7 @@ class NoaaMarineClient:
     
     NOAA_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
     OWM_URL = "https://api.openweathermap.org/data/2.5/weather"
+    OWM_ONECALL_URL = "https://api.openweathermap.org/data/3.0/onecall"
     
     def __init__(self):
         self.tide_station = NOAA_TIDE_STATION
@@ -94,11 +95,11 @@ class NoaaMarineClient:
                 return self.get_seed_data(reason=str(e))
 
     async def fetch_forecast(self, hours: int = FORECAST_HOURS) -> dict:
-        """Fetches NOAA tide predictions for the upcoming planning window."""
+        """Fetches NOAA tide predictions and optional hourly wind forecast."""
         timeout = aiohttp.ClientTimeout(total=6.0)
         now = datetime.now()
         end = now + timedelta(hours=hours)
-        params = {
+        tide_params = {
             "begin_date": now.strftime("%Y%m%d"),
             "end_date": end.strftime("%Y%m%d"),
             "station": self.tide_station,
@@ -112,9 +113,34 @@ class NoaaMarineClient:
 
         try:
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(self.NOAA_URL, params=params) as response:
-                    tide_json = await response.json()
-            return self._parse_forecast_payload(tide_json, now, end)
+                tide_task = session.get(self.NOAA_URL, params=tide_params)
+                wind_task = None
+                if self.owm_api_key:
+                    wind_task = session.get(
+                        self.OWM_ONECALL_URL,
+                        params={
+                            "lat": self.lat,
+                            "lon": self.lon,
+                            "appid": self.owm_api_key,
+                            "units": "imperial",
+                            "exclude": "current,minutely,daily,alerts",
+                        },
+                    )
+
+                if wind_task:
+                    responses = await asyncio.gather(tide_task, wind_task)
+                else:
+                    responses = [await tide_task]
+
+                tide_json = await responses[0].json()
+                wind_json = await responses[1].json() if wind_task else None
+
+            forecast = self._parse_forecast_payload(tide_json, now, end)
+            wind_forecast = self._parse_wind_forecast_payload(wind_json, now, end)
+            forecast["wind_predictions"] = wind_forecast["predictions"]
+            forecast["sources"]["wind"] = wind_forecast["source"]
+            forecast["wind_fallback_reason"] = wind_forecast["fallback_reason"]
+            return forecast
         except Exception as e:
             logging.warning("Forecast fetch failed: %s", e)
             return self.get_seed_forecast(hours=hours, reason=str(e))
@@ -133,8 +159,10 @@ class NoaaMarineClient:
 
         return {
             "predictions": predictions,
-            "sources": {"tide": "seed", "current": "derived"},
+            "wind_predictions": [],
+            "sources": {"tide": "seed", "current": "derived", "wind": "fallback"},
             "fallback_reason": reason,
+            "wind_fallback_reason": "using current/fallback wind for all windows",
             "updated_at": self._timestamp(),
         }
 
@@ -211,12 +239,65 @@ class NoaaMarineClient:
 
             return {
                 "predictions": predictions,
-                "sources": {"tide": "live", "current": "derived"},
+                "wind_predictions": [],
+                "sources": {"tide": "live", "current": "derived", "wind": "fallback"},
                 "fallback_reason": None,
+                "wind_fallback_reason": "using current wind for all windows",
                 "updated_at": self._timestamp(),
             }
         except (KeyError, ValueError, TypeError):
             return self.get_seed_forecast(reason="unable to parse tide predictions")
+
+    def _parse_wind_forecast_payload(self, wind_json: dict | None, start: datetime, end: datetime) -> dict:
+        if not self.owm_api_key:
+            return {
+                "predictions": [],
+                "source": "fallback",
+                "fallback_reason": "OpenWeather API key not configured",
+            }
+
+        try:
+            raw_hourly = wind_json.get("hourly", []) if wind_json else []
+            if not raw_hourly:
+                message = "OpenWeather hourly forecast unavailable"
+                if isinstance(wind_json, dict):
+                    message = wind_json.get("message", message)
+                return {
+                    "predictions": [],
+                    "source": "missing",
+                    "fallback_reason": message,
+                }
+
+            predictions = []
+            for item in raw_hourly:
+                forecast_time = datetime.fromtimestamp(item["dt"])
+                if start <= forecast_time <= end:
+                    # OpenWeather returns mph when units=imperial; convert to knots.
+                    predictions.append(
+                        {
+                            "time": forecast_time,
+                            "wind_knots": float(item["wind_speed"]) * 0.868976,
+                        }
+                    )
+
+            if not predictions:
+                return {
+                    "predictions": [],
+                    "source": "missing",
+                    "fallback_reason": "OpenWeather hourly forecast had no matching points",
+                }
+
+            return {
+                "predictions": predictions,
+                "source": "live",
+                "fallback_reason": None,
+            }
+        except (KeyError, TypeError, ValueError):
+            return {
+                "predictions": [],
+                "source": "missing",
+                "fallback_reason": "unable to parse OpenWeather hourly forecast",
+            }
 
     def _timestamp(self) -> str:
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")

@@ -133,6 +133,8 @@ class MarineTerminalApp(App):
         windows = self.engine.build_forecast_windows(
             forecast.get("predictions", []),
             data["wind_knots"],
+            wind_predictions=forecast.get("wind_predictions", []),
+            wind_source=forecast.get("sources", {}).get("wind", "fallback"),
             max_windows_per_activity=FORECAST_MAX_WINDOWS_PER_ACTIVITY,
         )
         self.forecast_windows = windows
@@ -194,11 +196,13 @@ class MarineTerminalApp(App):
         title = (
             "[bold]NEXT 24 HOURS: BEST WINDOWS[/] "
             f"[dim]Mode: {self.forecast_filter} | Tide: {sources.get('tide', 'unknown')} | "
-            f"Current: {sources.get('current', 'unknown')} | "
+            f"Current: {sources.get('current', 'unknown')} | Wind: {sources.get('wind', 'unknown')} | "
             f"Confidence: [{confidence_color}]{confidence_level}[/][/]"
         )
         if forecast.get("fallback_reason"):
             title += f"\n[yellow]Forecast notice: {forecast['fallback_reason']}[/]"
+        elif forecast.get("wind_fallback_reason"):
+            title += f"\n[yellow]Wind notice: {forecast['wind_fallback_reason']}[/]"
         elif confidence.get("note"):
             title += f"\n[dim]{confidence['note']}[/]"
 
@@ -212,7 +216,7 @@ class MarineTerminalApp(App):
             lines.append(
                 f"[bold]{window['activity']}[/] {window['start']:%a %I%p}-{window['end']:%I%p} "
                 f"| {zone_name} | {window['status']} | {window['phase']} | "
-                f"{window['current']:.1f} kt, {window['wind']:.0f} kt wind"
+                f"{window['current']:.1f} kt, {window['wind']:.0f} kt wind ({window['wind_source']})"
             )
 
         return "\n".join(lines)
