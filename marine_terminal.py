@@ -4,6 +4,7 @@ from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import Header, Footer, Static
 from noaa_client import NoaaMarineClient
 from marine_engine import MarineSafetyEngine
+from marine_config import UPDATE_INTERVAL_SECONDS, ZONES
 
 class LocationColumn(Vertical):
     """A vertical column containing data for a specific location."""
@@ -53,6 +54,13 @@ class MarineTerminalApp(App):
         padding: 1;
         margin-bottom: 1;
     }
+
+    #source-status {
+        height: 3;
+        border: round white;
+        margin: 0 1;
+        content-align: center middle;
+    }
     """
 
     BINDINGS = [("q", "quit", "Quit Terminal")]
@@ -66,45 +74,41 @@ class MarineTerminalApp(App):
         yield Header(show_clock=True)
         
         with Horizontal(id="main-grid"):
-            # Column 1: Purdy Bridge
-            with LocationColumn(classes="location-column", id="col-purdy"):
-                yield Static("PURDY BRIDGE (HENDERSON BAY)", classes="location-title")
-                yield MetricBox("Loading...", id="purdy-metrics", classes="data-box")
-                yield MetricBox("Loading...", id="purdy-kayak", classes="status-box")
-                yield MetricBox("Loading...", id="purdy-fish", classes="status-box")
+            for zone_config in ZONES.values():
+                ui_prefix = zone_config["ui_prefix"]
+                with LocationColumn(classes="location-column", id=f"col-{ui_prefix}"):
+                    yield Static(zone_config["title"], classes="location-title")
+                    yield MetricBox("Loading...", id=f"{ui_prefix}-metrics", classes="data-box")
+                    yield MetricBox("Loading...", id=f"{ui_prefix}-kayak", classes="status-box")
+                    yield MetricBox("Loading...", id=f"{ui_prefix}-fish", classes="status-box")
 
-            # Column 2: Inside Gig Harbor
-            with LocationColumn(classes="location-column", id="col-harbor"):
-                yield Static("INSIDE GIG HARBOR", classes="location-title")
-                yield MetricBox("Loading...", id="harbor-metrics", classes="data-box")
-                yield MetricBox("Loading...", id="harbor-kayak", classes="status-box")
-                yield MetricBox("Loading...", id="harbor-fish", classes="status-box")
-
-            # Column 3: Fox Island
-            with LocationColumn(classes="location-column", id="col-fox"):
-                yield Static("FOX ISLAND (HALE PASSAGE)", classes="location-title")
-                yield MetricBox("Loading...", id="fox-metrics", classes="data-box")
-                yield MetricBox("Loading...", id="fox-kayak", classes="status-box")
-                yield MetricBox("Loading...", id="fox-fish", classes="status-box")
-
+        yield Static("Waiting for telemetry...", id="source-status")
         yield Footer()
 
     def on_mount(self) -> None:
         self.run_worker(self.update_telemetry())
-        self.set_interval(360.0, lambda: self.run_worker(self.update_telemetry()))
+        self.set_interval(UPDATE_INTERVAL_SECONDS, lambda: self.run_worker(self.update_telemetry()))
 
     async def update_telemetry(self) -> None:
         data = await self.noaa.fetch_telemetry()
         
-        if "error" in data:
-            return
-
         # Get localized data from the physics engine
         zones = self.engine.get_zone_telemetry(
             data['current_knots'], 
             data['tide_feet'], 
             data['wind_knots']
         )
+
+        sources = data.get("sources", {})
+        status = (
+            f"Updated: {data.get('updated_at', 'now')} | "
+            f"Tide: {sources.get('tide', 'unknown')} | "
+            f"Current: {sources.get('current', 'unknown')} | "
+            f"Wind: {sources.get('wind', 'unknown')}"
+        )
+        if data.get("fallback_reason"):
+            status += f" | Notice: {data['fallback_reason']}"
+        self.query_one("#source-status", Static).update(status)
 
         # Helper function to update a specific column
         def update_column(zone_id: str, zone_data: dict, ui_prefix: str):
@@ -125,6 +129,5 @@ class MarineTerminalApp(App):
             f_box.styles.border = ("solid", fish["color"])
 
         # Push updates to the screen
-        update_column("purdy_bridge", zones["purdy_bridge"], "purdy")
-        update_column("gig_harbor", zones["gig_harbor"], "harbor")
-        update_column("fox_island", zones["fox_island"], "fox")
+        for zone_id, zone_config in ZONES.items():
+            update_column(zone_id, zones[zone_id], zone_config["ui_prefix"])

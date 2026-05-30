@@ -1,26 +1,28 @@
+from marine_config import ZONES
+
+
 class MarineSafetyEngine:
     """Evaluates physical marine parameters across distinct Gig Harbor micro-regions."""
     
     @staticmethod
     def get_zone_telemetry(base_current: float, base_tide: float, base_wind: float) -> dict:
         """Applies geographic multipliers to the baseline Narrows telemetry."""
-        return {
-            "purdy_bridge": {
-                "current": base_current * 1.4,  # Funnel effect increases velocity
-                "tide": base_tide, 
-                "wind": base_wind * 0.8         # Somewhat sheltered from open sound wind
-            },
-            "gig_harbor": {
-                "current": 0.1,                 # Negligible current inside the enclosed harbor
+        zones = {}
+
+        for zone_id, zone_config in ZONES.items():
+            current = zone_config.get(
+                "fixed_current",
+                base_current * zone_config.get("current_multiplier", 1.0),
+            )
+            wind = base_wind * zone_config.get("wind_multiplier", 1.0)
+
+            zones[zone_id] = {
+                "current": current,
                 "tide": base_tide,
-                "wind": base_wind * 0.6         # Highly sheltered
-            },
-            "fox_island": {
-                "current": base_current * 0.65, # Hale passage is wider, slower than the Narrows
-                "tide": base_tide,
-                "wind": base_wind * 1.2         # Highly exposed to open water wind
+                "wind": wind,
             }
-        }
+
+        return zones
 
     @staticmethod
     def evaluate_kayaking(zone: str, current: float, wind: float) -> dict:
@@ -44,6 +46,12 @@ class MarineSafetyEngine:
                 return {"status": "CAUTION", "color": "yellow", "note": "Moderate chop in Hale Passage. Stay close to shore."}
             return {"status": "SAFE", "color": "green", "note": "Good conditions around Fox Island bridge and shores."}
 
+        if wind > 15.0 or current > 2.0:
+            return {"status": "DANGER", "color": "red", "note": "Generic threshold exceeded. Check local conditions closely."}
+        if wind > 8.0 or current > 1.0:
+            return {"status": "CAUTION", "color": "yellow", "note": "Generic caution threshold exceeded."}
+        return {"status": "SAFE", "color": "green", "note": "Generic thresholds show manageable conditions."}
+
     @staticmethod
     def evaluate_fly_fishing(zone: str, current: float, tide: float) -> dict:
         """Zone-specific fly fishing thresholds."""
@@ -63,3 +71,7 @@ class MarineSafetyEngine:
             if 0.5 <= current <= 2.0:
                 return {"status": "OPTIMAL", "color": "green", "note": "Good current sweeping the Hale Passage drop-offs."}
             return {"status": "CAUTION", "color": "yellow", "note": "Wait for moving water to trigger feeding."}
+
+        if 0.5 <= current <= 2.0:
+            return {"status": "OPTIMAL", "color": "green", "note": "Generic moving-water window looks fishable."}
+        return {"status": "POOR", "color": "yellow", "note": "Generic threshold suggests waiting for better movement."}

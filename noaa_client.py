@@ -2,7 +2,18 @@ import os
 import asyncio
 import aiohttp
 import logging
+from datetime import datetime
 from dotenv import load_dotenv
+from marine_config import (
+    DEFAULT_WIND_KNOTS,
+    NOAA_CURRENT_STATION,
+    NOAA_TIDE_STATION,
+    SEEDED_CURRENT_DIRECTION,
+    SEEDED_CURRENT_KNOTS,
+    SEEDED_TIDE_FEET,
+    WEATHER_LAT,
+    WEATHER_LON,
+)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -16,21 +27,27 @@ class NoaaMarineClient:
     OWM_URL = "https://api.openweathermap.org/data/2.5/weather"
     
     def __init__(self):
-        self.tide_station = "9446484"     # Tacoma Narrows Bridge
-        self.current_station = "PCT1601"  # Narrows North
-        # Coordinates for Tacoma Narrows / Gig Harbor basin
-        self.lat = "47.2690"
-        self.lon = "-122.5517"
+        self.tide_station = NOAA_TIDE_STATION
+        self.current_station = NOAA_CURRENT_STATION
+        self.lat = WEATHER_LAT
+        self.lon = WEATHER_LON
         self.owm_api_key = os.getenv("OPENWEATHER_API_KEY")
 
-    def get_seed_data(self, wind_override=None) -> dict:
+    def get_seed_data(self, wind_override=None, reason="live telemetry unavailable") -> dict:
         """Provides local cache data if network calls drop entirely."""
         return {
-            "tide_feet": 5.4,
-            "current_knots": 1.85,
-            "current_direction": 140.0,
+            "tide_feet": SEEDED_TIDE_FEET,
+            "current_knots": SEEDED_CURRENT_KNOTS,
+            "current_direction": SEEDED_CURRENT_DIRECTION,
             "phase": "Flood (South) [SEEDED]",
-            "wind_knots": wind_override if wind_override is not None else 7.5
+            "wind_knots": wind_override if wind_override is not None else DEFAULT_WIND_KNOTS,
+            "sources": {
+                "tide": "seed",
+                "current": "seed",
+                "wind": "fallback" if wind_override is not None else "seed",
+            },
+            "fallback_reason": reason,
+            "updated_at": self._timestamp(),
         }
 
     async def fetch_telemetry(self) -> dict:
@@ -73,7 +90,8 @@ class NoaaMarineClient:
                 
             except Exception as e:
                 # If everything fails, fall back to seed data
-                return self.get_seed_data()
+                logging.warning("Telemetry fetch failed: %s", e)
+                return self.get_seed_data(reason=str(e))
 
     def _build_noaa_params(self, station: str, product: str) -> dict:
         return {
@@ -92,10 +110,14 @@ class NoaaMarineClient:
             current_list = current_json.get("data", [])
             
             # Default wind if live fetch didn't return a value
-            final_wind = live_wind if live_wind is not None else 6.5
+            final_wind = live_wind if live_wind is not None else DEFAULT_WIND_KNOTS
+            wind_source = "live" if live_wind is not None else "fallback"
 
             if not tide_list or not current_list:
-                return self.get_seed_data(wind_override=final_wind)
+                return self.get_seed_data(
+                    wind_override=final_wind,
+                    reason="NOAA returned an empty tide or current payload",
+                )
 
             tide_val = float(tide_list[-1]["v"])
             current_speed = float(current_list[-1]["s"])
@@ -110,7 +132,17 @@ class NoaaMarineClient:
                 "current_knots": current_speed,
                 "current_direction": current_dir,
                 "phase": phase,
-                "wind_knots": final_wind  
+                "wind_knots": final_wind,
+                "sources": {
+                    "tide": "live",
+                    "current": "live",
+                    "wind": wind_source,
+                },
+                "fallback_reason": None,
+                "updated_at": self._timestamp(),
             }
         except (KeyError, IndexError, ValueError, TypeError):
-            return self.get_seed_data()
+            return self.get_seed_data(reason="unable to parse telemetry payload")
+
+    def _timestamp(self) -> str:
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
