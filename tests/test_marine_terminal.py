@@ -55,6 +55,31 @@ class MarineTerminalForecastFormatTests(unittest.TestCase):
         self.assertIn("Kayak", output)
         self.assertIn("Fish", output)
 
+    def test_forecast_formatter_keeps_diagnostics_compact_by_default(self):
+        self.forecast["wind_fallback_reason"] = "Very long provider error message"
+
+        output = self.app._format_forecast(
+            self.windows,
+            self.forecast,
+            self.confidence,
+        )
+
+        self.assertIn("Hourly wind unavailable; using current wind.", output)
+        self.assertIn("Press d for details.", output)
+        self.assertNotIn("Very long provider error message", output)
+
+    def test_forecast_formatter_shows_diagnostics_when_enabled(self):
+        self.app.show_diagnostics = True
+        self.forecast["wind_fallback_reason"] = "Very long provider error message"
+
+        output = self.app._format_forecast(
+            self.windows,
+            self.forecast,
+            self.confidence,
+        )
+
+        self.assertIn("Very long provider error message", output)
+
     def test_forecast_filter_can_show_kayak_only(self):
         self.app.forecast_filter = "Kayak"
 
@@ -67,6 +92,18 @@ class MarineTerminalForecastFormatTests(unittest.TestCase):
         self.assertIn("Mode: Kayak", output)
         self.assertIn("Kayak", output)
         self.assertNotIn("Fish Sat", output)
+
+    def test_source_status_uses_compact_notice(self):
+        output = self.app._format_source_status(
+            {
+                "updated_at": "2026-05-30 15:29:57",
+                "sources": {"tide": "seed", "current": "seed", "wind": "fallback"},
+                "fallback_reason": "NOAA returned an empty tide or current payload",
+            }
+        )
+
+        self.assertIn("live NOAA telemetry unavailable", output)
+        self.assertNotIn("empty tide", output)
 
 
 if __name__ == "__main__":

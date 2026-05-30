@@ -29,7 +29,7 @@ class MarineTerminalApp(App):
     }
 
     #forecast-panel {
-        height: 9;
+        height: 10;
         border: round magenta;
         margin: 0 1 1 1;
         padding: 1;
@@ -61,7 +61,7 @@ class MarineTerminalApp(App):
     .status-box {
         height: 1fr;
         border: solid white;
-        padding: 1;
+        padding: 0 1;
         margin-bottom: 1;
     }
 
@@ -78,6 +78,7 @@ class MarineTerminalApp(App):
         ("a", "forecast_all", "All Windows"),
         ("k", "forecast_kayak", "Kayak Windows"),
         ("f", "forecast_fish", "Fishing Windows"),
+        ("d", "toggle_diagnostics", "Diagnostics"),
     ]
 
     def __init__(self):
@@ -88,6 +89,7 @@ class MarineTerminalApp(App):
         self.forecast_windows = []
         self.forecast_data = {}
         self.confidence = {}
+        self.show_diagnostics = False
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -123,14 +125,7 @@ class MarineTerminalApp(App):
         )
 
         sources = data.get("sources", {})
-        status = (
-            f"Updated: {data.get('updated_at', 'now')} | "
-            f"Tide: {sources.get('tide', 'unknown')} | "
-            f"Current: {sources.get('current', 'unknown')} | "
-            f"Wind: {sources.get('wind', 'unknown')}"
-        )
-        if data.get("fallback_reason"):
-            status += f" | Notice: {data['fallback_reason']}"
+        status = self._format_source_status(data)
         self.query_one("#source-status", Static).update(status)
 
         windows = self.engine.build_forecast_windows(
@@ -152,19 +147,22 @@ class MarineTerminalApp(App):
         # Helper function to update a specific column
         def update_column(zone_id: str, zone_data: dict, ui_prefix: str):
             # Update raw metrics
-            metrics = f"Current: {zone_data['current']:.2f} kts | Wind: {zone_data['wind']:.1f} kts | Tide: {zone_data['tide']:.1f} ft"
+            metrics = (
+                f"Current {zone_data['current']:.2f} kt\n"
+                f"Wind {zone_data['wind']:.1f} kt | Tide {zone_data['tide']:.1f} ft"
+            )
             self.query_one(f"#{ui_prefix}-metrics", MetricBox).update(metrics)
             
             # Evaluate and update Kayak
             kayak = self.engine.evaluate_kayaking(zone_id, zone_data['current'], zone_data['wind'])
             k_box = self.query_one(f"#{ui_prefix}-kayak", MetricBox)
-            k_box.update(f"[{kayak['color']}]KAYAKING: {kayak['status']}[/]\n\n{kayak['note']}")
+            k_box.update(f"[{kayak['color']}]KAYAK: {kayak['status']}[/]\n{kayak['note']}")
             k_box.styles.border = ("solid", kayak["color"])
 
             # Evaluate and update Fish
             fish = self.engine.evaluate_fly_fishing(zone_id, zone_data['current'], zone_data['tide'])
             f_box = self.query_one(f"#{ui_prefix}-fish", MetricBox)
-            f_box.update(f"[{fish['color']}]FLY FISHING: {fish['status']}[/]\n\n{fish['note']}")
+            f_box.update(f"[{fish['color']}]FISH: {fish['status']}[/]\n{fish['note']}")
             f_box.styles.border = ("solid", fish["color"])
 
         # Push updates to the screen
@@ -181,6 +179,10 @@ class MarineTerminalApp(App):
 
     def action_forecast_fish(self) -> None:
         self.forecast_filter = "Fish"
+        self._render_forecast()
+
+    def action_toggle_diagnostics(self) -> None:
+        self.show_diagnostics = not self.show_diagnostics
         self._render_forecast()
 
     def _render_forecast(self) -> None:
@@ -202,16 +204,11 @@ class MarineTerminalApp(App):
             f"Current: {sources.get('current', 'unknown')} | Wind: {sources.get('wind', 'unknown')} | "
             f"Confidence: [{confidence_color}]{confidence_level}[/][/]"
         )
-        if forecast.get("fallback_reason"):
-            title += f"\n[yellow]Forecast notice: {forecast['fallback_reason']}[/]"
-        elif forecast.get("wind_fallback_reason"):
-            title += f"\n[yellow]Wind notice: {forecast['wind_fallback_reason']}[/]"
-        elif confidence.get("note"):
-            title += f"\n[dim]{confidence['note']}[/]"
 
         visible_windows = self._filter_forecast_windows(windows)
         if not visible_windows:
-            return f"{title}\n[yellow]No forecast windows available.[/]"
+            lines = [title, "[yellow]No forecast windows available.[/]"]
+            return "\n".join(lines + self._diagnostic_lines(forecast, confidence))
 
         lines = [title]
         for window in visible_windows:
@@ -222,7 +219,46 @@ class MarineTerminalApp(App):
                 f"{window['current']:.1f} kt, {window['wind']:.0f} kt wind ({window['wind_source']})"
             )
 
+        lines.extend(self._diagnostic_lines(forecast, confidence))
         return "\n".join(lines)
+
+    def _diagnostic_lines(self, forecast: dict, confidence: dict) -> list:
+        notice = self._compact_notice(forecast)
+        if not self.show_diagnostics:
+            return [f"[dim]{notice} Press d for details.[/]"] if notice else []
+
+        lines = []
+        if notice:
+            lines.append(f"[yellow]{notice}[/]")
+        if forecast.get("fallback_reason"):
+            lines.append(f"[dim]{forecast['fallback_reason']}[/]")
+        if forecast.get("wind_fallback_reason"):
+            lines.append(f"[dim]{forecast['wind_fallback_reason']}[/]")
+        elif confidence.get("note"):
+            lines.append(f"[dim]{confidence['note']}[/]")
+        return lines
+
+    def _compact_notice(self, forecast: dict) -> str:
+        if forecast.get("fallback_reason"):
+            return "Forecast fallback active."
+
+        wind_notice = forecast.get("wind_fallback_reason")
+        if wind_notice:
+            return "Hourly wind unavailable; using current wind."
+
+        return ""
+
+    def _format_source_status(self, data: dict) -> str:
+        sources = data.get("sources", {})
+        status = (
+            f"Updated: {data.get('updated_at', 'now')} | "
+            f"Tide: {sources.get('tide', 'unknown')} | "
+            f"Current: {sources.get('current', 'unknown')} | "
+            f"Wind: {sources.get('wind', 'unknown')}"
+        )
+        if data.get("fallback_reason"):
+            status += " | Notice: live NOAA telemetry unavailable"
+        return status
 
     def _filter_forecast_windows(self, windows: list) -> list:
         if self.forecast_filter == "All":
