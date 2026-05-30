@@ -2,6 +2,18 @@
 
 TideWindow is a terminal and web marine-conditions dashboard for the Gig Harbor and Tacoma Narrows area. It combines NOAA tide/current observations with optional OpenWeather wind data, then scores eight local zones for kayaking and fly fishing. It also highlights the best kayak and fishing windows for the next 24 hours from NOAA tide predictions.
 
+## Visuals
+
+### Web dashboard
+
+![TideWindow desktop web dashboard](docs/web-dashboard-desktop.png)
+
+### Mobile layout
+
+<img src="docs/web-dashboard-mobile.png" alt="TideWindow mobile web dashboard" width="320">
+
+### Terminal dashboard
+
 ![TideWindow terminal dashboard](docs/screenshot.svg)
 
 ## Install
