@@ -17,6 +17,9 @@ class MetricBox(Static):
 class MarineTerminalApp(App):
     """Multi-Zone Marine Telemetry for Gig Harbor."""
 
+    TITLE = "TideWindow"
+    SUB_TITLE = "Gig Harbor Marine Windows"
+
     CSS = """
     Screen { layout: vertical; }
     
