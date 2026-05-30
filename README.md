@@ -1,6 +1,6 @@
 # TideWindow
 
-TideWindow is a terminal marine-conditions dashboard for the Gig Harbor and Tacoma Narrows area. It combines NOAA tide/current observations with optional OpenWeather wind data, then scores several local zones for kayaking and fly fishing.
+TideWindow is a terminal marine-conditions dashboard for the Gig Harbor and Tacoma Narrows area. It combines NOAA tide/current observations with optional OpenWeather wind data, then scores several local zones for kayaking and fly fishing. It also highlights the best kayak and fishing windows for the next 24 hours from NOAA tide predictions.
 
 ![TideWindow terminal dashboard](docs/screenshot.svg)
 
@@ -32,9 +32,13 @@ python main.py
 
 Press `q` to quit.
 
+## Forecast Windows
+
+The forecast panel uses official NOAA tide predictions and estimates current strength from the hourly tide slope. Tide forecast data is labeled as `live`; current forecast data is labeled as `derived` because the app is calculating local planning guidance from the tide curve and zone multipliers.
+
 ## Configuration
 
-Edit `marine_config.py` to change NOAA station IDs, weather coordinates, refresh interval, seeded fallback values, or local zone multipliers.
+Edit `marine_config.py` to change NOAA station IDs, weather coordinates, refresh interval, forecast length, seeded fallback values, or local zone multipliers.
 
 ## Test
 
@@ -45,6 +49,7 @@ python -m unittest discover
 ## Data Sources
 
 - NOAA CO-OPS API for tide and current observations
+- NOAA CO-OPS API for tide predictions
 - OpenWeather current weather API for optional wind observations
 
 This is a planning aid, not a substitute for marine forecasts, local knowledge, or personal judgment on the water.

@@ -8,6 +8,12 @@ WEATHER_LAT = "47.2690"
 WEATHER_LON = "-122.5517"
 
 UPDATE_INTERVAL_SECONDS = 360.0
+FORECAST_HOURS = 24
+FORECAST_MAX_WINDOWS_PER_ACTIVITY = 2
+
+# Converts hourly tide movement into a rough current estimate for planning windows.
+# The result is intentionally labeled as derived forecast data in the UI.
+TIDE_SLOPE_TO_CURRENT_KNOTS = 0.75
 
 DEFAULT_WIND_KNOTS = 6.5
 SEEDED_TIDE_FEET = 5.4

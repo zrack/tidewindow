@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime, timedelta
 
 from marine_engine import MarineSafetyEngine
 
@@ -97,6 +98,42 @@ class MarineSafetyEngineTests(unittest.TestCase):
 
         self.assertEqual(kayak["status"], "SAFE")
         self.assertEqual(fish["status"], "OPTIMAL")
+
+    def test_forecast_windows_include_kayak_and_fish_recommendations(self):
+        start = datetime(2026, 5, 30, 6)
+        tide_predictions = [
+            {"time": start, "tide_feet": 2.0},
+            {"time": start + timedelta(hours=1), "tide_feet": 2.2},
+            {"time": start + timedelta(hours=2), "tide_feet": 3.8},
+            {"time": start + timedelta(hours=3), "tide_feet": 5.4},
+            {"time": start + timedelta(hours=4), "tide_feet": 5.5},
+        ]
+
+        windows = self.engine.build_forecast_windows(
+            tide_predictions=tide_predictions,
+            wind_knots=5.0,
+            max_windows_per_activity=2,
+        )
+        activities = [window["activity"] for window in windows]
+
+        self.assertEqual(activities.count("Kayak"), 2)
+        self.assertEqual(activities.count("Fish"), 2)
+        self.assertTrue(all(window["start"] < window["end"] for window in windows))
+
+    def test_forecast_phase_marks_low_current_as_slackish(self):
+        start = datetime(2026, 5, 30, 6)
+        tide_predictions = [
+            {"time": start, "tide_feet": 4.0},
+            {"time": start + timedelta(hours=1), "tide_feet": 4.1},
+        ]
+
+        windows = self.engine.build_forecast_windows(
+            tide_predictions=tide_predictions,
+            wind_knots=4.0,
+            max_windows_per_activity=1,
+        )
+
+        self.assertTrue(all(window["phase"] == "Slack-ish" for window in windows))
 
 
 if __name__ == "__main__":

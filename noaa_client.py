@@ -1,11 +1,12 @@
-import os
 import asyncio
+import os
 import aiohttp
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from marine_config import (
     DEFAULT_WIND_KNOTS,
+    FORECAST_HOURS,
     NOAA_CURRENT_STATION,
     NOAA_TIDE_STATION,
     SEEDED_CURRENT_DIRECTION,
@@ -89,9 +90,53 @@ class NoaaMarineClient:
                 return self._parse_payload(tide_json, current_json, live_wind)
                 
             except Exception as e:
-                # If everything fails, fall back to seed data
                 logging.warning("Telemetry fetch failed: %s", e)
                 return self.get_seed_data(reason=str(e))
+
+    async def fetch_forecast(self, hours: int = FORECAST_HOURS) -> dict:
+        """Fetches NOAA tide predictions for the upcoming planning window."""
+        timeout = aiohttp.ClientTimeout(total=6.0)
+        now = datetime.now()
+        end = now + timedelta(hours=hours)
+        params = {
+            "begin_date": now.strftime("%Y%m%d"),
+            "end_date": end.strftime("%Y%m%d"),
+            "station": self.tide_station,
+            "product": "predictions",
+            "datum": "MLLW",
+            "interval": "h",
+            "time_zone": "lst_ldt",
+            "units": "english",
+            "format": "json",
+        }
+
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(self.NOAA_URL, params=params) as response:
+                    tide_json = await response.json()
+            return self._parse_forecast_payload(tide_json, now, end)
+        except Exception as e:
+            logging.warning("Forecast fetch failed: %s", e)
+            return self.get_seed_forecast(hours=hours, reason=str(e))
+
+    def get_seed_forecast(self, hours: int = FORECAST_HOURS, reason="forecast unavailable") -> dict:
+        """Builds a minimal forecast if NOAA predictions are unavailable."""
+        now = datetime.now().replace(minute=0, second=0, microsecond=0)
+        predictions = []
+        for offset in range(hours + 1):
+            predictions.append(
+                {
+                    "time": now + timedelta(hours=offset),
+                    "tide_feet": SEEDED_TIDE_FEET,
+                }
+            )
+
+        return {
+            "predictions": predictions,
+            "sources": {"tide": "seed", "current": "derived"},
+            "fallback_reason": reason,
+            "updated_at": self._timestamp(),
+        }
 
     def _build_noaa_params(self, station: str, product: str) -> dict:
         return {
@@ -143,6 +188,35 @@ class NoaaMarineClient:
             }
         except (KeyError, IndexError, ValueError, TypeError):
             return self.get_seed_data(reason="unable to parse telemetry payload")
+
+    def _parse_forecast_payload(self, tide_json: dict, start: datetime, end: datetime) -> dict:
+        try:
+            raw_predictions = tide_json.get("predictions", [])
+            predictions = []
+
+            for item in raw_predictions:
+                prediction_time = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
+                if start <= prediction_time <= end:
+                    predictions.append(
+                        {
+                            "time": prediction_time,
+                            "tide_feet": float(item["v"]),
+                        }
+                    )
+
+            if len(predictions) < 2:
+                return self.get_seed_forecast(
+                    reason="NOAA returned too few tide predictions",
+                )
+
+            return {
+                "predictions": predictions,
+                "sources": {"tide": "live", "current": "derived"},
+                "fallback_reason": None,
+                "updated_at": self._timestamp(),
+            }
+        except (KeyError, ValueError, TypeError):
+            return self.get_seed_forecast(reason="unable to parse tide predictions")
 
     def _timestamp(self) -> str:
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")

@@ -1,10 +1,10 @@
 import asyncio
 from textual.app import App, ComposeResult
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Horizontal, Vertical
 from textual.widgets import Header, Footer, Static
 from noaa_client import NoaaMarineClient
 from marine_engine import MarineSafetyEngine
-from marine_config import UPDATE_INTERVAL_SECONDS, ZONES
+from marine_config import FORECAST_MAX_WINDOWS_PER_ACTIVITY, UPDATE_INTERVAL_SECONDS, ZONES
 
 class LocationColumn(Vertical):
     """A vertical column containing data for a specific location."""
@@ -23,6 +23,13 @@ class MarineTerminalApp(App):
     #main-grid {
         layout: horizontal;
         height: 1fr;
+    }
+
+    #forecast-panel {
+        height: 9;
+        border: round magenta;
+        margin: 0 1 1 1;
+        padding: 1;
     }
     
     .location-column {
@@ -82,6 +89,7 @@ class MarineTerminalApp(App):
                     yield MetricBox("Loading...", id=f"{ui_prefix}-kayak", classes="status-box")
                     yield MetricBox("Loading...", id=f"{ui_prefix}-fish", classes="status-box")
 
+        yield Static("Forecast loading...", id="forecast-panel")
         yield Static("Waiting for telemetry...", id="source-status")
         yield Footer()
 
@@ -90,7 +98,10 @@ class MarineTerminalApp(App):
         self.set_interval(UPDATE_INTERVAL_SECONDS, lambda: self.run_worker(self.update_telemetry()))
 
     async def update_telemetry(self) -> None:
-        data = await self.noaa.fetch_telemetry()
+        data, forecast = await asyncio.gather(
+            self.noaa.fetch_telemetry(),
+            self.noaa.fetch_forecast(),
+        )
         
         # Get localized data from the physics engine
         zones = self.engine.get_zone_telemetry(
@@ -109,6 +120,15 @@ class MarineTerminalApp(App):
         if data.get("fallback_reason"):
             status += f" | Notice: {data['fallback_reason']}"
         self.query_one("#source-status", Static).update(status)
+
+        windows = self.engine.build_forecast_windows(
+            forecast.get("predictions", []),
+            data["wind_knots"],
+            max_windows_per_activity=FORECAST_MAX_WINDOWS_PER_ACTIVITY,
+        )
+        self.query_one("#forecast-panel", Static).update(
+            self._format_forecast(windows, forecast)
+        )
 
         # Helper function to update a specific column
         def update_column(zone_id: str, zone_data: dict, ui_prefix: str):
@@ -131,3 +151,26 @@ class MarineTerminalApp(App):
         # Push updates to the screen
         for zone_id, zone_config in ZONES.items():
             update_column(zone_id, zones[zone_id], zone_config["ui_prefix"])
+
+    def _format_forecast(self, windows: list, forecast: dict) -> str:
+        sources = forecast.get("sources", {})
+        title = (
+            "[bold]NEXT 24 HOURS: BEST WINDOWS[/] "
+            f"[dim]Tide: {sources.get('tide', 'unknown')} | Current: {sources.get('current', 'unknown')}[/]"
+        )
+        if forecast.get("fallback_reason"):
+            title += f"\n[yellow]Forecast notice: {forecast['fallback_reason']}[/]"
+
+        if not windows:
+            return f"{title}\n[yellow]No forecast windows available.[/]"
+
+        lines = [title]
+        for window in windows:
+            zone_name = window["zone_title"].split(" (")[0].title()
+            lines.append(
+                f"[bold]{window['activity']}[/] {window['start']:%a %I%p}-{window['end']:%I%p} "
+                f"| {zone_name} | {window['status']} | {window['phase']} | "
+                f"{window['current']:.1f} kt, {window['wind']:.0f} kt wind"
+            )
+
+        return "\n".join(lines)

@@ -1,4 +1,8 @@
-from marine_config import ZONES
+from marine_config import (
+    FORECAST_MAX_WINDOWS_PER_ACTIVITY,
+    TIDE_SLOPE_TO_CURRENT_KNOTS,
+    ZONES,
+)
 
 
 class MarineSafetyEngine:
@@ -23,6 +27,130 @@ class MarineSafetyEngine:
             }
 
         return zones
+
+    def build_forecast_windows(
+        self,
+        tide_predictions: list,
+        wind_knots: float,
+        max_windows_per_activity: int = FORECAST_MAX_WINDOWS_PER_ACTIVITY,
+    ) -> list:
+        """Scores upcoming tide-prediction intervals for paddling and fishing."""
+        hourly_windows = self._build_hourly_forecast_windows(
+            tide_predictions,
+            wind_knots,
+        )
+        if not hourly_windows:
+            return []
+
+        scored = []
+        for window in hourly_windows:
+            for zone_id, zone_data in window["zones"].items():
+                kayak = self.evaluate_kayaking(zone_id, zone_data["current"], zone_data["wind"])
+                fish = self.evaluate_fly_fishing(zone_id, zone_data["current"], zone_data["tide"])
+
+                scored.append(
+                    self._forecast_entry(
+                        activity="Kayak",
+                        evaluation=kayak,
+                        window=window,
+                        zone_id=zone_id,
+                        zone_data=zone_data,
+                    )
+                )
+                scored.append(
+                    self._forecast_entry(
+                        activity="Fish",
+                        evaluation=fish,
+                        window=window,
+                        zone_id=zone_id,
+                        zone_data=zone_data,
+                    )
+                )
+
+        windows = []
+        for activity in ("Kayak", "Fish"):
+            activity_windows = [
+                item for item in scored if item["activity"] == activity
+            ]
+            activity_windows.sort(key=lambda item: item["score"], reverse=True)
+            windows.extend(activity_windows[:max_windows_per_activity])
+
+        return windows
+
+    def _build_hourly_forecast_windows(self, tide_predictions: list, wind_knots: float) -> list:
+        windows = []
+
+        for current_point, next_point in zip(tide_predictions, tide_predictions[1:]):
+            hours = (next_point["time"] - current_point["time"]).total_seconds() / 3600
+            if hours <= 0:
+                continue
+
+            tide_delta = next_point["tide_feet"] - current_point["tide_feet"]
+            base_current = abs(tide_delta / hours) * TIDE_SLOPE_TO_CURRENT_KNOTS
+            average_tide = (current_point["tide_feet"] + next_point["tide_feet"]) / 2
+            phase = self._forecast_phase(tide_delta, base_current)
+
+            windows.append(
+                {
+                    "start": current_point["time"],
+                    "end": next_point["time"],
+                    "phase": phase,
+                    "base_current": base_current,
+                    "average_tide": average_tide,
+                    "zones": self.get_zone_telemetry(
+                        base_current=base_current,
+                        base_tide=average_tide,
+                        base_wind=wind_knots,
+                    ),
+                }
+            )
+
+        return windows
+
+    def _forecast_entry(self, activity: str, evaluation: dict, window: dict, zone_id: str, zone_data: dict) -> dict:
+        return {
+            "activity": activity,
+            "zone_id": zone_id,
+            "zone_title": ZONES[zone_id]["title"],
+            "start": window["start"],
+            "end": window["end"],
+            "phase": window["phase"],
+            "status": evaluation["status"],
+            "score": self._forecast_score(activity, evaluation["status"], zone_data),
+            "current": zone_data["current"],
+            "wind": zone_data["wind"],
+            "tide": zone_data["tide"],
+            "note": evaluation["note"],
+        }
+
+    @staticmethod
+    def _forecast_phase(tide_delta: float, base_current: float) -> str:
+        if base_current < 0.25:
+            return "Slack-ish"
+        if tide_delta > 0:
+            return "Flood/Rising"
+        return "Ebb/Falling"
+
+    @staticmethod
+    def _forecast_score(activity: str, status: str, zone_data: dict) -> float:
+        status_scores = {
+            "SAFE": 80,
+            "OPTIMAL": 90,
+            "CAUTION": 45,
+            "POOR": 20,
+            "DANGER": -100,
+        }
+        score = status_scores.get(status, 0)
+
+        if activity == "Kayak":
+            score -= zone_data["current"] * 8
+            score -= zone_data["wind"] * 1.5
+        else:
+            score += min(zone_data["current"], 2.5) * 6
+            if zone_data["tide"] > 8.0:
+                score += 5
+
+        return round(score, 2)
 
     @staticmethod
     def evaluate_kayaking(zone: str, current: float, wind: float) -> dict:
