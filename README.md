@@ -14,6 +14,12 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+For editable command-line usage:
+
+```bash
+pip install -e .
+```
+
 ## Optional Wind Data
 
 TideWindow can run without an OpenWeather API key. If the key is missing, it uses a default wind value and labels the wind source as fallback data.
@@ -30,11 +36,20 @@ OPENWEATHER_API_KEY=your_api_key_here
 python main.py
 ```
 
+Or, after `pip install -e .`:
+
+```bash
+tidewindow
+```
+
 Press `q` to quit.
+Press `a` for all forecast windows, `k` for kayak windows, and `f` for fishing windows.
 
 ## Forecast Windows
 
 The forecast panel uses official NOAA tide predictions and estimates current strength from the hourly tide slope. Tide forecast data is labeled as `live`; current forecast data is labeled as `derived` because the app is calculating local planning guidance from the tide curve and zone multipliers.
+
+The app also displays a confidence label. `High` means live tide, current, and wind data with light wind. `Medium` means live tide forecast with derived current guidance. `Low` means seed or fallback data is involved.
 
 ## Configuration
 

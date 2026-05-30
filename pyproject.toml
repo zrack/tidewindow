@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tidewindow"
+version = "0.1.0"
+description = "Terminal marine-conditions dashboard for Gig Harbor and the Tacoma Narrows."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "aiohttp",
+    "python-dotenv",
+    "textual",
+]
+
+[project.scripts]
+tidewindow = "main:main"
+
+[tool.setuptools]
+py-modules = [
+    "main",
+    "marine_config",
+    "marine_engine",
+    "marine_terminal",
+    "noaa_client",
+]

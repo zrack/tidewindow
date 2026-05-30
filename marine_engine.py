@@ -77,6 +77,50 @@ class MarineSafetyEngine:
 
         return windows
 
+    @staticmethod
+    def evaluate_confidence(telemetry: dict, forecast: dict, wind_knots: float) -> dict:
+        """Summarizes how much trust to place in the current planning view."""
+        telemetry_sources = telemetry.get("sources", {})
+        forecast_sources = forecast.get("sources", {})
+        fallback_reasons = [
+            reason for reason in (
+                telemetry.get("fallback_reason"),
+                forecast.get("fallback_reason"),
+            )
+            if reason
+        ]
+
+        all_sources = [
+            telemetry_sources.get("tide"),
+            telemetry_sources.get("current"),
+            telemetry_sources.get("wind"),
+            forecast_sources.get("tide"),
+            forecast_sources.get("current"),
+        ]
+        has_seed = "seed" in all_sources
+        has_derived = "derived" in all_sources
+        has_fallback = bool(fallback_reasons) or "fallback" in all_sources
+
+        if not has_seed and not has_fallback and wind_knots < 12.0 and not has_derived:
+            return {
+                "level": "High",
+                "color": "green",
+                "note": "Live tide, current, and wind data with light wind.",
+            }
+
+        if not has_seed and forecast_sources.get("tide") == "live" and has_derived:
+            return {
+                "level": "Medium",
+                "color": "yellow",
+                "note": "Live tide forecast with derived current guidance.",
+            }
+
+        return {
+            "level": "Low",
+            "color": "red",
+            "note": "Fallback or seed data is involved.",
+        }
+
     def _build_hourly_forecast_windows(self, tide_predictions: list, wind_knots: float) -> list:
         windows = []
 

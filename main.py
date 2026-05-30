@@ -1,5 +1,10 @@
 from marine_terminal import MarineTerminalApp
 
-if __name__ == "__main__":
+
+def main():
     app = MarineTerminalApp()
     app.run()
+
+
+if __name__ == "__main__":
+    main()

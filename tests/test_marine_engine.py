@@ -135,6 +135,60 @@ class MarineSafetyEngineTests(unittest.TestCase):
 
         self.assertTrue(all(window["phase"] == "Slack-ish" for window in windows))
 
+    def test_confidence_is_high_for_all_live_light_wind(self):
+        telemetry = {
+            "sources": {"tide": "live", "current": "live", "wind": "live"},
+            "fallback_reason": None,
+        }
+        forecast = {
+            "sources": {"tide": "live", "current": "live"},
+            "fallback_reason": None,
+        }
+
+        confidence = self.engine.evaluate_confidence(
+            telemetry=telemetry,
+            forecast=forecast,
+            wind_knots=6.0,
+        )
+
+        self.assertEqual(confidence["level"], "High")
+
+    def test_confidence_is_medium_for_live_tide_and_derived_current(self):
+        telemetry = {
+            "sources": {"tide": "live", "current": "live", "wind": "fallback"},
+            "fallback_reason": None,
+        }
+        forecast = {
+            "sources": {"tide": "live", "current": "derived"},
+            "fallback_reason": None,
+        }
+
+        confidence = self.engine.evaluate_confidence(
+            telemetry=telemetry,
+            forecast=forecast,
+            wind_knots=8.0,
+        )
+
+        self.assertEqual(confidence["level"], "Medium")
+
+    def test_confidence_is_low_when_seed_data_is_used(self):
+        telemetry = {
+            "sources": {"tide": "seed", "current": "seed", "wind": "seed"},
+            "fallback_reason": "NOAA unavailable",
+        }
+        forecast = {
+            "sources": {"tide": "seed", "current": "derived"},
+            "fallback_reason": "forecast unavailable",
+        }
+
+        confidence = self.engine.evaluate_confidence(
+            telemetry=telemetry,
+            forecast=forecast,
+            wind_knots=6.0,
+        )
+
+        self.assertEqual(confidence["level"], "Low")
+
 
 if __name__ == "__main__":
     unittest.main()

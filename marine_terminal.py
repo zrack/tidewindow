@@ -70,12 +70,21 @@ class MarineTerminalApp(App):
     }
     """
 
-    BINDINGS = [("q", "quit", "Quit Terminal")]
+    BINDINGS = [
+        ("q", "quit", "Quit Terminal"),
+        ("a", "forecast_all", "All Windows"),
+        ("k", "forecast_kayak", "Kayak Windows"),
+        ("f", "forecast_fish", "Fishing Windows"),
+    ]
 
     def __init__(self):
         super().__init__()
         self.noaa = NoaaMarineClient()
         self.engine = MarineSafetyEngine()
+        self.forecast_filter = "All"
+        self.forecast_windows = []
+        self.forecast_data = {}
+        self.confidence = {}
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -126,9 +135,14 @@ class MarineTerminalApp(App):
             data["wind_knots"],
             max_windows_per_activity=FORECAST_MAX_WINDOWS_PER_ACTIVITY,
         )
-        self.query_one("#forecast-panel", Static).update(
-            self._format_forecast(windows, forecast)
+        self.forecast_windows = windows
+        self.forecast_data = forecast
+        self.confidence = self.engine.evaluate_confidence(
+            data,
+            forecast,
+            data["wind_knots"],
         )
+        self._render_forecast()
 
         # Helper function to update a specific column
         def update_column(zone_id: str, zone_data: dict, ui_prefix: str):
@@ -152,20 +166,48 @@ class MarineTerminalApp(App):
         for zone_id, zone_config in ZONES.items():
             update_column(zone_id, zones[zone_id], zone_config["ui_prefix"])
 
-    def _format_forecast(self, windows: list, forecast: dict) -> str:
+    def action_forecast_all(self) -> None:
+        self.forecast_filter = "All"
+        self._render_forecast()
+
+    def action_forecast_kayak(self) -> None:
+        self.forecast_filter = "Kayak"
+        self._render_forecast()
+
+    def action_forecast_fish(self) -> None:
+        self.forecast_filter = "Fish"
+        self._render_forecast()
+
+    def _render_forecast(self) -> None:
+        self.query_one("#forecast-panel", Static).update(
+            self._format_forecast(
+                self.forecast_windows,
+                self.forecast_data,
+                self.confidence,
+            )
+        )
+
+    def _format_forecast(self, windows: list, forecast: dict, confidence: dict) -> str:
         sources = forecast.get("sources", {})
+        confidence_level = confidence.get("level", "Unknown")
+        confidence_color = confidence.get("color", "white")
         title = (
             "[bold]NEXT 24 HOURS: BEST WINDOWS[/] "
-            f"[dim]Tide: {sources.get('tide', 'unknown')} | Current: {sources.get('current', 'unknown')}[/]"
+            f"[dim]Mode: {self.forecast_filter} | Tide: {sources.get('tide', 'unknown')} | "
+            f"Current: {sources.get('current', 'unknown')} | "
+            f"Confidence: [{confidence_color}]{confidence_level}[/][/]"
         )
         if forecast.get("fallback_reason"):
             title += f"\n[yellow]Forecast notice: {forecast['fallback_reason']}[/]"
+        elif confidence.get("note"):
+            title += f"\n[dim]{confidence['note']}[/]"
 
-        if not windows:
+        visible_windows = self._filter_forecast_windows(windows)
+        if not visible_windows:
             return f"{title}\n[yellow]No forecast windows available.[/]"
 
         lines = [title]
-        for window in windows:
+        for window in visible_windows:
             zone_name = window["zone_title"].split(" (")[0].title()
             lines.append(
                 f"[bold]{window['activity']}[/] {window['start']:%a %I%p}-{window['end']:%I%p} "
@@ -174,3 +216,11 @@ class MarineTerminalApp(App):
             )
 
         return "\n".join(lines)
+
+    def _filter_forecast_windows(self, windows: list) -> list:
+        if self.forecast_filter == "All":
+            return windows
+        return [
+            window for window in windows
+            if window["activity"] == self.forecast_filter
+        ]
