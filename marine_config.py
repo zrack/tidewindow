@@ -10,6 +10,7 @@ WEATHER_LON = "-122.5517"
 UPDATE_INTERVAL_SECONDS = 360.0
 FORECAST_HOURS = 24
 FORECAST_MAX_WINDOWS_PER_ACTIVITY = 2
+VISIBLE_ZONE_COUNT = 3
 
 # Converts hourly tide movement into a rough current estimate for planning windows.
 # The result is intentionally labeled as derived forecast data in the UI.
@@ -38,5 +39,35 @@ ZONES = {
         "ui_prefix": "fox",
         "current_multiplier": 0.65,
         "wind_multiplier": 1.2,
+    },
+    "sunrise_beach": {
+        "title": "SUNRISE BEACH PARK",
+        "ui_prefix": "sunrise",
+        "current_multiplier": 0.75,
+        "wind_multiplier": 1.15,
+    },
+    "narrows_park": {
+        "title": "NARROWS PARK",
+        "ui_prefix": "narrows",
+        "current_multiplier": 1.15,
+        "wind_multiplier": 1.25,
+    },
+    "fox_island_pier": {
+        "title": "FOX ISLAND FISHING PIER",
+        "ui_prefix": "foxpier",
+        "current_multiplier": 0.9,
+        "wind_multiplier": 1.25,
+    },
+    "purdy_sand_spit": {
+        "title": "PURDY SAND SPIT",
+        "ui_prefix": "purdysand",
+        "current_multiplier": 1.25,
+        "wind_multiplier": 0.9,
+    },
+    "kopachuck": {
+        "title": "KOPACHUCK STATE PARK",
+        "ui_prefix": "kopachuck",
+        "current_multiplier": 0.45,
+        "wind_multiplier": 0.95,
     },
 }

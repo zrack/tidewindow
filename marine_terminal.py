@@ -4,7 +4,12 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import Header, Footer, Static
 from noaa_client import NoaaMarineClient
 from marine_engine import MarineSafetyEngine
-from marine_config import FORECAST_MAX_WINDOWS_PER_ACTIVITY, UPDATE_INTERVAL_SECONDS, ZONES
+from marine_config import (
+    FORECAST_MAX_WINDOWS_PER_ACTIVITY,
+    UPDATE_INTERVAL_SECONDS,
+    VISIBLE_ZONE_COUNT,
+    ZONES,
+)
 
 class LocationColumn(Vertical):
     """A vertical column containing data for a specific location."""
@@ -75,6 +80,8 @@ class MarineTerminalApp(App):
 
     BINDINGS = [
         ("q", "quit", "Quit Terminal"),
+        ("[", "previous_zone_page", "Prev Areas"),
+        ("]", "next_zone_page", "Next Areas"),
         ("a", "forecast_all", "All Windows"),
         ("k", "forecast_kayak", "Kayak Windows"),
         ("f", "forecast_fish", "Fishing Windows"),
@@ -90,15 +97,17 @@ class MarineTerminalApp(App):
         self.forecast_data = {}
         self.confidence = {}
         self.show_diagnostics = False
+        self.zone_page = 0
+        self.current_zones = {}
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         
         with Horizontal(id="main-grid"):
-            for zone_config in ZONES.values():
-                ui_prefix = zone_config["ui_prefix"]
+            for slot in range(VISIBLE_ZONE_COUNT):
+                ui_prefix = f"zone{slot}"
                 with LocationColumn(classes="location-column", id=f"col-{ui_prefix}"):
-                    yield Static(zone_config["title"], classes="location-title")
+                    yield Static("Loading...", id=f"{ui_prefix}-title", classes="location-title")
                     yield MetricBox("Loading...", id=f"{ui_prefix}-metrics", classes="data-box")
                     yield MetricBox("Loading...", id=f"{ui_prefix}-kayak", classes="status-box")
                     yield MetricBox("Loading...", id=f"{ui_prefix}-fish", classes="status-box")
@@ -124,7 +133,6 @@ class MarineTerminalApp(App):
             data['wind_knots']
         )
 
-        sources = data.get("sources", {})
         status = self._format_source_status(data)
         self.query_one("#source-status", Static).update(status)
 
@@ -144,30 +152,18 @@ class MarineTerminalApp(App):
         )
         self._render_forecast()
 
-        # Helper function to update a specific column
-        def update_column(zone_id: str, zone_data: dict, ui_prefix: str):
-            # Update raw metrics
-            metrics = (
-                f"Current {zone_data['current']:.2f} kt\n"
-                f"Wind {zone_data['wind']:.1f} kt | Tide {zone_data['tide']:.1f} ft"
-            )
-            self.query_one(f"#{ui_prefix}-metrics", MetricBox).update(metrics)
-            
-            # Evaluate and update Kayak
-            kayak = self.engine.evaluate_kayaking(zone_id, zone_data['current'], zone_data['wind'])
-            k_box = self.query_one(f"#{ui_prefix}-kayak", MetricBox)
-            k_box.update(f"[{kayak['color']}]KAYAK: {kayak['status']}[/]\n{kayak['note']}")
-            k_box.styles.border = ("solid", kayak["color"])
+        self.current_zones = zones
+        self._render_current_conditions()
 
-            # Evaluate and update Fish
-            fish = self.engine.evaluate_fly_fishing(zone_id, zone_data['current'], zone_data['tide'])
-            f_box = self.query_one(f"#{ui_prefix}-fish", MetricBox)
-            f_box.update(f"[{fish['color']}]FISH: {fish['status']}[/]\n{fish['note']}")
-            f_box.styles.border = ("solid", fish["color"])
+    def action_previous_zone_page(self) -> None:
+        page_count = self._zone_page_count()
+        self.zone_page = (self.zone_page - 1) % page_count
+        self._render_current_conditions()
 
-        # Push updates to the screen
-        for zone_id, zone_config in ZONES.items():
-            update_column(zone_id, zones[zone_id], zone_config["ui_prefix"])
+    def action_next_zone_page(self) -> None:
+        page_count = self._zone_page_count()
+        self.zone_page = (self.zone_page + 1) % page_count
+        self._render_current_conditions()
 
     def action_forecast_all(self) -> None:
         self.forecast_filter = "All"
@@ -193,6 +189,52 @@ class MarineTerminalApp(App):
                 self.confidence,
             )
         )
+
+    def _render_current_conditions(self) -> None:
+        if not self.current_zones:
+            return
+
+        visible_zone_ids = self._visible_zone_ids()
+        for slot in range(VISIBLE_ZONE_COUNT):
+            ui_prefix = f"zone{slot}"
+            if slot >= len(visible_zone_ids):
+                self._clear_column(ui_prefix)
+                continue
+
+            zone_id = visible_zone_ids[slot]
+            zone_data = self.current_zones[zone_id]
+            zone_config = ZONES[zone_id]
+            self._update_column(
+                zone_id,
+                zone_data,
+                ui_prefix,
+                f"{zone_config['title']}\n{self._zone_page_label()}",
+            )
+
+    def _update_column(self, zone_id: str, zone_data: dict, ui_prefix: str, title: str) -> None:
+        self.query_one(f"#{ui_prefix}-title", Static).update(title)
+
+        metrics = (
+            f"Current {zone_data['current']:.2f} kt\n"
+            f"Wind {zone_data['wind']:.1f} kt | Tide {zone_data['tide']:.1f} ft"
+        )
+        self.query_one(f"#{ui_prefix}-metrics", MetricBox).update(metrics)
+
+        kayak = self.engine.evaluate_kayaking(zone_id, zone_data['current'], zone_data['wind'])
+        k_box = self.query_one(f"#{ui_prefix}-kayak", MetricBox)
+        k_box.update(f"[{kayak['color']}]KAYAK: {kayak['status']}[/]\n{kayak['note']}")
+        k_box.styles.border = ("solid", kayak["color"])
+
+        fish = self.engine.evaluate_fly_fishing(zone_id, zone_data['current'], zone_data['tide'])
+        f_box = self.query_one(f"#{ui_prefix}-fish", MetricBox)
+        f_box.update(f"[{fish['color']}]FISH: {fish['status']}[/]\n{fish['note']}")
+        f_box.styles.border = ("solid", fish["color"])
+
+    def _clear_column(self, ui_prefix: str) -> None:
+        self.query_one(f"#{ui_prefix}-title", Static).update("")
+        self.query_one(f"#{ui_prefix}-metrics", MetricBox).update("")
+        self.query_one(f"#{ui_prefix}-kayak", MetricBox).update("")
+        self.query_one(f"#{ui_prefix}-fish", MetricBox).update("")
 
     def _format_forecast(self, windows: list, forecast: dict, confidence: dict) -> str:
         sources = forecast.get("sources", {})
@@ -267,3 +309,14 @@ class MarineTerminalApp(App):
             window for window in windows
             if window["activity"] == self.forecast_filter
         ]
+
+    def _visible_zone_ids(self) -> list:
+        zone_ids = list(ZONES.keys())
+        start = self.zone_page * VISIBLE_ZONE_COUNT
+        return zone_ids[start:start + VISIBLE_ZONE_COUNT]
+
+    def _zone_page_count(self) -> int:
+        return (len(ZONES) + VISIBLE_ZONE_COUNT - 1) // VISIBLE_ZONE_COUNT
+
+    def _zone_page_label(self) -> str:
+        return f"Page {self.zone_page + 1}/{self._zone_page_count()}"

@@ -1,6 +1,7 @@
 import unittest
 from datetime import datetime, timedelta
 
+from marine_config import ZONES
 from marine_engine import MarineSafetyEngine
 
 
@@ -22,6 +23,12 @@ class MarineSafetyEngineTests(unittest.TestCase):
         self.assertAlmostEqual(zones["fox_island"]["current"], 1.3)
         self.assertAlmostEqual(zones["fox_island"]["wind"], 12.0)
         self.assertAlmostEqual(zones["fox_island"]["tide"], 7.5)
+        self.assertAlmostEqual(zones["sunrise_beach"]["current"], 1.5)
+        self.assertAlmostEqual(zones["narrows_park"]["current"], 2.3)
+        self.assertAlmostEqual(zones["fox_island_pier"]["wind"], 12.5)
+        self.assertAlmostEqual(zones["purdy_sand_spit"]["current"], 2.5)
+        self.assertAlmostEqual(zones["kopachuck"]["wind"], 9.5)
+        self.assertEqual(len(zones), len(ZONES))
 
     def test_purdy_kayaking_marks_fast_current_dangerous(self):
         result = self.engine.evaluate_kayaking(
@@ -62,6 +69,21 @@ class MarineSafetyEngineTests(unittest.TestCase):
 
         self.assertEqual(caution["status"], "CAUTION")
         self.assertEqual(danger["status"], "DANGER")
+
+    def test_new_beach_zones_have_named_safety_thresholds(self):
+        narrows = self.engine.evaluate_kayaking(
+            zone="narrows_park",
+            current=1.9,
+            wind=5.0,
+        )
+        kopachuck = self.engine.evaluate_fly_fishing(
+            zone="kopachuck",
+            current=0.5,
+            tide=8.4,
+        )
+
+        self.assertEqual(narrows["status"], "DANGER")
+        self.assertEqual(kopachuck["status"], "OPTIMAL")
 
     def test_fly_fishing_thresholds(self):
         purdy_optimal = self.engine.evaluate_fly_fishing(

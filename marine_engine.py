@@ -271,6 +271,41 @@ class MarineSafetyEngine:
                 return {"status": "CAUTION", "color": "yellow", "note": "Moderate chop in Hale Passage. Stay close to shore."}
             return {"status": "SAFE", "color": "green", "note": "Good conditions around Fox Island bridge and shores."}
 
+        elif zone == "sunrise_beach":
+            if wind > 14.0 or current > 1.8:
+                return {"status": "DANGER", "color": "red", "note": "Open shoreline exposure. Avoid marginal paddling windows."}
+            elif wind > 9.0 or current > 1.0:
+                return {"status": "CAUTION", "color": "yellow", "note": "Exposed beach. Watch for chop and landing conditions."}
+            return {"status": "SAFE", "color": "green", "note": "Manageable shoreline conditions near Sunrise Beach."}
+
+        elif zone == "narrows_park":
+            if current > 1.8 or wind > 12.0:
+                return {"status": "DANGER", "color": "red", "note": "Narrows exposure can build fast. Strong current risk."}
+            elif current > 0.8 or wind > 8.0:
+                return {"status": "CAUTION", "color": "yellow", "note": "Stay alert near Narrows Park; conditions can change quickly."}
+            return {"status": "SAFE", "color": "green", "note": "Lower current window along the Narrows shoreline."}
+
+        elif zone == "fox_island_pier":
+            if wind > 12.0 or current > 2.0:
+                return {"status": "DANGER", "color": "red", "note": "Pier area is exposed to fetch and current."}
+            elif wind > 8.0 or current > 1.0:
+                return {"status": "CAUTION", "color": "yellow", "note": "Use caution around pier structure and wind chop."}
+            return {"status": "SAFE", "color": "green", "note": "Reasonable conditions around the fishing pier."}
+
+        elif zone == "purdy_sand_spit":
+            if current > 2.0:
+                return {"status": "DANGER", "color": "red", "note": "Strong flow near the spit and bridge. Avoid paddling."}
+            elif current > 1.0 or wind > 12.0:
+                return {"status": "CAUTION", "color": "yellow", "note": "Watch the spit edges and bridge current."}
+            return {"status": "SAFE", "color": "green", "note": "Manageable spit conditions near slack or slower water."}
+
+        elif zone == "kopachuck":
+            if wind > 15.0 or current > 1.8:
+                return {"status": "DANGER", "color": "red", "note": "Henderson Bay exposure can create rough landings."}
+            elif wind > 9.0 or current > 1.0:
+                return {"status": "CAUTION", "color": "yellow", "note": "Moderate exposure off Kopachuck. Mind beach landing."}
+            return {"status": "SAFE", "color": "green", "note": "Good sheltered-to-moderate beach conditions."}
+
         if wind > 15.0 or current > 2.0:
             return {"status": "DANGER", "color": "red", "note": "Generic threshold exceeded. Check local conditions closely."}
         if wind > 8.0 or current > 1.0:
@@ -296,6 +331,35 @@ class MarineSafetyEngine:
             if 0.5 <= current <= 2.0:
                 return {"status": "OPTIMAL", "color": "green", "note": "Good current sweeping the Hale Passage drop-offs."}
             return {"status": "CAUTION", "color": "yellow", "note": "Wait for moving water to trigger feeding."}
+
+        elif zone == "sunrise_beach":
+            if 0.4 <= current <= 1.8:
+                return {"status": "OPTIMAL", "color": "green", "note": "Good moving water along Sunrise Beach structure."}
+            return {"status": "POOR", "color": "yellow", "note": "Look for more current along the shoreline."}
+
+        elif zone == "narrows_park":
+            if 0.5 <= current <= 1.8:
+                return {"status": "OPTIMAL", "color": "green", "note": "Current is moving bait along the Narrows shoreline."}
+            elif current > 2.5:
+                return {"status": "DANGER", "color": "red", "note": "Too much current for comfortable shore casting."}
+            return {"status": "CAUTION", "color": "yellow", "note": "Wait for a stronger but manageable current push."}
+
+        elif zone == "fox_island_pier":
+            if 0.5 <= current <= 2.0:
+                return {"status": "OPTIMAL", "color": "green", "note": "Good current around pier structure and drop-offs."}
+            return {"status": "CAUTION", "color": "yellow", "note": "Better when water is moving around the pier."}
+
+        elif zone == "purdy_sand_spit":
+            if 1.0 <= current <= 2.8:
+                return {"status": "OPTIMAL", "color": "green", "note": "Moving water along the spit can concentrate bait."}
+            elif current > 3.0:
+                return {"status": "DANGER", "color": "red", "note": "Current too fast near the spit and bridge."}
+            return {"status": "POOR", "color": "yellow", "note": "Slack water around the spit is often less productive."}
+
+        elif zone == "kopachuck":
+            if tide > 8.0 and current > 0.3:
+                return {"status": "OPTIMAL", "color": "green", "note": "Higher water and movement can work the beach edge."}
+            return {"status": "POOR", "color": "yellow", "note": "Wait for higher water or more beach movement."}
 
         if 0.5 <= current <= 2.0:
             return {"status": "OPTIMAL", "color": "green", "note": "Generic moving-water window looks fishable."}

@@ -1,6 +1,6 @@
 # TideWindow
 
-TideWindow is a terminal marine-conditions dashboard for the Gig Harbor and Tacoma Narrows area. It combines NOAA tide/current observations with optional OpenWeather wind data, then scores several local zones for kayaking and fly fishing. It also highlights the best kayak and fishing windows for the next 24 hours from NOAA tide predictions.
+TideWindow is a terminal marine-conditions dashboard for the Gig Harbor and Tacoma Narrows area. It combines NOAA tide/current observations with optional OpenWeather wind data, then scores eight local zones for kayaking and fly fishing. It also highlights the best kayak and fishing windows for the next 24 hours from NOAA tide predictions.
 
 ![TideWindow terminal dashboard](docs/screenshot.svg)
 
@@ -33,7 +33,7 @@ OPENWEATHER_API_KEY=your_api_key_here
 ## Run
 
 ```bash
-python main.py
+python3 main.py
 ```
 
 Or, after `pip install -e .`:
@@ -43,7 +43,10 @@ tidewindow
 ```
 
 Press `q` to quit.
+Press `[` and `]` to page through current-condition areas.
 Press `a` for all forecast windows, `k` for kayak windows, and `f` for fishing windows.
+
+Current-condition areas include Purdy Bridge, Inside Gig Harbor, Fox Island/Hale Passage, Sunrise Beach Park, Narrows Park, Fox Island Fishing Pier, Purdy Sand Spit, and Kopachuck State Park.
 
 ## Forecast Windows
 

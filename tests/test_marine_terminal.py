@@ -1,6 +1,7 @@
 import unittest
 from datetime import datetime
 
+from marine_config import VISIBLE_ZONE_COUNT, ZONES
 from marine_terminal import MarineTerminalApp
 
 
@@ -104,6 +105,17 @@ class MarineTerminalForecastFormatTests(unittest.TestCase):
 
         self.assertIn("live NOAA telemetry unavailable", output)
         self.assertNotIn("empty tide", output)
+
+    def test_zone_pages_show_three_areas_at_a_time(self):
+        first_page = self.app._visible_zone_ids()
+
+        self.app.zone_page = 1
+        second_page = self.app._visible_zone_ids()
+
+        self.assertEqual(len(first_page), VISIBLE_ZONE_COUNT)
+        self.assertEqual(first_page, list(ZONES.keys())[:VISIBLE_ZONE_COUNT])
+        self.assertEqual(second_page, list(ZONES.keys())[VISIBLE_ZONE_COUNT:VISIBLE_ZONE_COUNT * 2])
+        self.assertEqual(self.app._zone_page_count(), 3)
 
 
 if __name__ == "__main__":
