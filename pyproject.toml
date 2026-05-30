@@ -10,8 +10,10 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "aiohttp",
+    "fastapi",
     "python-dotenv",
     "textual",
+    "uvicorn",
 ]
 
 [project.scripts]
@@ -24,4 +26,5 @@ py-modules = [
     "marine_engine",
     "marine_terminal",
     "noaa_client",
+    "web_app",
 ]

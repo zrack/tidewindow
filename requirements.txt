@@ -1,3 +1,5 @@
 aiohttp
+fastapi
 python-dotenv
 textual
+uvicorn

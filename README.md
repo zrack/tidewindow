@@ -1,6 +1,6 @@
 # TideWindow
 
-TideWindow is a terminal marine-conditions dashboard for the Gig Harbor and Tacoma Narrows area. It combines NOAA tide/current observations with optional OpenWeather wind data, then scores eight local zones for kayaking and fly fishing. It also highlights the best kayak and fishing windows for the next 24 hours from NOAA tide predictions.
+TideWindow is a terminal and web marine-conditions dashboard for the Gig Harbor and Tacoma Narrows area. It combines NOAA tide/current observations with optional OpenWeather wind data, then scores eight local zones for kayaking and fly fishing. It also highlights the best kayak and fishing windows for the next 24 hours from NOAA tide predictions.
 
 ![TideWindow terminal dashboard](docs/screenshot.svg)
 
@@ -42,6 +42,14 @@ Or, after `pip install -e .`:
 tidewindow
 ```
 
+To run the web dashboard:
+
+```bash
+uvicorn web_app:app --reload
+```
+
+Then open `http://127.0.0.1:8000`.
+
 Press `q` to quit.
 Press `[` and `]` to page through current-condition areas.
 Press `a` for all forecast windows, `k` for kayak windows, and `f` for fishing windows.
@@ -63,7 +71,7 @@ Edit `marine_config.py` to change NOAA station IDs, weather coordinates, refresh
 ## Test
 
 ```bash
-python -m unittest discover
+python3 -m unittest discover
 ```
 
 ## Data Sources

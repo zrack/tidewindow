@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TideWindow</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Gig Harbor Marine Windows</p>
+          <h1>TideWindow</h1>
+        </div>
+        <button id="refresh-button" class="refresh-button" type="button">
+          Refresh
+        </button>
+      </header>
+
+      <section class="summary-grid" aria-label="Current summary">
+        <div class="summary-panel confidence-panel">
+          <span class="label">Confidence</span>
+          <strong id="confidence-level">Loading</strong>
+          <p id="confidence-note">Fetching marine conditions...</p>
+        </div>
+        <div class="summary-panel">
+          <span class="label">Sources</span>
+          <strong id="source-line">Loading</strong>
+          <p id="source-note">NOAA and OpenWeather status will appear here.</p>
+        </div>
+        <div class="summary-panel tide-visual">
+          <span class="label">Next 24 Hours</span>
+          <canvas id="tide-chart" width="420" height="120" aria-label="Tide forecast chart"></canvas>
+        </div>
+      </section>
+
+      <section class="toolbar" aria-label="Forecast filters">
+        <div class="segmented" role="group" aria-label="Activity">
+          <button class="filter-button active" type="button" data-filter="All">All</button>
+          <button class="filter-button" type="button" data-filter="Kayak">Kayak</button>
+          <button class="filter-button" type="button" data-filter="Fish">Fish</button>
+        </div>
+        <p id="updated-at" class="updated">Updated when data loads</p>
+      </section>
+
+      <section>
+        <div class="section-heading">
+          <h2>Best Windows</h2>
+          <span id="window-count"></span>
+        </div>
+        <div id="windows-grid" class="windows-grid" aria-live="polite"></div>
+      </section>
+
+      <section>
+        <div class="section-heading">
+          <h2>Current Areas</h2>
+          <span>8 monitored shoreline zones</span>
+        </div>
+        <div id="zones-grid" class="zones-grid" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
