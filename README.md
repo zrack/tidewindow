@@ -2,13 +2,7 @@
 
 TideWindow is a terminal marine-conditions dashboard for the Gig Harbor and Tacoma Narrows area. It combines NOAA tide/current observations with optional OpenWeather wind data, then scores several local zones for kayaking and fly fishing.
 
-```text
-┌─ PURDY BRIDGE ─────────┐ ┌─ INSIDE GIG HARBOR ───┐ ┌─ FOX ISLAND ─────────┐
-│ Current | Wind | Tide  │ │ Current | Wind | Tide  │ │ Current | Wind | Tide │
-│ KAYAKING: SAFE         │ │ KAYAKING: SAFE         │ │ KAYAKING: CAUTION    │
-│ FLY FISHING: OPTIMAL   │ │ FLY FISHING: POOR      │ │ FLY FISHING: OPTIMAL │
-└────────────────────────┘ └────────────────────────┘ └───────────────────────┘
-```
+![TideWindow terminal dashboard](docs/screenshot.svg)
 
 ## Install
 
