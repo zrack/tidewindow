@@ -1,9 +1,15 @@
+const storageKeys = {
+  filter: "tidewindow.filter",
+  visibleZones: "tidewindow.visibleZones",
+};
+
 const state = {
   data: null,
-  filter: "All",
+  filter: localStorage.getItem(storageKeys.filter) || "All",
   autoRefreshMs: 5 * 60 * 1000,
   nextRefreshAt: null,
   refreshTimer: null,
+  visibleZoneIds: [],
 };
 
 const zoneDetails = {
@@ -47,6 +53,31 @@ const zoneDetails = {
     kayak: "Safe at 9 kt wind or less and 1.0 kt current or less, caution above either, danger above 15 kt wind or 1.8 kt current.",
     fish: "Optimal above 8.0 ft tide with more than 0.3 kt current.",
   },
+  wollochet_bay: {
+    local: "Protected bay water with current muted by the basin shape.",
+    kayak: "Generic kayak scoring applies; wind is usually the main limiter.",
+    fish: "Generic fishing scoring applies; moving water is better than slack.",
+  },
+  horsehead_bay: {
+    local: "Sheltered Henderson Bay pocket that can still feel exposed in wind.",
+    kayak: "Generic kayak scoring applies with reduced current exposure.",
+    fish: "Generic fishing scoring applies; watch for movement along the shoreline.",
+  },
+  raft_island: {
+    local: "Island shoreline with mixed exposure around Hale Passage.",
+    kayak: "Generic kayak scoring applies; watch wind direction and chop.",
+    fish: "Generic fishing scoring applies around shoreline structure.",
+  },
+  rosedale_beach: {
+    local: "Inner-harbor shoreline option with generally softer current.",
+    kayak: "Generic kayak scoring applies with lighter current assumptions.",
+    fish: "Generic fishing scoring applies; higher water can help beach edges.",
+  },
+  point_fosdick: {
+    local: "Transition shoreline between harbor protection and Narrows exposure.",
+    kayak: "Generic kayak scoring applies; wind and current can both matter.",
+    fish: "Generic fishing scoring applies; moving water improves the read.",
+  },
 };
 
 const elements = {
@@ -64,6 +95,14 @@ const elements = {
   zoneDialog: document.querySelector("#zone-dialog"),
   zoneDialogClose: document.querySelector("#zone-dialog-close"),
   zoneDialogContent: document.querySelector("#zone-dialog-content"),
+  zoneMap: document.querySelector("#zone-map"),
+  mapMode: document.querySelector("#map-mode"),
+  timelineStrip: document.querySelector("#timeline-strip"),
+  timelineCount: document.querySelector("#timeline-count"),
+  locationCount: document.querySelector("#location-count"),
+  locationSelect: document.querySelector("#location-select"),
+  locationAdd: document.querySelector("#location-add"),
+  locationReset: document.querySelector("#location-reset"),
 };
 
 elements.refresh.addEventListener("click", loadState);
@@ -71,14 +110,13 @@ elements.zoneDialogClose.addEventListener("click", () => elements.zoneDialog.clo
 elements.zoneDialog.addEventListener("click", (event) => {
   if (event.target === elements.zoneDialog) elements.zoneDialog.close();
 });
+elements.locationAdd.addEventListener("click", addSelectedLocation);
+elements.locationReset.addEventListener("click", restoreDefaultLocations);
 elements.filterButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    state.filter = button.dataset.filter;
-    elements.filterButtons.forEach((item) => item.classList.toggle("active", item === button));
-    renderWindows();
-  });
+  button.addEventListener("click", () => setFilter(button.dataset.filter));
 });
 
+setFilter(state.filter, { render: false });
 loadState();
 scheduleAutoRefresh();
 
@@ -86,23 +124,35 @@ async function loadState() {
   elements.refresh.disabled = true;
   elements.zonesGrid.innerHTML = `<div class="loading">Loading marine areas...</div>`;
   elements.windowsGrid.innerHTML = `<div class="loading">Loading forecast windows...</div>`;
+  elements.timelineStrip.innerHTML = `<div class="loading">Loading hourly timeline...</div>`;
+  elements.zoneMap.innerHTML = `<div class="loading">Loading map...</div>`;
 
   try {
     const response = await fetch("/api/state");
     if (!response.ok) throw new Error(`API returned ${response.status}`);
     state.data = await response.json();
     state.autoRefreshMs = Math.max(30, Number(state.data.config?.refresh_seconds || 300)) * 1000;
-    renderSummary();
-    renderWindows();
-    renderZones();
-    drawTideChart();
+    initializeVisibleLocations();
+    renderDashboard();
     scheduleAutoRefresh();
   } catch (error) {
     elements.windowsGrid.innerHTML = `<div class="empty">Unable to load TideWindow data. ${escapeHtml(error.message)}</div>`;
     elements.zonesGrid.innerHTML = "";
+    elements.timelineStrip.innerHTML = "";
+    elements.zoneMap.innerHTML = "";
   } finally {
     elements.refresh.disabled = false;
   }
+}
+
+function renderDashboard() {
+  renderSummary();
+  renderLocationControls();
+  renderMap();
+  renderTimeline();
+  renderWindows();
+  renderZones();
+  drawTideChart();
 }
 
 function scheduleAutoRefresh() {
@@ -110,6 +160,79 @@ function scheduleAutoRefresh() {
   state.nextRefreshAt = new Date(Date.now() + state.autoRefreshMs);
   updateRefreshLine();
   state.refreshTimer = setTimeout(loadState, state.autoRefreshMs);
+}
+
+function setFilter(filter, options = {}) {
+  state.filter = ["All", "Kayak", "Fish"].includes(filter) ? filter : "All";
+  localStorage.setItem(storageKeys.filter, state.filter);
+  elements.filterButtons.forEach((item) => {
+    item.classList.toggle("active", item.dataset.filter === state.filter);
+  });
+
+  if (options.render !== false && state.data) {
+    renderMap();
+    renderTimeline();
+    renderWindows();
+  }
+}
+
+function initializeVisibleLocations() {
+  const allIds = state.data.zones.map((zone) => zone.id);
+  const defaults = state.data.zones.filter((zone) => zone.active_by_default).map((zone) => zone.id);
+  let stored = [];
+
+  try {
+    stored = JSON.parse(localStorage.getItem(storageKeys.visibleZones) || "[]");
+  } catch {
+    stored = [];
+  }
+
+  const validStored = stored.filter((id) => allIds.includes(id));
+  state.visibleZoneIds = validStored.length ? validStored : defaults;
+  saveVisibleLocations();
+}
+
+function saveVisibleLocations() {
+  localStorage.setItem(storageKeys.visibleZones, JSON.stringify(state.visibleZoneIds));
+}
+
+function visibleZones() {
+  const visible = new Set(state.visibleZoneIds);
+  return state.data.zones.filter((zone) => visible.has(zone.id));
+}
+
+function availableZones() {
+  const visible = new Set(state.visibleZoneIds);
+  return state.data.zones.filter((zone) => !visible.has(zone.id));
+}
+
+function addSelectedLocation() {
+  const zoneId = elements.locationSelect.value;
+  if (!zoneId || state.visibleZoneIds.includes(zoneId)) return;
+  state.visibleZoneIds.push(zoneId);
+  saveVisibleLocations();
+  renderLocationDrivenViews();
+}
+
+function hideLocation(zoneId) {
+  if (state.visibleZoneIds.length <= 1) return;
+  state.visibleZoneIds = state.visibleZoneIds.filter((id) => id !== zoneId);
+  saveVisibleLocations();
+  renderLocationDrivenViews();
+}
+
+function restoreDefaultLocations() {
+  state.visibleZoneIds = state.data.zones.filter((zone) => zone.active_by_default).map((zone) => zone.id);
+  saveVisibleLocations();
+  renderLocationDrivenViews();
+}
+
+function renderLocationDrivenViews() {
+  renderLocationControls();
+  renderMap();
+  renderTimeline();
+  renderWindows();
+  renderZones();
 }
 
 function renderSummary() {
@@ -135,16 +258,135 @@ function updateRefreshLine(generatedAt = state.data?.generated_at) {
   elements.updatedAt.textContent = `Updated ${formatDateTime(generatedAt)}${nextRefresh}`;
 }
 
+function renderLocationControls() {
+  const visible = visibleZones();
+  const available = availableZones();
+  elements.locationCount.textContent = `${visible.length} visible | ${available.length} addable`;
+  elements.locationSelect.innerHTML = available.length
+    ? available.map((zone) => `<option value="${escapeHtml(zone.id)}">${escapeHtml(zone.title)}</option>`).join("")
+    : `<option value="">All locations are visible</option>`;
+  elements.locationAdd.disabled = !available.length;
+}
+
+function renderMap() {
+  const zones = visibleZones();
+  const mode = state.filter === "Fish" ? "Fish" : "Kayak";
+  elements.mapMode.textContent = `${mode} status | ${zones.length} visible`;
+
+  if (!zones.length) {
+    elements.zoneMap.innerHTML = `<div class="empty">No visible locations.</div>`;
+    return;
+  }
+
+  elements.zoneMap.innerHTML = `
+    <div class="map-water"></div>
+    <span class="map-label map-label-north">Henderson Bay</span>
+    <span class="map-label map-label-center">Gig Harbor</span>
+    <span class="map-label map-label-south">Hale Passage</span>
+    ${zones.map((zone) => {
+      const evaluation = mode === "Fish" ? zone.fish : zone.kayak;
+      return `
+        <button
+          class="map-marker status-${evaluation.color}"
+          type="button"
+          style="left: ${Number(zone.map.x)}%; top: ${Number(zone.map.y)}%;"
+          data-zone-id="${escapeHtml(zone.id)}"
+          title="${escapeHtml(zone.title)}"
+        >
+          <span>${escapeHtml(shortZoneTitle(zone.title))}</span>
+        </button>
+      `;
+    }).join("")}
+  `;
+
+  elements.zoneMap.querySelectorAll(".map-marker").forEach((button) => {
+    button.addEventListener("click", () => openZoneDetails(button.dataset.zoneId));
+  });
+}
+
+function renderTimeline() {
+  const visible = new Set(state.visibleZoneIds);
+  const items = (state.data.timeline || []).slice(0, 24);
+  elements.timelineCount.textContent = `${items.length} hours`;
+
+  if (!items.length) {
+    elements.timelineStrip.innerHTML = `<div class="empty">No hourly tide timeline available.</div>`;
+    return;
+  }
+
+  elements.timelineStrip.innerHTML = items.map((item) => {
+    const kayak = bestTimelineZone(item, "Kayak", visible);
+    const fish = bestTimelineZone(item, "Fish", visible);
+    const main = state.filter === "Fish" ? fish : kayak;
+    const color = main?.evaluation.color || "yellow";
+
+    return `
+      <article class="timeline-hour status-border-${color}">
+        <p class="timeline-time">${formatTime(item.start)}</p>
+        <p class="timeline-metric">${item.tide.toFixed(1)} ft | ${item.wind.toFixed(0)} kt</p>
+        <p class="timeline-phase">${escapeHtml(item.phase)}</p>
+        ${state.filter === "All" ? timelinePair(kayak, fish) : timelineSingle(main, state.filter)}
+      </article>
+    `;
+  }).join("");
+}
+
+function bestTimelineZone(item, activity, visible) {
+  const key = activity === "Fish" ? "fish" : "kayak";
+  const scoreKey = `${key}_score`;
+  let best = null;
+
+  Object.entries(item.zones || {}).forEach(([zoneId, zone]) => {
+    if (!visible.has(zoneId)) return;
+    if (!best || zone[scoreKey] > best.score) {
+      best = {
+        zoneId,
+        score: zone[scoreKey],
+        evaluation: zone[key],
+        title: zoneTitle(zoneId),
+      };
+    }
+  });
+
+  return best;
+}
+
+function timelinePair(kayak, fish) {
+  return `
+    <div class="timeline-pair">
+      ${timelineBadge("Kayak", kayak)}
+      ${timelineBadge("Fish", fish)}
+    </div>
+  `;
+}
+
+function timelineSingle(item, activity) {
+  if (!item) return `<p class="notice">No visible ${activity.toLowerCase()} zone.</p>`;
+  return `
+    <div class="timeline-focus">
+      <strong class="status-${item.evaluation.color}">${escapeHtml(item.evaluation.status)}</strong>
+      <span>${escapeHtml(shortZoneTitle(item.title))}</span>
+    </div>
+  `;
+}
+
+function timelineBadge(label, item) {
+  if (!item) return `<span>${escapeHtml(label)} none</span>`;
+  return `<span class="status-${item.evaluation.color}">${escapeHtml(label)} ${escapeHtml(item.evaluation.status)}</span>`;
+}
+
 function renderWindows() {
   if (!state.data) return;
 
+  const visible = new Set(state.visibleZoneIds);
   const windows = state.data.windows.filter((window) => {
-    return state.filter === "All" || window.activity === state.filter;
+    const activityMatch = state.filter === "All" || window.activity === state.filter;
+    return activityMatch && visible.has(window.zone_id);
   });
   elements.windowCount.textContent = `${windows.length} shown`;
 
   if (!windows.length) {
-    elements.windowsGrid.innerHTML = `<div class="empty">No ${state.filter.toLowerCase()} windows available.</div>`;
+    elements.windowsGrid.innerHTML = `<div class="empty">No ${state.filter.toLowerCase()} windows available for visible locations.</div>`;
     return;
   }
 
@@ -165,7 +407,8 @@ function renderWindows() {
 }
 
 function renderZones() {
-  elements.zonesGrid.innerHTML = state.data.zones.map((zone) => `
+  const zones = visibleZones();
+  elements.zonesGrid.innerHTML = zones.map((zone) => `
     <article class="zone-card">
       <header>
         <h3>${escapeHtml(zone.title)}</h3>
@@ -180,12 +423,18 @@ function renderZones() {
         ${activity("Kayak", zone.kayak)}
         ${activity("Fish", zone.fish)}
       </div>
-      <button class="details-button" type="button" data-zone-id="${escapeHtml(zone.id)}">Details</button>
+      <div class="card-actions">
+        <button class="details-button" type="button" data-zone-id="${escapeHtml(zone.id)}">Details</button>
+        <button class="hide-button" type="button" data-zone-id="${escapeHtml(zone.id)}" ${zones.length <= 1 ? "disabled" : ""}>Hide</button>
+      </div>
     </article>
   `).join("");
 
   elements.zonesGrid.querySelectorAll(".details-button").forEach((button) => {
     button.addEventListener("click", () => openZoneDetails(button.dataset.zoneId));
+  });
+  elements.zonesGrid.querySelectorAll(".hide-button").forEach((button) => {
+    button.addEventListener("click", () => hideLocation(button.dataset.zoneId));
   });
 }
 
@@ -331,6 +580,19 @@ function sourceHeadline(telemetrySources, forecastSources) {
 
 function sourceText(sources) {
   return `Tide ${sources.tide || "unknown"}, Current ${sources.current || "unknown"}, Wind ${sources.wind || "unknown"}`;
+}
+
+function zoneTitle(zoneId) {
+  return state.data.zones.find((zone) => zone.id === zoneId)?.title || zoneId;
+}
+
+function shortZoneTitle(title) {
+  return title
+    .replace(" (HENDERSON BAY)", "")
+    .replace(" (HALE PASSAGE)", "")
+    .replace(" STATE PARK", "")
+    .replace(" PARK", "")
+    .replace(" SHORELINE", "");
 }
 
 function formatTime(value) {

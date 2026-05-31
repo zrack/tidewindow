@@ -9,11 +9,17 @@ class MarineSafetyEngine:
     """Evaluates physical marine parameters across distinct Gig Harbor micro-regions."""
     
     @staticmethod
-    def get_zone_telemetry(base_current: float, base_tide: float, base_wind: float) -> dict:
+    def get_zone_telemetry(
+        base_current: float,
+        base_tide: float,
+        base_wind: float,
+        zones_config: dict | None = None,
+    ) -> dict:
         """Applies geographic multipliers to the baseline Narrows telemetry."""
         zones = {}
+        zones_config = zones_config or ZONES
 
-        for zone_id, zone_config in ZONES.items():
+        for zone_id, zone_config in zones_config.items():
             current = zone_config.get(
                 "fixed_current",
                 base_current * zone_config.get("current_multiplier", 1.0),
@@ -35,13 +41,16 @@ class MarineSafetyEngine:
         wind_predictions: list | None = None,
         wind_source: str = "fallback",
         max_windows_per_activity: int = FORECAST_MAX_WINDOWS_PER_ACTIVITY,
+        zones_config: dict | None = None,
     ) -> list:
         """Scores upcoming tide-prediction intervals for paddling and fishing."""
+        zones_config = zones_config or ZONES
         hourly_windows = self._build_hourly_forecast_windows(
             tide_predictions,
             wind_knots,
             wind_predictions or [],
             wind_source,
+            zones_config,
         )
         if not hourly_windows:
             return []
@@ -59,6 +68,7 @@ class MarineSafetyEngine:
                         window=window,
                         zone_id=zone_id,
                         zone_data=zone_data,
+                        zones_config=zones_config,
                     )
                 )
                 scored.append(
@@ -68,6 +78,7 @@ class MarineSafetyEngine:
                         window=window,
                         zone_id=zone_id,
                         zone_data=zone_data,
+                        zones_config=zones_config,
                     )
                 )
 
@@ -80,6 +91,55 @@ class MarineSafetyEngine:
             windows.extend(activity_windows[:max_windows_per_activity])
 
         return windows
+
+    def build_hourly_timeline(
+        self,
+        tide_predictions: list,
+        wind_knots: float,
+        wind_predictions: list | None = None,
+        wind_source: str = "fallback",
+        zones_config: dict | None = None,
+    ) -> list:
+        """Builds an hourly planning timeline with per-zone kayak and fish scores."""
+        zones_config = zones_config or ZONES
+        hourly_windows = self._build_hourly_forecast_windows(
+            tide_predictions,
+            wind_knots,
+            wind_predictions or [],
+            wind_source,
+            zones_config,
+        )
+        timeline = []
+
+        for window in hourly_windows:
+            zone_scores = {}
+            for zone_id, zone_data in window["zones"].items():
+                kayak = self.evaluate_kayaking(zone_id, zone_data["current"], zone_data["wind"])
+                fish = self.evaluate_fly_fishing(zone_id, zone_data["current"], zone_data["tide"])
+                zone_scores[zone_id] = {
+                    "current": round(zone_data["current"], 2),
+                    "wind": round(zone_data["wind"], 1),
+                    "tide": round(zone_data["tide"], 1),
+                    "kayak": kayak,
+                    "fish": fish,
+                    "kayak_score": self._forecast_score("Kayak", kayak["status"], zone_data),
+                    "fish_score": self._forecast_score("Fish", fish["status"], zone_data),
+                }
+
+            timeline.append(
+                {
+                    "start": window["start"],
+                    "end": window["end"],
+                    "phase": window["phase"],
+                    "base_current": round(window["base_current"], 2),
+                    "tide": round(window["average_tide"], 1),
+                    "wind": round(window["base_wind"], 1),
+                    "wind_source": window["wind_source"],
+                    "zones": zone_scores,
+                }
+            )
+
+        return timeline
 
     @staticmethod
     def evaluate_confidence(telemetry: dict, forecast: dict, wind_knots: float) -> dict:
@@ -140,6 +200,7 @@ class MarineSafetyEngine:
         wind_knots: float,
         wind_predictions: list,
         wind_source: str,
+        zones_config: dict,
     ) -> list:
         windows = []
 
@@ -173,17 +234,26 @@ class MarineSafetyEngine:
                         base_current=base_current,
                         base_tide=average_tide,
                         base_wind=window_wind,
+                        zones_config=zones_config,
                     ),
                 }
             )
 
         return windows
 
-    def _forecast_entry(self, activity: str, evaluation: dict, window: dict, zone_id: str, zone_data: dict) -> dict:
+    def _forecast_entry(
+        self,
+        activity: str,
+        evaluation: dict,
+        window: dict,
+        zone_id: str,
+        zone_data: dict,
+        zones_config: dict,
+    ) -> dict:
         return {
             "activity": activity,
             "zone_id": zone_id,
-            "zone_title": ZONES[zone_id]["title"],
+            "zone_title": zones_config[zone_id]["title"],
             "start": window["start"],
             "end": window["end"],
             "phase": window["phase"],

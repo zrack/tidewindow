@@ -8,9 +8,11 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from marine_config import (
+    ALL_ZONES,
     FORECAST_HOURS,
     NOAA_CURRENT_STATION,
     NOAA_TIDE_STATION,
+    OPTIONAL_ZONES,
     WEB_APP_NAME,
     WEB_REFRESH_INTERVAL_SECONDS,
     ZONES,
@@ -39,7 +41,9 @@ async def health():
         "app": WEB_APP_NAME,
         "version": APP_VERSION,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
-        "zones": len(ZONES),
+        "zones": len(ALL_ZONES),
+        "default_zones": len(ZONES),
+        "optional_zones": len(OPTIONAL_ZONES),
         "forecast_hours": FORECAST_HOURS,
         "refresh_seconds": WEB_REFRESH_INTERVAL_SECONDS,
         "providers": {
@@ -63,9 +67,10 @@ async def api_state():
         telemetry["current_knots"],
         telemetry["tide_feet"],
         telemetry["wind_knots"],
+        zones_config=ALL_ZONES,
     )
     zone_cards = []
-    for zone_id, zone_config in ZONES.items():
+    for zone_id, zone_config in ALL_ZONES.items():
         zone_data = zones[zone_id]
         kayak = engine.evaluate_kayaking(
             zone_id,
@@ -81,6 +86,11 @@ async def api_state():
             {
                 "id": zone_id,
                 "title": zone_config["title"],
+                "active_by_default": zone_id in ZONES,
+                "map": {
+                    "x": zone_config.get("map_x", 50),
+                    "y": zone_config.get("map_y", 50),
+                },
                 "current": round(zone_data["current"], 2),
                 "wind": round(zone_data["wind"], 1),
                 "tide": round(zone_data["tide"], 1),
@@ -94,6 +104,14 @@ async def api_state():
         telemetry["wind_knots"],
         wind_predictions=forecast.get("wind_predictions", []),
         wind_source=forecast.get("sources", {}).get("wind", "fallback"),
+        zones_config=ALL_ZONES,
+    )
+    timeline = engine.build_hourly_timeline(
+        forecast.get("predictions", []),
+        telemetry["wind_knots"],
+        wind_predictions=forecast.get("wind_predictions", []),
+        wind_source=forecast.get("sources", {}).get("wind", "fallback"),
+        zones_config=ALL_ZONES,
     )
     confidence = engine.evaluate_confidence(
         telemetry,
@@ -116,6 +134,7 @@ async def api_state():
         },
         "zones": zone_cards,
         "windows": [_serialize_window(window) for window in windows],
+        "timeline": [_serialize_window(window) for window in timeline],
         "confidence": confidence,
     }
 

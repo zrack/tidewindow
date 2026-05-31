@@ -47,6 +47,34 @@
 
       <section>
         <div class="section-heading">
+          <h2>Area Map</h2>
+          <span id="map-mode">Showing favorite mode</span>
+        </div>
+        <div id="zone-map" class="zone-map" aria-label="Gig Harbor zone status map"></div>
+      </section>
+
+      <section>
+        <div class="section-heading">
+          <h2>Hourly Timeline</h2>
+          <span id="timeline-count"></span>
+        </div>
+        <div id="timeline-strip" class="timeline-strip" aria-live="polite"></div>
+      </section>
+
+      <section>
+        <div class="section-heading">
+          <h2>Locations</h2>
+          <span id="location-count"></span>
+        </div>
+        <div class="location-tools">
+          <select id="location-select" class="location-select" aria-label="Add location"></select>
+          <button id="location-add" class="tool-button" type="button">Add</button>
+          <button id="location-reset" class="tool-button" type="button">Restore defaults</button>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-heading">
           <h2>Best Windows</h2>
           <span id="window-count"></span>
         </div>

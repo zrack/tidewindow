@@ -180,6 +180,24 @@ class MarineSafetyEngineTests(unittest.TestCase):
         self.assertTrue(all(window["wind_source"] == "live" for window in windows))
         self.assertTrue(any(window["wind"] != 6.0 for window in windows))
 
+    def test_hourly_timeline_includes_zone_scores(self):
+        start = datetime(2026, 5, 30, 6)
+        tide_predictions = [
+            {"time": start, "tide_feet": 2.0},
+            {"time": start + timedelta(hours=1), "tide_feet": 3.0},
+            {"time": start + timedelta(hours=2), "tide_feet": 4.0},
+        ]
+
+        timeline = self.engine.build_hourly_timeline(
+            tide_predictions=tide_predictions,
+            wind_knots=5.0,
+        )
+
+        self.assertEqual(len(timeline), 2)
+        self.assertIn("purdy_bridge", timeline[0]["zones"])
+        self.assertIn("kayak_score", timeline[0]["zones"]["purdy_bridge"])
+        self.assertIn("fish_score", timeline[0]["zones"]["purdy_bridge"])
+
     def test_confidence_is_high_for_all_live_light_wind(self):
         telemetry = {
             "sources": {"tide": "live", "current": "live", "wind": "live"},
