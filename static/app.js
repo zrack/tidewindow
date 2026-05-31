@@ -10,6 +10,8 @@ const state = {
   nextRefreshAt: null,
   refreshTimer: null,
   visibleZoneIds: [],
+  leafletMap: null,
+  leafletMarkers: [],
 };
 
 const zoneDetails = {
@@ -278,30 +280,60 @@ function renderMap() {
     return;
   }
 
-  elements.zoneMap.innerHTML = `
-    <div class="map-water"></div>
-    <span class="map-label map-label-north">Henderson Bay</span>
-    <span class="map-label map-label-center">Gig Harbor</span>
-    <span class="map-label map-label-south">Hale Passage</span>
-    ${zones.map((zone) => {
-      const evaluation = mode === "Fish" ? zone.fish : zone.kayak;
-      return `
-        <button
-          class="map-marker status-${evaluation.color}"
-          type="button"
-          style="left: ${Number(zone.map.x)}%; top: ${Number(zone.map.y)}%;"
-          data-zone-id="${escapeHtml(zone.id)}"
-          title="${escapeHtml(zone.title)}"
-        >
-          <span>${escapeHtml(shortZoneTitle(zone.title))}</span>
-        </button>
-      `;
-    }).join("")}
-  `;
+  if (!window.L) {
+    elements.zoneMap.innerHTML = `<div class="empty">Leaflet map assets did not load.</div>`;
+    return;
+  }
 
-  elements.zoneMap.querySelectorAll(".map-marker").forEach((button) => {
-    button.addEventListener("click", () => openZoneDetails(button.dataset.zoneId));
+  initializeLeafletMap();
+  state.leafletMarkers.forEach((marker) => marker.remove());
+  state.leafletMarkers = [];
+
+  const bounds = [];
+  zones.forEach((zone) => {
+    if (!zone.map?.lat || !zone.map?.lon) return;
+    const evaluation = mode === "Fish" ? zone.fish : zone.kayak;
+    const marker = L.circleMarker([zone.map.lat, zone.map.lon], {
+      className: `leaflet-status-circle status-${evaluation.color}`,
+      radius: 9,
+      color: statusColor(evaluation.color),
+      fillColor: statusColor(evaluation.color),
+      fillOpacity: 0.72,
+      weight: 3,
+      title: zone.title,
+    });
+
+    marker.bindTooltip(`${zone.title}: ${evaluation.status}`, {
+      direction: "top",
+      offset: [0, -12],
+    });
+    marker.on("click", () => openZoneDetails(zone.id));
+    marker.addTo(state.leafletMap);
+    state.leafletMarkers.push(marker);
+    bounds.push([zone.map.lat, zone.map.lon]);
   });
+
+  if (bounds.length > 1) {
+    state.leafletMap.fitBounds(bounds, { padding: [38, 38], maxZoom: 12 });
+  } else if (bounds.length === 1) {
+    state.leafletMap.setView(bounds[0], 12);
+  }
+  setTimeout(() => state.leafletMap.invalidateSize(), 0);
+}
+
+function initializeLeafletMap() {
+  if (state.leafletMap) return;
+
+  elements.zoneMap.innerHTML = "";
+  state.leafletMap = L.map(elements.zoneMap, {
+    center: [47.32, -122.61],
+    zoom: 11,
+    scrollWheelZoom: false,
+  });
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  }).addTo(state.leafletMap);
 }
 
 function renderTimeline() {
@@ -535,6 +567,12 @@ function activity(label, evaluation) {
 function statusPill(status) {
   const color = status === "DANGER" ? "red" : status === "SAFE" || status === "OPTIMAL" ? "green" : "yellow";
   return `<span class="status-pill status-${color}">${escapeHtml(status)}</span>`;
+}
+
+function statusColor(color) {
+  if (color === "red") return "#ff5b5b";
+  if (color === "green") return "#49d17d";
+  return "#e8c84a";
 }
 
 function dataStatusRows(telemetry, forecast) {

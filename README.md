@@ -2,7 +2,7 @@
 
 TideWindow is a terminal and web marine-conditions dashboard for the Gig Harbor and Tacoma Narrows area. It combines NOAA tide/current observations with optional OpenWeather wind data, then scores eight local zones for kayaking and fly fishing. It also highlights the best kayak and fishing windows for the next 24 hours from NOAA tide predictions.
 
-The web dashboard adds a color-coded area map, an hourly tide/wind/activity timeline, a remembered activity mode, and local location controls. You can hide areas you do not use and add optional Gig Harbor-area locations such as Wollochet Bay, Horsehead Bay, Raft Island, Rosedale Gardens Beach, and Point Fosdick Shoreline.
+The web dashboard adds a Leaflet/OpenStreetMap area map, an hourly tide/wind/activity timeline, a remembered activity mode, and local location controls. You can hide areas you do not use and add optional Gig Harbor-area locations such as Wollochet Bay, Horsehead Bay, Raft Island, Rosedale Gardens Beach, and Point Fosdick Shoreline.
 
 ## Visuals
 

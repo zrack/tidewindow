@@ -88,8 +88,8 @@ async def api_state():
                 "title": zone_config["title"],
                 "active_by_default": zone_id in ZONES,
                 "map": {
-                    "x": zone_config.get("map_x", 50),
-                    "y": zone_config.get("map_y", 50),
+                    "lat": zone_config.get("lat"),
+                    "lon": zone_config.get("lon"),
                 },
                 "current": round(zone_data["current"], 2),
                 "wind": round(zone_data["wind"], 1),
