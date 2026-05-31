@@ -49,12 +49,24 @@ class WebAppTests(unittest.TestCase):
             payload = asyncio.run(web_app.api_state())
 
         self.assertEqual(len(payload["zones"]), len(ZONES))
+        self.assertEqual(payload["config"]["app"], "TideWindow")
+        self.assertEqual(payload["config"]["forecast_hours"], 24)
         self.assertIn("generated_at", payload)
         self.assertIn("confidence", payload)
         self.assertGreater(len(payload["windows"]), 0)
         self.assertIsInstance(payload["windows"][0]["start"], str)
         self.assertIsInstance(payload["forecast"]["predictions"][0]["time"], str)
         self.assertIsInstance(payload["forecast"]["wind_predictions"][0]["time"], str)
+
+    def test_health_returns_lightweight_status_payload(self):
+        payload = asyncio.run(web_app.health())
+
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["app"], "TideWindow")
+        self.assertEqual(payload["zones"], len(ZONES))
+        self.assertIn("generated_at", payload)
+        self.assertIn("providers", payload)
+        self.assertIn("noaa_tide_station", payload["providers"])
 
 
 if __name__ == "__main__":

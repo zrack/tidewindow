@@ -1,4 +1,5 @@
 import asyncio
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -6,21 +7,47 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from marine_config import ZONES
+from marine_config import (
+    FORECAST_HOURS,
+    NOAA_CURRENT_STATION,
+    NOAA_TIDE_STATION,
+    WEB_APP_NAME,
+    WEB_REFRESH_INTERVAL_SECONDS,
+    ZONES,
+)
 from marine_engine import MarineSafetyEngine
 from noaa_client import NoaaMarineClient
 
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
+APP_VERSION = "0.1.0"
 
-app = FastAPI(title="TideWindow", version="0.1.0")
+app = FastAPI(title=WEB_APP_NAME, version=APP_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.get("/")
 async def index():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/health")
+async def health():
+    return {
+        "status": "ok",
+        "app": WEB_APP_NAME,
+        "version": APP_VERSION,
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "zones": len(ZONES),
+        "forecast_hours": FORECAST_HOURS,
+        "refresh_seconds": WEB_REFRESH_INTERVAL_SECONDS,
+        "providers": {
+            "noaa_tide_station": NOAA_TIDE_STATION,
+            "noaa_current_station": NOAA_CURRENT_STATION,
+            "openweather": "configured" if os.getenv("OPENWEATHER_API_KEY") else "optional_missing",
+        },
+    }
 
 
 @app.get("/api/state")
@@ -76,6 +103,11 @@ async def api_state():
 
     return {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "config": {
+            "app": WEB_APP_NAME,
+            "refresh_seconds": WEB_REFRESH_INTERVAL_SECONDS,
+            "forecast_hours": FORECAST_HOURS,
+        },
         "telemetry": telemetry,
         "forecast": {
             **forecast,

@@ -1,5 +1,12 @@
 """Editable station, weather, and zone configuration for TideWindow."""
 
+import os
+
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
 NOAA_TIDE_STATION = "9446484"     # Tacoma Narrows Bridge
 NOAA_CURRENT_STATION = "PCT1601"  # Narrows North
 
@@ -11,6 +18,9 @@ UPDATE_INTERVAL_SECONDS = 360.0
 FORECAST_HOURS = 24
 FORECAST_MAX_WINDOWS_PER_ACTIVITY = 2
 VISIBLE_ZONE_COUNT = 3
+
+WEB_APP_NAME = os.getenv("TIDEWINDOW_WEB_APP_NAME", "TideWindow")
+WEB_REFRESH_INTERVAL_SECONDS = float(os.getenv("TIDEWINDOW_WEB_REFRESH_SECONDS", "300"))
 
 # Converts hourly tide movement into a rough current estimate for planning windows.
 # The result is intentionally labeled as derived forecast data in the UI.

@@ -62,6 +62,14 @@ uvicorn web_app:app --reload
 
 Then open `http://127.0.0.1:8000`.
 
+The web dashboard serves the JavaScript, CSS, and API from the same FastAPI app, so production deployments do not need a separate frontend host or CORS setup.
+
+Health check:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
 Press `q` to quit.
 Press `[` and `]` to page through current-condition areas.
 Press `a` for all forecast windows, `k` for kayak windows, and `f` for fishing windows.
@@ -79,6 +87,42 @@ The app also displays a confidence label. `High` means live tide, current, and w
 ## Configuration
 
 Edit `marine_config.py` to change NOAA station IDs, weather coordinates, refresh interval, forecast length, seeded fallback values, or local zone multipliers.
+
+Runtime environment variables:
+
+```bash
+OPENWEATHER_API_KEY=your_api_key_here
+TIDEWINDOW_WEB_APP_NAME=TideWindow
+TIDEWINDOW_WEB_REFRESH_SECONDS=300
+```
+
+`OPENWEATHER_API_KEY` is optional. If it is missing or One Call 3.0 is not active yet, TideWindow labels wind data as fallback or missing and continues running.
+
+## Deployment
+
+TideWindow can run on any Python host that supports ASGI apps, such as Render, Fly.io, Railway, or a small VPS.
+
+Typical build command:
+
+```bash
+pip install -r requirements.txt
+```
+
+Typical start command:
+
+```bash
+uvicorn web_app:app --host 0.0.0.0 --port $PORT
+```
+
+For hosts that do not provide `PORT`, use:
+
+```bash
+uvicorn web_app:app --host 0.0.0.0 --port 8000
+```
+
+Set `OPENWEATHER_API_KEY` in the host's environment settings if you want live OpenWeather wind observations and One Call 3.0 hourly wind forecasts. Set `TIDEWINDOW_WEB_REFRESH_SECONDS` to control how often the browser refreshes the dashboard data; the default is `300` seconds.
+
+Use `/health` for uptime checks. It returns app status, version, timestamp, zone count, forecast length, refresh interval, configured NOAA stations, and whether an OpenWeather key is present. It does not call external providers, so uptime checks stay fast and do not consume API quota.
 
 ## Test
 

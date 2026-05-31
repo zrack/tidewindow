@@ -91,6 +91,7 @@ async function loadState() {
     const response = await fetch("/api/state");
     if (!response.ok) throw new Error(`API returned ${response.status}`);
     state.data = await response.json();
+    state.autoRefreshMs = Math.max(30, Number(state.data.config?.refresh_seconds || 300)) * 1000;
     renderSummary();
     renderWindows();
     renderZones();
