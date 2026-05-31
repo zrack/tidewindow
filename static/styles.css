@@ -82,6 +82,11 @@ h2 {
   font-weight: 800;
 }
 
+.refresh-button:disabled {
+  color: var(--muted);
+  cursor: wait;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: minmax(220px, 0.75fr) minmax(260px, 1fr) minmax(320px, 1.2fr);
@@ -110,6 +115,29 @@ h2 {
 .summary-panel p {
   color: var(--muted);
   line-height: 1.4;
+}
+
+.source-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 10px;
+  padding: 5px 0;
+  border-top: 1px solid var(--line);
+}
+
+.source-row span,
+.source-reason {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.source-row strong {
+  font-size: 0.92rem;
+}
+
+.source-reason {
+  margin-top: 8px;
 }
 
 .tide-visual {
@@ -263,6 +291,88 @@ h2 {
   margin-bottom: 3px;
 }
 
+.details-button {
+  width: 100%;
+  min-height: 36px;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.details-button:hover,
+.details-button:focus-visible,
+.refresh-button:hover,
+.refresh-button:focus-visible {
+  border-color: var(--cyan);
+}
+
+.zone-dialog {
+  width: min(680px, calc(100vw - 24px));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.zone-dialog::backdrop {
+  background: rgba(3, 7, 10, 0.72);
+}
+
+.dialog-shell {
+  padding: 18px;
+}
+
+.dialog-close {
+  float: right;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: var(--panel-strong);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.detail-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin: 16px 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.detail-note {
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.detail-rule {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.detail-rule header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.detail-rule p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .loading,
 .empty {
   border: 1px dashed var(--line);
@@ -304,5 +414,9 @@ h2 {
 
   .filter-button {
     min-width: 0;
+  }
+
+  .detail-metrics {
+    grid-template-columns: 1fr;
   }
 }
