@@ -89,7 +89,6 @@ const elements = {
   sourceLine: document.querySelector("#source-line"),
   sourceNote: document.querySelector("#source-note"),
   updatedAt: document.querySelector("#updated-at"),
-  zonesGrid: document.querySelector("#zones-grid"),
   windowsGrid: document.querySelector("#windows-grid"),
   windowCount: document.querySelector("#window-count"),
   tideChart: document.querySelector("#tide-chart"),
@@ -124,10 +123,11 @@ scheduleAutoRefresh();
 
 async function loadState() {
   elements.refresh.disabled = true;
-  elements.zonesGrid.innerHTML = `<div class="loading">Loading marine areas...</div>`;
   elements.windowsGrid.innerHTML = `<div class="loading">Loading forecast windows...</div>`;
   elements.timelineStrip.innerHTML = `<div class="loading">Loading hourly timeline...</div>`;
-  elements.zoneMap.innerHTML = `<div class="loading">Loading map...</div>`;
+  if (!state.leafletMap) {
+    elements.zoneMap.innerHTML = `<div class="loading">Loading map...</div>`;
+  }
 
   try {
     const response = await fetch("/api/state");
@@ -139,9 +139,10 @@ async function loadState() {
     scheduleAutoRefresh();
   } catch (error) {
     elements.windowsGrid.innerHTML = `<div class="empty">Unable to load TideWindow data. ${escapeHtml(error.message)}</div>`;
-    elements.zonesGrid.innerHTML = "";
     elements.timelineStrip.innerHTML = "";
-    elements.zoneMap.innerHTML = "";
+    if (!state.leafletMap) {
+      elements.zoneMap.innerHTML = "";
+    }
   } finally {
     elements.refresh.disabled = false;
   }
@@ -153,7 +154,6 @@ function renderDashboard() {
   renderMap();
   renderTimeline();
   renderWindows();
-  renderZones();
   drawTideChart();
 }
 
@@ -234,7 +234,6 @@ function renderLocationDrivenViews() {
   renderMap();
   renderTimeline();
   renderWindows();
-  renderZones();
 }
 
 function renderSummary() {
@@ -307,7 +306,13 @@ function renderMap() {
       direction: "top",
       offset: [0, -12],
     });
-    marker.on("click", () => openZoneDetails(zone.id));
+    marker.bindPopup(zonePopup(zone, zones.length), {
+      className: "zone-map-popup",
+      closeButton: true,
+      maxWidth: 360,
+      minWidth: 300,
+    });
+    marker.on("popupopen", (event) => wireZonePopup(event.popup.getElement(), zone.id));
     marker.addTo(state.leafletMap);
     state.leafletMarkers.push(marker);
     bounds.push([zone.map.lat, zone.map.lon]);
@@ -438,47 +443,11 @@ function renderWindows() {
   `).join("");
 }
 
-function renderZones() {
-  const zones = visibleZones();
-  elements.zonesGrid.innerHTML = zones.map((zone) => `
-    <article class="zone-card">
-      <header>
-        <h3>${escapeHtml(zone.title)}</h3>
-        ${statusPill(zone.kayak.status)}
-      </header>
-      <div class="metrics">
-        ${metric("Current", `${zone.current.toFixed(2)} kt`)}
-        ${metric("Wind", `${zone.wind.toFixed(1)} kt`)}
-        ${metric("Tide", `${zone.tide.toFixed(1)} ft`)}
-      </div>
-      <div class="activity-grid">
-        ${activity("Kayak", zone.kayak)}
-        ${activity("Fish", zone.fish)}
-      </div>
-      <div class="card-actions">
-        <button class="details-button" type="button" data-zone-id="${escapeHtml(zone.id)}">Details</button>
-        <button class="hide-button" type="button" data-zone-id="${escapeHtml(zone.id)}" ${zones.length <= 1 ? "disabled" : ""}>Hide</button>
-      </div>
-    </article>
-  `).join("");
-
-  elements.zonesGrid.querySelectorAll(".details-button").forEach((button) => {
-    button.addEventListener("click", () => openZoneDetails(button.dataset.zoneId));
-  });
-  elements.zonesGrid.querySelectorAll(".hide-button").forEach((button) => {
-    button.addEventListener("click", () => hideLocation(button.dataset.zoneId));
-  });
-}
-
 function openZoneDetails(zoneId) {
   const zone = state.data.zones.find((item) => item.id === zoneId);
   if (!zone) return;
 
-  const details = zoneDetails[zoneId] || {
-    local: "Local zone thresholds are based on current TideWindow scoring rules.",
-    kayak: "Kayak scoring uses local current and wind thresholds.",
-    fish: "Fishing scoring uses local current and tide thresholds.",
-  };
+  const details = zoneDetailCopy(zoneId);
 
   elements.zoneDialogContent.innerHTML = `
     <p class="eyebrow">Zone detail</p>
@@ -493,6 +462,56 @@ function openZoneDetails(zoneId) {
     ${detailRule("Fish", zone.fish, details.fish)}
   `;
   elements.zoneDialog.showModal();
+}
+
+function zonePopup(zone, visibleCount) {
+  const details = zoneDetailCopy(zone.id);
+  return `
+    <article class="map-spot-card">
+      <header>
+        <div>
+          <p class="eyebrow">Map spot</p>
+          <h3>${escapeHtml(zone.title)}</h3>
+        </div>
+        ${statusPill((state.filter === "Fish" ? zone.fish : zone.kayak).status)}
+      </header>
+      <div class="metrics">
+        ${metric("Current", `${zone.current.toFixed(2)} kt`)}
+        ${metric("Wind", `${zone.wind.toFixed(1)} kt`)}
+        ${metric("Tide", `${zone.tide.toFixed(1)} ft`)}
+      </div>
+      <p class="detail-note">${escapeHtml(details.local)}</p>
+      <div class="activity-grid">
+        ${activity("Kayak", zone.kayak)}
+        ${activity("Fish", zone.fish)}
+      </div>
+      <div class="map-rule-list">
+        <p><strong>Kayak thresholds</strong> ${escapeHtml(details.kayak)}</p>
+        <p><strong>Fish thresholds</strong> ${escapeHtml(details.fish)}</p>
+      </div>
+      <div class="card-actions">
+        <button class="details-button" type="button" data-zone-id="${escapeHtml(zone.id)}">Details</button>
+        <button class="hide-button" type="button" data-zone-id="${escapeHtml(zone.id)}" ${visibleCount <= 1 ? "disabled" : ""}>Hide</button>
+      </div>
+    </article>
+  `;
+}
+
+function wireZonePopup(popupElement, zoneId) {
+  if (!popupElement) return;
+  const detailsButton = popupElement.querySelector(".details-button");
+  const hideButton = popupElement.querySelector(".hide-button");
+
+  detailsButton?.addEventListener("click", () => openZoneDetails(zoneId));
+  hideButton?.addEventListener("click", () => hideLocation(zoneId));
+}
+
+function zoneDetailCopy(zoneId) {
+  return zoneDetails[zoneId] || {
+    local: "Local zone thresholds are based on current TideWindow scoring rules.",
+    kayak: "Kayak scoring uses local current and wind thresholds.",
+    fish: "Fishing scoring uses local current and tide thresholds.",
+  };
 }
 
 function detailRule(label, evaluation, rule) {

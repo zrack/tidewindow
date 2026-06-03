@@ -318,7 +318,7 @@ h2 {
 /* ---- Map --------------------------------------------------------------- */
 
 .zone-map {
-  height: 440px;
+  height: clamp(560px, 62vh, 760px);
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
@@ -353,6 +353,100 @@ h2 {
   color: var(--text);
   font-weight: 700;
   box-shadow: var(--shadow-md);
+}
+
+.zone-map-popup .leaflet-popup-content-wrapper,
+.zone-map-popup .leaflet-popup-tip {
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 48%),
+    var(--panel);
+  color: var(--text);
+  box-shadow: var(--shadow-lg), var(--edge);
+}
+
+.zone-map-popup .leaflet-popup-content-wrapper {
+  border-radius: var(--r-md);
+}
+
+.zone-map-popup .leaflet-popup-content {
+  width: min(330px, calc(100vw - 70px)) !important;
+  margin: 0;
+}
+
+.zone-map-popup .leaflet-popup-close-button {
+  top: 8px;
+  right: 8px;
+  color: var(--text-dim);
+  font-size: 1.4rem;
+}
+
+.zone-map-popup .leaflet-popup-close-button:hover {
+  color: var(--text);
+}
+
+.map-spot-card {
+  max-height: min(520px, 70vh);
+  overflow-y: auto;
+  padding: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.map-spot-card::-webkit-scrollbar {
+  width: 8px;
+}
+
+.map-spot-card::-webkit-scrollbar-thumb {
+  border-radius: var(--r-pill);
+  background: var(--line);
+}
+
+.map-spot-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-right: 20px;
+}
+
+.map-spot-card h3 {
+  margin-top: 4px;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.map-spot-card .detail-note {
+  margin-bottom: 12px;
+  font-size: 0.88rem;
+}
+
+.map-spot-card .activity-grid {
+  margin-top: 0;
+}
+
+.map-rule-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.map-rule-list p {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.map-rule-list strong {
+  display: block;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 /* ---- Timeline ---------------------------------------------------------- */
@@ -893,7 +987,7 @@ h2 {
   }
 
   .zone-map {
-    height: 380px;
+    height: min(560px, 72vh);
   }
 
   .location-tools {
