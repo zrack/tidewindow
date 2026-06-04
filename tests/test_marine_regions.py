@@ -2,6 +2,7 @@ import unittest
 
 from marine_config import ALL_ZONES, NOAA_CURRENT_STATION, NOAA_TIDE_STATION, OPTIONAL_ZONES, ZONES
 from marine_regions import (
+    BREMERTON_TIDE_STATION,
     DEFAULT_REGION_ID,
     REGIONS,
     SPOTS,
@@ -9,6 +10,7 @@ from marine_regions import (
     gig_harbor_parity_snapshot,
     get_region,
     optional_spot_ids_for_region,
+    provider_context_for_region,
     ranked_spots_for_region,
     region_summaries,
     visible_spots_for_region,
@@ -31,7 +33,7 @@ class MarineRegionTests(unittest.TestCase):
 
         self.assertEqual(tuple(zone_configs.keys()), tuple(ALL_ZONES.keys()))
         self.assertEqual(zone_configs, ALL_ZONES)
-        self.assertEqual(tuple(SPOTS.keys()), tuple(ALL_ZONES.keys()))
+        self.assertTrue(set(ALL_ZONES).issubset(SPOTS))
 
     def test_default_and_optional_spots_match_legacy_sets(self):
         self.assertEqual(default_spot_ids_for_region(DEFAULT_REGION_ID), tuple(ZONES.keys()))
@@ -60,6 +62,43 @@ class MarineRegionTests(unittest.TestCase):
         self.assertEqual(gig_harbor["spot_count"], len(ALL_ZONES))
         self.assertNotIn("provider_context", gig_harbor)
 
+    def test_requested_city_regions_are_selectable(self):
+        requested = {
+            "port_orchard": "Port Orchard",
+            "bremerton": "Bremerton",
+            "silverdale": "Silverdale",
+            "chico": "Chico",
+            "gorst": "Gorst",
+        }
+
+        summaries = {region["id"]: region for region in region_summaries()}
+
+        for region_id, name in requested.items():
+            with self.subTest(region=region_id):
+                region = get_region(region_id)
+                self.assertEqual(region["name"], name)
+                self.assertEqual(region["type"], "city")
+                self.assertGreaterEqual(len(region["spot_ids"]), 10)
+                self.assertEqual(summaries[region_id]["spot_count"], len(region["spot_ids"]))
+                self.assertEqual(len(visible_spots_for_region(region_id, limit=10)), 10)
+
+    def test_kitsap_regions_use_bremerton_tide_context(self):
+        expected_current_stations = {
+            "port_orchard": "PUG1514",
+            "bremerton": "PUG1510",
+            "silverdale": "PUG1510",
+            "chico": "PUG1510",
+            "gorst": "PUG1514",
+        }
+
+        for region_id, current_station in expected_current_stations.items():
+            with self.subTest(region=region_id):
+                context = provider_context_for_region(region_id)
+                self.assertEqual(context["tide_station"], BREMERTON_TIDE_STATION)
+                self.assertEqual(context["current_station"], current_station)
+                self.assertIn("weather_lat", context)
+                self.assertIn("weather_lon", context)
+
     def test_parity_snapshot_documents_current_contract(self):
         snapshot = gig_harbor_parity_snapshot()
 
@@ -69,7 +108,7 @@ class MarineRegionTests(unittest.TestCase):
 
     def test_unknown_region_raises_clear_error(self):
         with self.assertRaisesRegex(ValueError, "Unknown TideWindow region"):
-            get_region("port_orchard")
+            get_region("not_a_region")
 
 
 if __name__ == "__main__":

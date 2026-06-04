@@ -24,6 +24,7 @@ from marine_regions import (
     DEFAULT_REGION_ID,
     get_region,
     default_spot_ids_for_region,
+    provider_context_for_region,
     region_count,
     region_summaries,
     zone_configs_for_region,
@@ -34,7 +35,7 @@ from sun_times import sun_events
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 
 app = FastAPI(title=WEB_APP_NAME, version=APP_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -43,7 +44,24 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # NOAA/OpenWeather, and so a brief upstream outage serves the last good
 # reading instead of static seed data. Resolves NoaaMarineClient lazily so
 # tests can patch it.
-state_cache = MarineStateCache(WEB_REFRESH_INTERVAL_SECONDS, lambda: NoaaMarineClient())
+state_cache = MarineStateCache(
+    WEB_REFRESH_INTERVAL_SECONDS,
+    lambda: NoaaMarineClient(provider_context_for_region(DEFAULT_REGION_ID)),
+)
+region_state_caches = {}
+
+
+def get_state_cache(region_id: str) -> MarineStateCache:
+    """Returns a region-scoped upstream cache for the selected provider context."""
+    if region_id == DEFAULT_REGION_ID:
+        return state_cache
+    if region_id not in region_state_caches:
+        provider_context = provider_context_for_region(region_id)
+        region_state_caches[region_id] = MarineStateCache(
+            WEB_REFRESH_INTERVAL_SECONDS,
+            lambda provider_context=provider_context: NoaaMarineClient(provider_context),
+        )
+    return region_state_caches[region_id]
 
 
 @app.get("/")
@@ -77,6 +95,15 @@ async def health():
         "providers": {
             "noaa_tide_station": NOAA_TIDE_STATION,
             "noaa_current_station": NOAA_CURRENT_STATION,
+            "regions": [
+                {
+                    "id": region["id"],
+                    "tide_station": provider_context_for_region(region["id"])["tide_station"],
+                    "current_station": provider_context_for_region(region["id"])["current_station"],
+                    "nws_zone": provider_context_for_region(region["id"])["nws_zone"],
+                }
+                for region in region_summaries()
+            ],
             "openweather": "configured" if os.getenv("OPENWEATHER_API_KEY") else "optional_missing",
         },
     }
@@ -93,7 +120,10 @@ async def api_regions():
 @app.get("/api/state")
 async def api_state(region: str = DEFAULT_REGION_ID, limit: int | None = None):
     engine = MarineSafetyEngine()
-    telemetry, forecast, cache_meta = await state_cache.get()
+    try:
+        telemetry, forecast, cache_meta = await get_state_cache(region).get()
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     payload = build_state_payload(engine, telemetry, forecast, region_id=region, limit=limit)
     payload["cache"] = cache_meta
     return payload
@@ -189,6 +219,7 @@ def build_state_payload(
                 "default_spot_limit": region["default_spot_limit"],
                 "spot_count": len(region["spot_ids"]),
                 "visible_spot_limit": len(zone_configs),
+                "provider_context": region["provider_context"],
             },
         },
         "telemetry": telemetry,
@@ -204,12 +235,19 @@ def build_state_payload(
         "windows": [_serialize_window(window) for window in windows],
         "timeline": [_serialize_window(window) for window in timeline],
         "confidence": confidence,
-        "daylight": build_daylight(),
+        "daylight": build_daylight(
+            lat=region["provider_context"].get("weather_lat"),
+            lon=region["provider_context"].get("weather_lon"),
+        ),
         "alerts": forecast.get("alerts", []),
     }
 
 
-def build_daylight(hours: int = FORECAST_HOURS) -> dict:
+def build_daylight(
+    hours: int = FORECAST_HOURS,
+    lat: str | float | None = WEATHER_LAT,
+    lon: str | float | None = WEATHER_LON,
+) -> dict:
     """Returns sunrise/sunset (and civil dawn/dusk) for each date in the window.
 
     Keyed by ISO date string so the frontend can shade each timeline hour.
@@ -217,8 +255,8 @@ def build_daylight(hours: int = FORECAST_HOURS) -> dict:
     weather API key.
     """
     try:
-        lat = float(WEATHER_LAT)
-        lon = float(WEATHER_LON)
+        lat = float(lat)
+        lon = float(lon)
     except (TypeError, ValueError):
         return {}
 

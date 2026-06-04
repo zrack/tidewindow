@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import web_app
 from marine_cache import MarineStateCache
 from marine_config import ALL_ZONES, FORECAST_HOURS, OPTIONAL_ZONES, WEB_REFRESH_INTERVAL_SECONDS, ZONES
-from marine_regions import DEFAULT_REGION_ID, zone_configs_for_region
+from marine_regions import BREMERTON_TIDE_STATION, DEFAULT_REGION_ID, REGIONS, zone_configs_for_region
 
 
 def live_telemetry():
@@ -89,9 +89,12 @@ class CountingClient(StubClient):
 class WebAppTests(unittest.TestCase):
     def setUp(self):
         self._original_cache = web_app.state_cache
+        self._original_region_caches = dict(web_app.region_state_caches)
 
     def tearDown(self):
         web_app.state_cache = self._original_cache
+        web_app.region_state_caches.clear()
+        web_app.region_state_caches.update(self._original_region_caches)
 
     def _use_cache(self, factory, ttl=WEB_REFRESH_INTERVAL_SECONDS):
         cache = MarineStateCache(ttl, factory)
@@ -140,6 +143,12 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(payload["regions"][0]["name"], "Gig Harbor")
         self.assertEqual(payload["regions"][0]["default_spot_limit"], 10)
         self.assertEqual(payload["regions"][0]["spot_count"], len(ALL_ZONES))
+        self.assertEqual(len(payload["regions"]), len(REGIONS))
+        self.assertIn("port_orchard", {region["id"] for region in payload["regions"]})
+        self.assertIn("bremerton", {region["id"] for region in payload["regions"]})
+        self.assertIn("silverdale", {region["id"] for region in payload["regions"]})
+        self.assertIn("chico", {region["id"] for region in payload["regions"]})
+        self.assertIn("gorst", {region["id"] for region in payload["regions"]})
 
     def test_api_state_can_limit_region_spots(self):
         self._use_cache(lambda: StubClient(live_telemetry(), live_forecast()))
@@ -149,12 +158,31 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(payload["config"]["region"]["id"], DEFAULT_REGION_ID)
         self.assertEqual(payload["config"]["region"]["visible_spot_limit"], 10)
         self.assertEqual(
+            payload["config"]["region"]["provider_context"]["tide_station"],
+            "9446484",
+        )
+        self.assertEqual(
             [zone["id"] for zone in payload["zones"]],
             list(zone_configs_for_region(DEFAULT_REGION_ID, limit=10).keys()),
         )
         returned_ids = {zone["id"] for zone in payload["zones"]}
         self.assertTrue(all(window["zone_id"] in returned_ids for window in payload["windows"]))
         self.assertTrue(all(set(item["zones"]).issubset(returned_ids) for item in payload["timeline"]))
+
+    def test_api_state_uses_region_scoped_cache_and_provider_context(self):
+        cache = self._use_cache(lambda: StubClient(live_telemetry(), live_forecast()))
+        web_app.region_state_caches["port_orchard"] = cache
+
+        payload = asyncio.run(web_app.api_state(region="port_orchard", limit=10))
+
+        self.assertEqual(payload["config"]["region"]["id"], "port_orchard")
+        self.assertEqual(payload["config"]["region"]["provider_context"]["tide_station"], BREMERTON_TIDE_STATION)
+        self.assertEqual(payload["config"]["region"]["provider_context"]["current_station"], "PUG1514")
+        self.assertEqual(len(payload["zones"]), 10)
+        self.assertEqual(
+            [zone["id"] for zone in payload["zones"]],
+            list(zone_configs_for_region("port_orchard", limit=10).keys()),
+        )
 
     def test_api_state_includes_cache_metadata_and_data_age(self):
         self._use_cache(lambda: StubClient(live_telemetry(), live_forecast()))
@@ -220,10 +248,15 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(payload["zones"], len(ALL_ZONES))
         self.assertEqual(payload["default_zones"], len(ZONES))
         self.assertEqual(payload["optional_zones"], len(OPTIONAL_ZONES))
-        self.assertEqual(payload["regions"], 1)
+        self.assertEqual(payload["regions"], len(REGIONS))
         self.assertIn("generated_at", payload)
         self.assertIn("providers", payload)
         self.assertIn("noaa_tide_station", payload["providers"])
+        self.assertEqual(len(payload["providers"]["regions"]), len(REGIONS))
+        self.assertIn(
+            {"id": "port_orchard", "tide_station": BREMERTON_TIDE_STATION, "current_station": "PUG1514", "nws_zone": "PZZ135"},
+            payload["providers"]["regions"],
+        )
 
 
 if __name__ == "__main__":

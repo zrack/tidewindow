@@ -26,20 +26,21 @@ The full reliability phase and the first polish/safety/accuracy features are don
 - **Installable PWA with offline last-state** — manifest + service worker cache the app shell and last `/api/state`. _(df35a54)_
 - **NOAA predicted current in forecast windows** — best-window and timeline scoring now prefer NOAA `currents_predictions`; tide-slope-derived current remains the fallback. _(current work)_
 - **Confidence downgrade for stale last-good data** — source age still shows the detail, and the confidence note now reflects last-good staleness. _(current work)_
+- **Regional place selector foundation** — Gig Harbor, Port Orchard, Bremerton, Silverdale, Chico, and Gorst now have selectable city catalogs, top-10 spot limits, map fitting, and region-scoped NOAA/OpenWeather provider context. _(current work)_
 
 Earlier: the refined marine-dark UI redesign _(131c7dc)_ and this roadmap.
 
 ## Next — accuracy, personalization, and everyday usefulness
 
 1. **Wind-direction-aware exposure scoring (M-L).** Score each zone against wind direction relative to its fetch, not just speed. OpenWeather already provides `wind_deg`; the main work is adding per-zone exposure bearings and testing the scoring.
-2. **Regional/place spot selection (L).** Let users choose Puget Sound regions or cities such as Port Orchard and Aberdeen, automatically show the top nearby spots, move the map to that area, and allow more/fewer visible spots. This is the main path from a Gig Harbor dashboard to a place-based marine planner. See [Regional Spot Selection Brief](REGIONAL_SPOT_SELECTION_BRIEF.md).
+2. **Regional/place spot selection expansion (L).** Continue adding Puget Sound regions beyond the first Kitsap city set, especially Aberdeen and broader marine areas, with manually reviewed spot catalogs and honest provider-confidence labels. See [Regional Spot Selection Brief](REGIONAL_SPOT_SELECTION_BRIEF.md).
 3. **Config-driven thresholds + personalization (M).** Move scoring thresholds out of the long `evaluate_*` ladder into `marine_config`, then add a conservative/standard/aggressive risk-tolerance toggle.
 4. **Daily best-window digest (M).** A "tomorrow's best window" summary on a schedule — turns the app from pull-only into something that tells you when to go.
 5. **PWA install/offline QA (S-M).** The PWA exists; the next pass should verify install prompts, iOS icon behavior, service-worker upgrades, and offline map/data behavior on a phone.
 
 ## Later — accuracy and reach
 
-6. **Region-specific provider fallback strategies (M-L).** Once regional selection exists, improve station selection and fallback logic for areas with weaker current-prediction coverage.
+6. **Region-specific provider fallback strategies (M-L).** Improve station selection and fallback logic for areas with weaker current-prediction coverage.
 
 ## Housekeeping
 

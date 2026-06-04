@@ -1,4 +1,4 @@
-const CACHE = "tidewindow-v6";
+const CACHE = "tidewindow-v7";
 const SHELL = [
   "/",
   "/static/styles.css",
@@ -32,7 +32,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
 
   // Live data: network-first, fall back to the last cached response offline.
-  if (url.pathname === "/api/state") {
+  if (url.pathname === "/api/state" || url.pathname === "/api/regions") {
     event.respondWith(
       fetch(request)
         .then((response) => {

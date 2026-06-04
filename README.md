@@ -1,8 +1,8 @@
 # TideWindow
 
-TideWindow is a terminal and web marine-conditions dashboard for the Gig Harbor and Tacoma Narrows area. It combines NOAA tide/current observations and predictions with optional OpenWeather wind data, then scores eight local zones for kayaking and fly fishing. It also highlights the best kayak and fishing windows across a 72-hour planning window.
+TideWindow is a terminal and web marine-conditions dashboard for the Gig Harbor, Tacoma Narrows, and central Kitsap area. It combines NOAA tide/current observations and predictions with optional OpenWeather wind data, then scores local spots for kayaking and fly fishing. It also highlights the best kayak and fishing windows across a 72-hour planning window.
 
-The web dashboard adds a Leaflet/OpenStreetMap area map, an hourly tide/wind/activity timeline, a remembered activity mode, and local location controls. You can hide areas you do not use and add optional Gig Harbor-area locations such as Wollochet Bay, Horsehead Bay, Raft Island, Rosedale Gardens Beach, and Point Fosdick Shoreline.
+The web dashboard adds a Leaflet/OpenStreetMap area map, an hourly tide/wind/activity timeline, a remembered activity mode, and region-aware spot controls. You can choose Gig Harbor, Port Orchard, Bremerton, Silverdale, Chico, or Gorst, show fewer or more nearby spots, and hide individual spots you do not use.
 
 ## Visuals
 
@@ -78,7 +78,7 @@ Press `a` for all forecast windows, `k` for kayak windows, and `f` for fishing w
 
 Current-condition areas include Purdy Bridge, Inside Gig Harbor, Fox Island/Hale Passage, Sunrise Beach Park, Narrows Park, Fox Island Fishing Pier, Purdy Sand Spit, and Kopachuck State Park.
 
-The web dashboard starts with those eight default areas. Optional locations are available from the Locations picker and are stored in the browser, along with the selected activity mode.
+The web dashboard starts with the top spots for the selected region. The selected region, visible spot count, hidden spots, and activity mode are stored in the browser.
 
 ## Forecast Windows
 

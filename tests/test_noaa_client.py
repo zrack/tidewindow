@@ -1,4 +1,5 @@
 import unittest
+import asyncio
 from datetime import datetime, timedelta
 
 from marine_config import (
@@ -10,6 +11,21 @@ from noaa_client import NoaaMarineClient
 
 
 class NoaaMarineClientForecastTests(unittest.TestCase):
+    def test_provider_context_overrides_default_stations_and_weather(self):
+        client = NoaaMarineClient({
+            "tide_station": "9445958",
+            "current_station": "PUG1514",
+            "nws_zone": "PZZ135",
+            "weather_lat": "47.5404",
+            "weather_lon": "-122.6362",
+        })
+
+        self.assertEqual(client.tide_station, "9445958")
+        self.assertEqual(client.current_station, "PUG1514")
+        self.assertEqual(client.nws_zone, "PZZ135")
+        self.assertEqual(client.lat, "47.5404")
+        self.assertEqual(client.lon, "-122.6362")
+
     def test_parse_forecast_payload_filters_and_shapes_predictions(self):
         client = NoaaMarineClient()
         start = datetime(2026, 5, 30, 8, 30)
@@ -169,6 +185,30 @@ class NoaaMarineClientTelemetryTests(unittest.TestCase):
 
 
 class NoaaMarineClientEventTests(unittest.TestCase):
+    def test_fetch_slack_events_uses_max_slack_without_speed_dir_vel_type(self):
+        class StubResponse:
+            async def json(self, content_type=None):
+                return {"current_predictions": {"cp": []}}
+
+        class StubSession:
+            def __init__(self):
+                self.params = None
+
+            async def get(self, url, params=None):
+                self.params = params
+                return StubResponse()
+
+        client = NoaaMarineClient({"current_station": "PUG1514"})
+        session = StubSession()
+        start = datetime(2026, 6, 3)
+        end = start + timedelta(hours=24)
+
+        asyncio.run(client._fetch_slack_events(session, start, end))
+
+        self.assertEqual(session.params["station"], "PUG1514")
+        self.assertEqual(session.params["interval"], "MAX_SLACK")
+        self.assertNotIn("vel_type", session.params)
+
     def test_parse_tide_events_labels_and_filters_window(self):
         start = datetime(2026, 6, 3, 0, 0)
         end = start + timedelta(hours=24)

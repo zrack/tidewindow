@@ -81,23 +81,24 @@ This pairs naturally with the existing roadmap item for wind-direction-aware exp
 
 ## Rollout Plan
 
-Phase 1: Data model and Gig Harbor parity
+Phase 1: Data model and Gig Harbor parity — shipped
 
 - Introduce `Region` and `Spot` configuration while preserving current Gig Harbor behavior.
 - Add one `gig_harbor` region that produces the same default spots and map view as today.
 - Update tests around region-scoped API payloads.
 
-Phase 2: Region picker and spot count controls
+Phase 2: Region picker and spot count controls — shipped
 
 - Add the region selector and visible-count controls.
 - Make the map fit visible spots.
 - Persist selected region and visible count in local storage.
 
-Phase 3: Puget Sound catalog expansion
+Phase 3: Puget Sound catalog expansion — started
 
-- Add additional Puget Sound regions and spot catalogs.
-- Start with manually curated spots and priorities.
-- Keep station and confidence labels honest where current predictions are weaker.
+- Added Port Orchard, Bremerton, Silverdale, Chico, and Gorst as selectable city regions.
+- Started with manually curated Kitsap spots and priorities.
+- Wired each region to tide/current/weather provider context so station choices can vary by place.
+- Continue with Aberdeen and broader Puget Sound marine areas.
 
 Phase 4: Accuracy upgrades
 

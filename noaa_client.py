@@ -31,11 +31,13 @@ class NoaaMarineClient:
     OWM_ONECALL_URL = "https://api.openweathermap.org/data/3.0/onecall"
     NWS_ALERTS_URL = "https://api.weather.gov/alerts/active"
     
-    def __init__(self):
-        self.tide_station = NOAA_TIDE_STATION
-        self.current_station = NOAA_CURRENT_STATION
-        self.lat = WEATHER_LAT
-        self.lon = WEATHER_LON
+    def __init__(self, provider_context: dict | None = None):
+        provider_context = provider_context or {}
+        self.tide_station = provider_context.get("tide_station", NOAA_TIDE_STATION)
+        self.current_station = provider_context.get("current_station", NOAA_CURRENT_STATION)
+        self.nws_zone = provider_context.get("nws_zone", NWS_MARINE_ZONE)
+        self.lat = provider_context.get("weather_lat", WEATHER_LAT)
+        self.lon = provider_context.get("weather_lon", WEATHER_LON)
         self.owm_api_key = os.getenv("OPENWEATHER_API_KEY")
 
     def get_seed_data(self, wind_override=None, reason="live telemetry unavailable") -> dict:
@@ -291,7 +293,6 @@ class NoaaMarineClient:
             "time_zone": "lst_ldt",
             "interval": "MAX_SLACK",
             "units": "english",
-            "vel_type": "speed_dir",
             "format": "json",
         }
         try:
@@ -304,7 +305,7 @@ class NoaaMarineClient:
 
     async def _fetch_marine_alerts(self, session) -> list:
         """Fetches active NWS marine advisories/warnings for the configured zone."""
-        params = {"zone": NWS_MARINE_ZONE}
+        params = {"zone": self.nws_zone}
         headers = {"User-Agent": NWS_USER_AGENT, "Accept": "application/geo+json"}
         try:
             response = await session.get(self.NWS_ALERTS_URL, params=params, headers=headers)
