@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 NOAA_TIDE_STATION = "9446484"     # Tacoma Narrows Bridge
-NOAA_CURRENT_STATION = "PCT1601"  # Narrows North
+NOAA_CURRENT_STATION = "PUG1527"  # The Narrows, 0.3 mi N of bridge (current predictions)
 
 # Coordinates for the Tacoma Narrows / Gig Harbor basin.
 WEATHER_LAT = "47.2690"

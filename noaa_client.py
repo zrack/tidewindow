@@ -76,23 +76,94 @@ class NoaaMarineClient:
 
             try:
                 responses = await asyncio.gather(*tasks)
-                
-                tide_json = await responses[0].json()
-                current_json = await responses[1].json()
-                
+
+                # Parse each response defensively so a single failing endpoint
+                # (e.g. a 400 from the real-time currents product on a
+                # prediction-only station) degrades just that source instead of
+                # seeding the entire payload.
+                tide_json = await self._safe_json(responses[0])
+                current_json = await self._safe_json(responses[1])
+
                 # Parse wind if live endpoint was hit
                 live_wind = None
                 if owm_active and len(responses) == 3:
-                    owm_json = await responses[2].json()
+                    owm_json = await self._safe_json(responses[2])
                     if owm_json.get("cod") == 200:
                         # OpenWeather returns wind speed in mph; convert to knots (1 mph = 0.868976 knots)
                         live_wind = float(owm_json.get("wind", {}).get("speed", 0)) * 0.869
-                
-                return self._parse_payload(tide_json, current_json, live_wind)
-                
+
+                # The configured current station may be a harmonic prediction
+                # station with no real-time sensor, so the real-time currents
+                # product can come back empty. Fall back to NOAA current
+                # predictions before resorting to seed data.
+                current_predictions = []
+                if not (isinstance(current_json, dict) and current_json.get("data")):
+                    current_predictions = await self._fetch_current_predictions(session)
+
+                return self._parse_payload(tide_json, current_json, live_wind, current_predictions)
+
             except Exception as e:
                 logging.warning("Telemetry fetch failed: %s", e)
                 return self.get_seed_data(reason=str(e))
+
+    @staticmethod
+    async def _safe_json(response) -> dict:
+        """Parses a response body as JSON, returning {} on any failure."""
+        try:
+            return await response.json(content_type=None)
+        except Exception:  # noqa: BLE001 - network/body parsing is best-effort
+            return {}
+
+    async def _fetch_current_predictions(self, session) -> list:
+        """Fetches NOAA harmonic current predictions for the current station."""
+        now = datetime.now()
+        params = {
+            "date": "today",
+            "station": self.current_station,
+            "product": "currents_predictions",
+            "time_zone": "lst_ldt",
+            "interval": "30",
+            "units": "english",
+            "vel_type": "speed_dir",
+            "format": "json",
+        }
+        try:
+            response = await session.get(self.NOAA_URL, params=params)
+            payload = await self._safe_json(response)
+            return self._parse_current_predictions(payload)
+        except Exception as e:
+            logging.warning("Current prediction fetch failed: %s", e)
+            return []
+
+    @staticmethod
+    def _parse_current_predictions(payload: dict | None) -> list:
+        """Normalizes NOAA currents_predictions into time/speed/direction points."""
+        if not isinstance(payload, dict):
+            return []
+        points = payload.get("current_predictions", {}).get("cp", [])
+        parsed = []
+        for item in points:
+            timestamp = item.get("Time")
+            if not timestamp:
+                continue
+            try:
+                point_time = datetime.strptime(timestamp, "%Y-%m-%d %H:%M")
+            except (ValueError, TypeError):
+                continue
+            raw_speed = item.get("Speed", item.get("Velocity_Major"))
+            if raw_speed is None:
+                continue
+            try:
+                speed = abs(float(raw_speed))
+            except (ValueError, TypeError):
+                continue
+            raw_dir = item.get("Direction")
+            try:
+                direction = float(raw_dir) if raw_dir is not None else SEEDED_CURRENT_DIRECTION
+            except (ValueError, TypeError):
+                direction = SEEDED_CURRENT_DIRECTION
+            parsed.append({"time": point_time, "speed": speed, "dir": direction})
+        return parsed
 
     async def fetch_forecast(self, hours: int = FORECAST_HOURS) -> dict:
         """Fetches NOAA tide predictions and optional hourly wind forecast."""
@@ -177,45 +248,91 @@ class NoaaMarineClient:
             "format": "json"
         }
 
-    def _parse_payload(self, tide_json: dict, current_json: dict, live_wind: float = None) -> dict:
+    def _parse_payload(
+        self,
+        tide_json: dict,
+        current_json: dict,
+        live_wind: float = None,
+        current_predictions: list | None = None,
+    ) -> dict:
+        # Default wind if the live fetch didn't return a value.
+        final_wind = live_wind if live_wind is not None else DEFAULT_WIND_KNOTS
+        wind_source = "live" if live_wind is not None else "fallback"
+        current_predictions = current_predictions or []
+        now = datetime.now()
+
         try:
-            tide_list = tide_json.get("data", [])
-            current_list = current_json.get("data", [])
-            
-            # Default wind if live fetch didn't return a value
-            final_wind = live_wind if live_wind is not None else DEFAULT_WIND_KNOTS
-            wind_source = "live" if live_wind is not None else "fallback"
+            # Tide degrades independently of current: a missing current reading
+            # should not force the tide to seed data.
+            tide_list = tide_json.get("data", []) if isinstance(tide_json, dict) else []
+            tide_value = None
+            if tide_list:
+                try:
+                    tide_value = float(tide_list[-1]["v"])
+                except (KeyError, IndexError, ValueError, TypeError):
+                    tide_value = None
+            if tide_value is not None:
+                tide_feet, tide_source = tide_value, "live"
+            else:
+                tide_feet, tide_source = SEEDED_TIDE_FEET, "seed"
 
-            if not tide_list or not current_list:
-                return self.get_seed_data(
-                    wind_override=final_wind,
-                    reason="NOAA returned an empty tide or current payload",
+            # Current: prefer a real-time observation, then a NOAA prediction,
+            # and only fall back to seed data if neither is available.
+            current_list = current_json.get("data", []) if isinstance(current_json, dict) else []
+            current_speed = current_dir = None
+            current_source = None
+            if current_list:
+                try:
+                    current_speed = float(current_list[-1]["s"])
+                    current_dir = float(current_list[-1]["d"])
+                    current_source = "live"
+                except (KeyError, IndexError, ValueError, TypeError):
+                    current_speed = current_dir = current_source = None
+            if current_speed is None and current_predictions:
+                nearest = min(
+                    current_predictions,
+                    key=lambda point: abs((point["time"] - now).total_seconds()),
                 )
+                current_speed = nearest["speed"]
+                current_dir = nearest["dir"]
+                current_source = "predicted"
+            if current_speed is None:
+                current_speed = SEEDED_CURRENT_KNOTS
+                current_dir = SEEDED_CURRENT_DIRECTION
+                current_source = "seed"
 
-            tide_val = float(tide_list[-1]["v"])
-            current_speed = float(current_list[-1]["s"])
-            current_dir = float(current_list[-1]["d"])
-            
             phase = "Flood (South)" if 100 < current_dir < 260 else "Ebb (North)"
             if current_speed < 0.3:
                 phase = "Slack Water"
+            if tide_source == "seed" and current_source == "seed":
+                phase = f"{phase} [SEEDED]"
+
+            reasons = []
+            if tide_source == "seed":
+                reasons.append("NOAA returned no tide observation")
+            if current_source == "seed":
+                reasons.append("NOAA returned no current observation or prediction")
+            fallback_reason = "; ".join(reasons) or None
 
             return {
-                "tide_feet": tide_val,
+                "tide_feet": tide_feet,
                 "current_knots": current_speed,
                 "current_direction": current_dir,
                 "phase": phase,
                 "wind_knots": final_wind,
                 "sources": {
-                    "tide": "live",
-                    "current": "live",
+                    "tide": tide_source,
+                    "current": current_source,
                     "wind": wind_source,
                 },
-                "fallback_reason": None,
+                "fallback_reason": fallback_reason,
                 "updated_at": self._timestamp(),
             }
         except (KeyError, IndexError, ValueError, TypeError):
-            return self.get_seed_data(reason="unable to parse telemetry payload")
+            return self.get_seed_data(
+                wind_override=final_wind,
+                reason="unable to parse telemetry payload",
+            )
 
     def _parse_forecast_payload(self, tide_json: dict, start: datetime, end: datetime) -> dict:
         try:

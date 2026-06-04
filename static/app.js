@@ -621,7 +621,8 @@ function dataStatusRows(telemetry, forecast) {
 }
 
 function statusRow(label, sources, reason, ageSeconds, stale) {
-  const health = stale || reason ? "yellow" : Object.values(sources).includes("seed") || Object.values(sources).includes("fallback") ? "yellow" : "green";
+  const degraded = ["seed", "fallback", "predicted", "missing"];
+  const health = stale || reason ? "yellow" : Object.values(sources).some((value) => degraded.includes(value)) ? "yellow" : "green";
   const ageText = ageSeconds == null ? "" : formatAge(ageSeconds);
   const ageLabel = [ageText, stale ? "last good reading" : ""].filter(Boolean).join(" · ");
   return `
@@ -651,7 +652,7 @@ function sourceHeadline(telemetrySources, forecastSources) {
     ...Object.values(forecastSources),
   ];
   if (sourceValues.includes("seed")) return "Seed data active";
-  if (sourceValues.includes("fallback") || sourceValues.includes("missing")) return "Partial live data";
+  if (["fallback", "missing", "predicted"].some((value) => sourceValues.includes(value))) return "Partial live data";
   return "Live data";
 }
 

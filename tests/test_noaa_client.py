@@ -1,6 +1,11 @@
 import unittest
 from datetime import datetime, timedelta
 
+from marine_config import (
+    SEEDED_CURRENT_DIRECTION,
+    SEEDED_CURRENT_KNOTS,
+    SEEDED_TIDE_FEET,
+)
 from noaa_client import NoaaMarineClient
 
 
@@ -85,6 +90,82 @@ class NoaaMarineClientForecastTests(unittest.TestCase):
 
         self.assertEqual(wind["source"], "missing")
         self.assertEqual(wind["fallback_reason"], "Invalid API key")
+
+
+class NoaaMarineClientTelemetryTests(unittest.TestCase):
+    def test_live_tide_with_predicted_current_does_not_seed_tide(self):
+        client = NoaaMarineClient()
+        result = client._parse_payload(
+            tide_json={"data": [{"v": "6.2"}]},
+            current_json={"data": []},
+            live_wind=5.0,
+            current_predictions=[{"time": datetime.now(), "speed": 1.3, "dir": 150.0}],
+        )
+
+        self.assertEqual(
+            result["sources"],
+            {"tide": "live", "current": "predicted", "wind": "live"},
+        )
+        self.assertIsNone(result["fallback_reason"])
+        self.assertEqual(result["tide_feet"], 6.2)
+        self.assertEqual(result["current_knots"], 1.3)
+        self.assertEqual(result["current_direction"], 150.0)
+
+    def test_missing_tide_and_current_degrade_independently_to_seed(self):
+        client = NoaaMarineClient()
+        result = client._parse_payload(
+            tide_json={"data": []},
+            current_json={"data": []},
+            live_wind=None,
+            current_predictions=[],
+        )
+
+        self.assertEqual(
+            result["sources"],
+            {"tide": "seed", "current": "seed", "wind": "fallback"},
+        )
+        self.assertEqual(result["tide_feet"], SEEDED_TIDE_FEET)
+        self.assertEqual(result["current_knots"], SEEDED_CURRENT_KNOTS)
+        self.assertIn("tide", result["fallback_reason"])
+        self.assertIn("current", result["fallback_reason"])
+
+    def test_live_current_is_preferred_over_predictions(self):
+        client = NoaaMarineClient()
+        result = client._parse_payload(
+            tide_json={"data": [{"v": "6.0"}]},
+            current_json={"data": [{"s": "0.9", "d": "150"}]},
+            live_wind=4.0,
+            current_predictions=[{"time": datetime.now(), "speed": 9.9, "dir": 10.0}],
+        )
+
+        self.assertEqual(result["sources"]["current"], "live")
+        self.assertEqual(result["current_knots"], 0.9)
+
+    def test_parse_current_predictions_normalizes_and_skips_bad_points(self):
+        payload = {
+            "current_predictions": {
+                "cp": [
+                    {"Time": "2026-06-03 14:30", "Speed": "1.5", "Direction": "140"},
+                    {"Time": "not-a-time", "Speed": "1.0"},
+                    {"Speed": "1.0"},
+                    {"Time": "2026-06-03 15:00", "Velocity_Major": "-0.8"},
+                ]
+            }
+        }
+
+        parsed = NoaaMarineClient._parse_current_predictions(payload)
+
+        self.assertEqual(len(parsed), 2)
+        self.assertEqual(parsed[0]["time"], datetime(2026, 6, 3, 14, 30))
+        self.assertEqual(parsed[0]["speed"], 1.5)
+        self.assertEqual(parsed[0]["dir"], 140.0)
+        # Velocity_Major is taken as magnitude; direction defaults when absent.
+        self.assertEqual(parsed[1]["speed"], 0.8)
+        self.assertEqual(parsed[1]["dir"], SEEDED_CURRENT_DIRECTION)
+
+    def test_parse_current_predictions_handles_empty_payload(self):
+        self.assertEqual(NoaaMarineClient._parse_current_predictions(None), [])
+        self.assertEqual(NoaaMarineClient._parse_current_predictions({}), [])
 
 
 if __name__ == "__main__":
