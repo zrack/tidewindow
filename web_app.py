@@ -20,6 +20,11 @@ from marine_config import (
 )
 from marine_cache import MarineStateCache
 from marine_engine import MarineSafetyEngine
+from marine_regions import (
+    DEFAULT_REGION_ID,
+    default_spot_ids_for_region,
+    zone_configs_for_region,
+)
 from noaa_client import NoaaMarineClient
 from sun_times import sun_events
 
@@ -84,14 +89,16 @@ async def api_state():
 
 def build_state_payload(engine, telemetry: dict, forecast: dict) -> dict:
     """Assembles the dashboard payload from telemetry and forecast data."""
+    zone_configs = zone_configs_for_region(DEFAULT_REGION_ID)
+    default_spot_ids = set(default_spot_ids_for_region(DEFAULT_REGION_ID))
     zones = engine.get_zone_telemetry(
         telemetry["current_knots"],
         telemetry["tide_feet"],
         telemetry["wind_knots"],
-        zones_config=ALL_ZONES,
+        zones_config=zone_configs,
     )
     zone_cards = []
-    for zone_id, zone_config in ALL_ZONES.items():
+    for zone_id, zone_config in zone_configs.items():
         zone_data = zones[zone_id]
         kayak = engine.evaluate_kayaking(
             zone_id,
@@ -107,7 +114,7 @@ def build_state_payload(engine, telemetry: dict, forecast: dict) -> dict:
             {
                 "id": zone_id,
                 "title": zone_config["title"],
-                "active_by_default": zone_id in ZONES,
+                "active_by_default": zone_id in default_spot_ids,
                 "map": {
                     "lat": zone_config.get("lat"),
                     "lon": zone_config.get("lon"),
@@ -127,7 +134,7 @@ def build_state_payload(engine, telemetry: dict, forecast: dict) -> dict:
         current_predictions=forecast.get("current_predictions", []),
         current_source=forecast.get("sources", {}).get("current", "derived"),
         wind_source=forecast.get("sources", {}).get("wind", "fallback"),
-        zones_config=ALL_ZONES,
+        zones_config=zone_configs,
     )
     timeline = engine.build_hourly_timeline(
         forecast.get("predictions", []),
@@ -136,7 +143,7 @@ def build_state_payload(engine, telemetry: dict, forecast: dict) -> dict:
         current_predictions=forecast.get("current_predictions", []),
         current_source=forecast.get("sources", {}).get("current", "derived"),
         wind_source=forecast.get("sources", {}).get("wind", "fallback"),
-        zones_config=ALL_ZONES,
+        zones_config=zone_configs,
     )
     confidence = engine.evaluate_confidence(
         telemetry,

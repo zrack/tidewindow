@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import web_app
 from marine_cache import MarineStateCache
 from marine_config import ALL_ZONES, FORECAST_HOURS, OPTIONAL_ZONES, WEB_REFRESH_INTERVAL_SECONDS, ZONES
+from marine_regions import DEFAULT_REGION_ID, zone_configs_for_region
 
 
 def live_telemetry():
@@ -103,6 +104,10 @@ class WebAppTests(unittest.TestCase):
 
         self.assertEqual(len(payload["zones"]), len(ALL_ZONES))
         self.assertEqual(
+            [zone["id"] for zone in payload["zones"]],
+            list(zone_configs_for_region(DEFAULT_REGION_ID).keys()),
+        )
+        self.assertEqual(
             sum(1 for zone in payload["zones"] if zone["active_by_default"]),
             len(ZONES),
         )
@@ -119,6 +124,8 @@ class WebAppTests(unittest.TestCase):
         self.assertIsInstance(payload["windows"][0]["start"], str)
         self.assertIsInstance(payload["timeline"][0]["start"], str)
         self.assertIn("map", payload["zones"][0])
+        self.assertEqual(payload["zones"][0]["map"]["lat"], ALL_ZONES[payload["zones"][0]["id"]]["lat"])
+        self.assertEqual(payload["zones"][0]["map"]["lon"], ALL_ZONES[payload["zones"][0]["id"]]["lon"])
         self.assertIsInstance(payload["forecast"]["predictions"][0]["time"], str)
         self.assertIsInstance(payload["forecast"]["wind_predictions"][0]["time"], str)
         self.assertIsInstance(payload["forecast"]["current_predictions"][0]["time"], str)

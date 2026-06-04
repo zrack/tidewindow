@@ -24,6 +24,7 @@ py-modules = [
     "main",
     "marine_config",
     "marine_engine",
+    "marine_regions",
     "marine_terminal",
     "noaa_client",
     "web_app",
