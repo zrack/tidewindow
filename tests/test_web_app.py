@@ -1,52 +1,100 @@
 import asyncio
 import unittest
 from datetime import datetime, timedelta
-from unittest.mock import patch
 
 import web_app
-from marine_config import ALL_ZONES, OPTIONAL_ZONES, ZONES
+from marine_cache import MarineStateCache
+from marine_config import ALL_ZONES, OPTIONAL_ZONES, WEB_REFRESH_INTERVAL_SECONDS, ZONES
 
 
-class FakeClient:
+def live_telemetry():
+    return {
+        "current_knots": 1.1,
+        "tide_feet": 5.2,
+        "wind_knots": 4.0,
+        "sources": {"tide": "live", "current": "predicted", "wind": "live"},
+        "fallback_reason": None,
+        "updated_at": "now",
+    }
+
+
+def seed_telemetry():
+    return {
+        "current_knots": 1.85,
+        "tide_feet": 5.4,
+        "wind_knots": 6.5,
+        "sources": {"tide": "seed", "current": "seed", "wind": "seed"},
+        "fallback_reason": "telemetry fetch failed",
+        "updated_at": "now",
+    }
+
+
+def live_forecast():
+    start = datetime(2026, 5, 30, 10)
+    predictions = [
+        {"time": start + timedelta(hours=hour), "tide_feet": 4.0 + hour * 0.3}
+        for hour in range(8)
+    ]
+    return {
+        "predictions": predictions,
+        "wind_predictions": [
+            {"time": point["time"], "wind_knots": 4.0} for point in predictions
+        ],
+        "sources": {"tide": "live", "current": "derived", "wind": "live"},
+        "fallback_reason": None,
+        "wind_fallback_reason": None,
+    }
+
+
+def seed_forecast():
+    return {
+        "predictions": [],
+        "wind_predictions": [],
+        "sources": {"tide": "seed", "current": "derived", "wind": "fallback"},
+        "fallback_reason": "forecast unavailable",
+        "wind_fallback_reason": "fallback",
+    }
+
+
+class StubClient:
+    def __init__(self, telemetry, forecast):
+        self._telemetry = telemetry
+        self._forecast = forecast
+
     async def fetch_telemetry(self):
-        return {
-            "current_knots": 1.1,
-            "tide_feet": 5.2,
-            "wind_knots": 4.0,
-            "sources": {
-                "current": "test",
-                "tide": "test",
-                "wind": "test",
-            },
-            "fallback_reason": None,
-        }
+        return self._telemetry
 
     async def fetch_forecast(self):
-        start = datetime(2026, 5, 30, 10)
-        predictions = [
-            {"time": start + timedelta(hours=hour), "tide_feet": 4.0 + hour * 0.3}
-            for hour in range(8)
-        ]
-        return {
-            "predictions": predictions,
-            "wind_predictions": [
-                {"time": point["time"], "wind_knots": 4.0}
-                for point in predictions
-            ],
-            "sources": {
-                "tide": "test",
-                "current": "derived",
-                "wind": "test",
-            },
-            "fallback_reason": None,
-            "wind_fallback_reason": None,
-        }
+        return self._forecast
+
+
+class CountingClient(StubClient):
+    calls = {"telemetry": 0, "forecast": 0}
+
+    async def fetch_telemetry(self):
+        CountingClient.calls["telemetry"] += 1
+        return self._telemetry
+
+    async def fetch_forecast(self):
+        CountingClient.calls["forecast"] += 1
+        return self._forecast
 
 
 class WebAppTests(unittest.TestCase):
+    def setUp(self):
+        self._original_cache = web_app.state_cache
+
+    def tearDown(self):
+        web_app.state_cache = self._original_cache
+
+    def _use_cache(self, factory, ttl=WEB_REFRESH_INTERVAL_SECONDS):
+        cache = MarineStateCache(ttl, factory)
+        web_app.state_cache = cache
+        return cache
+
     def test_api_state_returns_json_ready_dashboard_payload(self):
-        with patch.object(web_app, "NoaaMarineClient", return_value=FakeClient()):
-            payload = asyncio.run(web_app.api_state())
+        self._use_cache(lambda: StubClient(live_telemetry(), live_forecast()))
+        payload = asyncio.run(web_app.api_state())
 
         self.assertEqual(len(payload["zones"]), len(ALL_ZONES))
         self.assertEqual(
@@ -68,6 +116,62 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("map", payload["zones"][0])
         self.assertIsInstance(payload["forecast"]["predictions"][0]["time"], str)
         self.assertIsInstance(payload["forecast"]["wind_predictions"][0]["time"], str)
+
+    def test_api_state_includes_cache_metadata_and_data_age(self):
+        self._use_cache(lambda: StubClient(live_telemetry(), live_forecast()))
+        payload = asyncio.run(web_app.api_state())
+
+        self.assertIn("cache", payload)
+        self.assertFalse(payload["cache"]["served_from_cache"])
+        self.assertFalse(payload["cache"]["telemetry_stale"])
+        self.assertFalse(payload["cache"]["forecast_stale"])
+
+        telemetry = payload["telemetry"]
+        self.assertIn("observed_at", telemetry)
+        self.assertIn("age_seconds", telemetry)
+        self.assertFalse(telemetry["stale"])
+        self.assertIsInstance(payload["forecast"]["age_seconds"], int)
+
+    def test_api_state_serves_cached_payload_within_ttl(self):
+        CountingClient.calls = {"telemetry": 0, "forecast": 0}
+        self._use_cache(
+            lambda: CountingClient(live_telemetry(), live_forecast()),
+            ttl=9999,
+        )
+
+        first = asyncio.run(web_app.api_state())
+        second = asyncio.run(web_app.api_state())
+
+        # Upstream is only hit once; the second request is served from cache.
+        self.assertEqual(CountingClient.calls["telemetry"], 1)
+        self.assertEqual(CountingClient.calls["forecast"], 1)
+        self.assertFalse(first["cache"]["served_from_cache"])
+        self.assertTrue(second["cache"]["served_from_cache"])
+
+    def test_api_state_serves_last_good_when_upstream_degrades(self):
+        mode = {"live": True}
+
+        def factory():
+            if mode["live"]:
+                return StubClient(live_telemetry(), live_forecast())
+            return StubClient(seed_telemetry(), seed_forecast())
+
+        cache = self._use_cache(factory, ttl=9999)
+
+        good = asyncio.run(web_app.api_state())
+        self.assertFalse(good["cache"]["telemetry_stale"])
+
+        # Upstream degrades to seed and the TTL expires.
+        mode["live"] = False
+        cache._fetched_monotonic -= 10_000
+
+        degraded = asyncio.run(web_app.api_state())
+        self.assertTrue(degraded["cache"]["telemetry_stale"])
+        self.assertTrue(degraded["cache"]["forecast_stale"])
+        # The last good live reading is served instead of seed.
+        self.assertEqual(degraded["telemetry"]["sources"]["tide"], "live")
+        self.assertTrue(degraded["telemetry"]["stale"])
+        self.assertGreater(len(degraded["windows"]), 0)
 
     def test_health_returns_lightweight_status_payload(self):
         payload = asyncio.run(web_app.health())
