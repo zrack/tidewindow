@@ -13,6 +13,7 @@ class MarineSafetyEngine:
         base_current: float,
         base_tide: float,
         base_wind: float,
+        base_wind_direction: float | None = None,
         zones_config: dict | None = None,
     ) -> dict:
         """Applies geographic multipliers to the baseline Narrows telemetry."""
@@ -24,12 +25,20 @@ class MarineSafetyEngine:
                 "fixed_current",
                 base_current * zone_config.get("current_multiplier", 1.0),
             )
-            wind = base_wind * zone_config.get("wind_multiplier", 1.0)
+            wind = base_wind * MarineSafetyEngine.wind_exposure_multiplier(
+                zone_config,
+                base_wind_direction,
+            )
 
             zones[zone_id] = {
                 "current": current,
                 "tide": base_tide,
                 "wind": wind,
+                "wind_direction": base_wind_direction,
+                "wind_exposure": MarineSafetyEngine.wind_exposure_label(
+                    zone_config,
+                    base_wind_direction,
+                ),
             }
 
         return zones
@@ -38,6 +47,7 @@ class MarineSafetyEngine:
         self,
         tide_predictions: list,
         wind_knots: float,
+        wind_direction: float | None = None,
         wind_predictions: list | None = None,
         current_predictions: list | None = None,
         current_source: str = "derived",
@@ -55,6 +65,7 @@ class MarineSafetyEngine:
             current_source,
             wind_source,
             zones_config,
+            fallback_wind_direction=wind_direction,
         )
         if not hourly_windows:
             return []
@@ -100,6 +111,7 @@ class MarineSafetyEngine:
         self,
         tide_predictions: list,
         wind_knots: float,
+        wind_direction: float | None = None,
         wind_predictions: list | None = None,
         current_predictions: list | None = None,
         current_source: str = "derived",
@@ -116,6 +128,7 @@ class MarineSafetyEngine:
             current_source,
             wind_source,
             zones_config,
+            fallback_wind_direction=wind_direction,
         )
         timeline = []
 
@@ -127,6 +140,8 @@ class MarineSafetyEngine:
                 zone_scores[zone_id] = {
                     "current": round(zone_data["current"], 2),
                     "wind": round(zone_data["wind"], 1),
+                    "wind_direction": zone_data.get("wind_direction"),
+                    "wind_exposure": zone_data.get("wind_exposure"),
                     "tide": round(zone_data["tide"], 1),
                     "kayak": kayak,
                     "fish": fish,
@@ -220,6 +235,7 @@ class MarineSafetyEngine:
         current_source: str,
         wind_source: str,
         zones_config: dict,
+        fallback_wind_direction: float | None = None,
     ) -> list:
         windows = []
 
@@ -244,10 +260,11 @@ class MarineSafetyEngine:
                 current_direction=current_direction,
                 current_source=window_current_source,
             )
-            window_wind, window_wind_source = self._wind_for_window(
+            window_wind, window_wind_direction, window_wind_source = self._wind_for_window(
                 current_point["time"],
                 next_point["time"],
                 wind_knots,
+                fallback_wind_direction,
                 wind_predictions,
                 wind_source,
             )
@@ -261,11 +278,13 @@ class MarineSafetyEngine:
                     "current_source": window_current_source,
                     "average_tide": average_tide,
                     "base_wind": window_wind,
+                    "base_wind_direction": window_wind_direction,
                     "wind_source": window_wind_source,
                     "zones": self.get_zone_telemetry(
                         base_current=base_current,
                         base_tide=average_tide,
                         base_wind=window_wind,
+                        base_wind_direction=window_wind_direction,
                         zones_config=zones_config,
                     ),
                 }
@@ -294,6 +313,8 @@ class MarineSafetyEngine:
             "current": zone_data["current"],
             "current_source": window["current_source"],
             "wind": zone_data["wind"],
+            "wind_direction": zone_data.get("wind_direction"),
+            "wind_exposure": zone_data.get("wind_exposure"),
             "wind_source": window["wind_source"],
             "tide": zone_data["tide"],
             "note": evaluation["note"],
@@ -304,13 +325,14 @@ class MarineSafetyEngine:
         start,
         end,
         fallback_wind_knots: float,
+        fallback_wind_direction: float | None,
         wind_predictions: list,
         wind_source: str,
-    ) -> tuple[float, str]:
+    ) -> tuple[float, float | None, str]:
         if not wind_predictions:
             if wind_source == "missing":
-                return fallback_wind_knots, "fallback"
-            return fallback_wind_knots, wind_source
+                return fallback_wind_knots, fallback_wind_direction, "fallback"
+            return fallback_wind_knots, fallback_wind_direction, wind_source
 
         midpoint = start + (end - start) / 2
         nearest = min(
@@ -319,9 +341,41 @@ class MarineSafetyEngine:
         )
         distance_seconds = abs((nearest["time"] - midpoint).total_seconds())
         if distance_seconds <= 5400:
-            return nearest["wind_knots"], "live"
+            return nearest["wind_knots"], nearest.get("wind_direction"), "live"
 
-        return fallback_wind_knots, "fallback"
+        return fallback_wind_knots, fallback_wind_direction, "fallback"
+
+    @staticmethod
+    def wind_exposure_multiplier(zone_config: dict, wind_direction: float | None) -> float:
+        base_multiplier = zone_config.get("wind_multiplier", 1.0)
+        exposure_bearing = zone_config.get("wind_exposure_bearing")
+        if wind_direction is None or exposure_bearing is None:
+            return base_multiplier
+
+        spread = max(1.0, float(zone_config.get("wind_exposure_spread", 90.0)))
+        difference = MarineSafetyEngine._bearing_difference(wind_direction, exposure_bearing)
+        exposure = max(0.0, 1.0 - (difference / spread))
+        shadow = float(zone_config.get("wind_shadow_multiplier", 0.72))
+        exposed = float(zone_config.get("wind_exposed_multiplier", 1.28))
+        direction_factor = shadow + ((exposed - shadow) * exposure)
+        return base_multiplier * direction_factor
+
+    @staticmethod
+    def wind_exposure_label(zone_config: dict, wind_direction: float | None) -> str:
+        exposure_bearing = zone_config.get("wind_exposure_bearing")
+        if wind_direction is None or exposure_bearing is None:
+            return "unmodeled"
+
+        difference = MarineSafetyEngine._bearing_difference(wind_direction, exposure_bearing)
+        if difference <= 35:
+            return "exposed"
+        if difference >= 110:
+            return "sheltered"
+        return "partial"
+
+    @staticmethod
+    def _bearing_difference(first: float, second: float) -> float:
+        return abs((first - second + 180) % 360 - 180)
 
     @staticmethod
     def _current_for_window(

@@ -153,6 +153,7 @@ def build_state_payload(
         telemetry["current_knots"],
         telemetry["tide_feet"],
         telemetry["wind_knots"],
+        telemetry.get("wind_direction"),
         zones_config=zone_configs,
     )
     zone_cards = []
@@ -179,6 +180,8 @@ def build_state_payload(
                 },
                 "current": round(zone_data["current"], 2),
                 "wind": round(zone_data["wind"], 1),
+                "wind_direction": zone_data.get("wind_direction"),
+                "wind_exposure": zone_data.get("wind_exposure"),
                 "tide": round(zone_data["tide"], 1),
                 "kayak": kayak,
                 "fish": fish,
@@ -188,6 +191,7 @@ def build_state_payload(
     windows = engine.build_forecast_windows(
         forecast.get("predictions", []),
         telemetry["wind_knots"],
+        telemetry.get("wind_direction"),
         wind_predictions=forecast.get("wind_predictions", []),
         current_predictions=forecast.get("current_predictions", []),
         current_source=forecast.get("sources", {}).get("current", "derived"),
@@ -197,6 +201,7 @@ def build_state_payload(
     timeline = engine.build_hourly_timeline(
         forecast.get("predictions", []),
         telemetry["wind_knots"],
+        telemetry.get("wind_direction"),
         wind_predictions=forecast.get("wind_predictions", []),
         current_predictions=forecast.get("current_predictions", []),
         current_source=forecast.get("sources", {}).get("current", "derived"),

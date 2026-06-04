@@ -83,8 +83,8 @@ class NoaaMarineClientForecastTests(unittest.TestCase):
         end = start + timedelta(hours=2)
         payload = {
             "hourly": [
-                {"dt": int(datetime(2026, 5, 30, 8).timestamp()), "wind_speed": 10.0},
-                {"dt": int(datetime(2026, 5, 30, 9).timestamp()), "wind_speed": 12.0},
+                {"dt": int(datetime(2026, 5, 30, 8).timestamp()), "wind_speed": 10.0, "wind_deg": 180},
+                {"dt": int(datetime(2026, 5, 30, 9).timestamp()), "wind_speed": 12.0, "wind_deg": 210},
                 {"dt": int(datetime(2026, 5, 30, 12).timestamp()), "wind_speed": 20.0},
             ]
         }
@@ -95,6 +95,7 @@ class NoaaMarineClientForecastTests(unittest.TestCase):
         self.assertIsNone(wind["fallback_reason"])
         self.assertEqual(len(wind["predictions"]), 2)
         self.assertAlmostEqual(wind["predictions"][0]["wind_knots"], 8.68976)
+        self.assertEqual(wind["predictions"][0]["wind_direction"], 180.0)
 
     def test_parse_wind_forecast_payload_marks_missing_hourly_data(self):
         client = NoaaMarineClient()
@@ -119,6 +120,7 @@ class NoaaMarineClientTelemetryTests(unittest.TestCase):
             tide_json={"data": [{"v": "6.2"}]},
             current_json={"data": []},
             live_wind=5.0,
+            live_wind_direction=190.0,
             current_predictions=[{"time": datetime.now(), "speed": 1.3, "dir": 150.0}],
         )
 
@@ -130,6 +132,7 @@ class NoaaMarineClientTelemetryTests(unittest.TestCase):
         self.assertEqual(result["tide_feet"], 6.2)
         self.assertEqual(result["current_knots"], 1.3)
         self.assertEqual(result["current_direction"], 150.0)
+        self.assertEqual(result["wind_direction"], 190.0)
 
     def test_missing_tide_and_current_degrade_independently_to_seed(self):
         client = NoaaMarineClient()

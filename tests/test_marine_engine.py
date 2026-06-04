@@ -30,6 +30,35 @@ class MarineSafetyEngineTests(unittest.TestCase):
         self.assertAlmostEqual(zones["kopachuck"]["wind"], 9.5)
         self.assertEqual(len(zones), len(ZONES))
 
+    def test_zone_telemetry_adjusts_wind_for_exposed_direction(self):
+        zone_config = {
+            "test_spot": {
+                "title": "TEST SPOT",
+                "current_multiplier": 1.0,
+                "wind_multiplier": 1.0,
+                "wind_exposure_bearing": 180,
+            }
+        }
+
+        exposed = self.engine.get_zone_telemetry(
+            base_current=1.0,
+            base_tide=6.0,
+            base_wind=10.0,
+            base_wind_direction=180,
+            zones_config=zone_config,
+        )
+        sheltered = self.engine.get_zone_telemetry(
+            base_current=1.0,
+            base_tide=6.0,
+            base_wind=10.0,
+            base_wind_direction=0,
+            zones_config=zone_config,
+        )
+
+        self.assertGreater(exposed["test_spot"]["wind"], sheltered["test_spot"]["wind"])
+        self.assertEqual(exposed["test_spot"]["wind_exposure"], "exposed")
+        self.assertEqual(sheltered["test_spot"]["wind_exposure"], "sheltered")
+
     def test_purdy_kayaking_marks_fast_current_dangerous(self):
         result = self.engine.evaluate_kayaking(
             zone="purdy_bridge",
@@ -165,20 +194,32 @@ class MarineSafetyEngineTests(unittest.TestCase):
             {"time": start + timedelta(hours=2), "tide_feet": 4.0},
         ]
         wind_predictions = [
-            {"time": start + timedelta(minutes=30), "wind_knots": 20.0},
-            {"time": start + timedelta(hours=1, minutes=30), "wind_knots": 4.0},
+            {"time": start + timedelta(minutes=30), "wind_knots": 20.0, "wind_direction": 180.0},
+            {"time": start + timedelta(hours=1, minutes=30), "wind_knots": 4.0, "wind_direction": 0.0},
         ]
+        zones_config = {
+            "test_spot": {
+                "title": "TEST SPOT",
+                "current_multiplier": 1.0,
+                "wind_multiplier": 1.0,
+                "wind_exposure_bearing": 180,
+            }
+        }
 
         windows = self.engine.build_forecast_windows(
             tide_predictions=tide_predictions,
             wind_knots=6.0,
+            wind_direction=90.0,
             wind_predictions=wind_predictions,
             wind_source="live",
             max_windows_per_activity=1,
+            zones_config=zones_config,
         )
 
         self.assertTrue(all(window["wind_source"] == "live" for window in windows))
         self.assertTrue(any(window["wind"] != 6.0 for window in windows))
+        self.assertIn(180.0, {window["wind_direction"] for window in windows})
+        self.assertIn("exposed", {window["wind_exposure"] for window in windows})
 
     def test_forecast_windows_prefer_noaa_current_predictions(self):
         start = datetime(2026, 5, 30, 6)

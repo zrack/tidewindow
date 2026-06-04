@@ -50,6 +50,7 @@ class NoaaMarineClient:
             "current_direction": SEEDED_CURRENT_DIRECTION,
             "phase": "Flood (South) [SEEDED]",
             "wind_knots": wind_override if wind_override is not None else DEFAULT_WIND_KNOTS,
+            "wind_direction": None,
             "sources": {
                 "tide": "seed",
                 "current": "seed",
@@ -93,11 +94,14 @@ class NoaaMarineClient:
 
                 # Parse wind if live endpoint was hit
                 live_wind = None
+                live_wind_direction = None
                 if owm_active and len(responses) == 3:
                     owm_json = await self._safe_json(responses[2])
                     if owm_json.get("cod") == 200:
                         # OpenWeather returns wind speed in mph; convert to knots (1 mph = 0.868976 knots)
                         live_wind = float(owm_json.get("wind", {}).get("speed", 0)) * 0.869
+                        raw_direction = owm_json.get("wind", {}).get("deg")
+                        live_wind_direction = float(raw_direction) if raw_direction is not None else None
 
                 # The configured current station may be a harmonic prediction
                 # station with no real-time sensor, so the real-time currents
@@ -107,7 +111,13 @@ class NoaaMarineClient:
                 if not (isinstance(current_json, dict) and current_json.get("data")):
                     current_predictions = await self._fetch_current_predictions(session)
 
-                return self._parse_payload(tide_json, current_json, live_wind, current_predictions)
+                return self._parse_payload(
+                    tide_json,
+                    current_json,
+                    live_wind,
+                    current_predictions,
+                    live_wind_direction=live_wind_direction,
+                )
 
             except Exception as e:
                 logging.warning("Telemetry fetch failed: %s", e)
@@ -456,6 +466,7 @@ class NoaaMarineClient:
         current_json: dict,
         live_wind: float = None,
         current_predictions: list | None = None,
+        live_wind_direction: float | None = None,
     ) -> dict:
         # Default wind if the live fetch didn't return a value.
         final_wind = live_wind if live_wind is not None else DEFAULT_WIND_KNOTS
@@ -524,6 +535,7 @@ class NoaaMarineClient:
                 "current_bin_depth_ft": self.current_bin_depth_ft,
                 "phase": phase,
                 "wind_knots": final_wind,
+                "wind_direction": live_wind_direction,
                 "sources": {
                     "tide": tide_source,
                     "current": current_source,
@@ -598,6 +610,7 @@ class NoaaMarineClient:
                         {
                             "time": forecast_time,
                             "wind_knots": float(item["wind_speed"]) * 0.868976,
+                            "wind_direction": float(item["wind_deg"]) if item.get("wind_deg") is not None else None,
                         }
                     )
 

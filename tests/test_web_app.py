@@ -13,6 +13,7 @@ def live_telemetry():
         "current_knots": 1.1,
         "tide_feet": 5.2,
         "wind_knots": 4.0,
+        "wind_direction": 190.0,
         "sources": {"tide": "live", "current": "predicted", "wind": "live"},
         "fallback_reason": None,
         "updated_at": "now",
@@ -24,6 +25,7 @@ def seed_telemetry():
         "current_knots": 1.85,
         "tide_feet": 5.4,
         "wind_knots": 6.5,
+        "wind_direction": None,
         "sources": {"tide": "seed", "current": "seed", "wind": "seed"},
         "fallback_reason": "telemetry fetch failed",
         "updated_at": "now",
@@ -39,7 +41,8 @@ def live_forecast():
     return {
         "predictions": predictions,
         "wind_predictions": [
-            {"time": point["time"], "wind_knots": 4.0} for point in predictions
+            {"time": point["time"], "wind_knots": 4.0, "wind_direction": 190.0}
+            for point in predictions
         ],
         "current_predictions": [
             {"time": point["time"], "speed": 1.0 + index * 0.1, "dir": 150.0}
@@ -134,6 +137,10 @@ class WebAppTests(unittest.TestCase):
         self.assertIsInstance(payload["forecast"]["current_predictions"][0]["time"], str)
         self.assertEqual(payload["windows"][0]["current_source"], "predicted")
         self.assertEqual(payload["timeline"][0]["current_source"], "predicted")
+        self.assertEqual(payload["zones"][0]["wind_direction"], 190.0)
+        self.assertIn(payload["zones"][0]["wind_exposure"], {"exposed", "partial", "sheltered"})
+        self.assertEqual(payload["windows"][0]["wind_direction"], 190.0)
+        self.assertEqual(payload["timeline"][0]["zones"][payload["zones"][0]["id"]]["wind_direction"], 190.0)
 
     def test_api_regions_returns_region_picker_metadata(self):
         payload = asyncio.run(web_app.api_regions())
