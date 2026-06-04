@@ -79,8 +79,29 @@ def visible_spots_for_region(region_id: str = DEFAULT_REGION_ID, limit: int | No
     it uses the region's default spot limit.
     """
     region = get_region(region_id)
+    max_spots = len(region["spot_ids"])
     spot_limit = region["default_spot_limit"] if limit is None else max(0, int(limit))
+    spot_limit = min(spot_limit, max_spots)
     return ranked_spots_for_region(region_id)[:spot_limit]
+
+
+def region_summaries() -> list[dict]:
+    """Returns public metadata for region/place selection controls."""
+    summaries = []
+    for region_id in REGIONS:
+        region = get_region(region_id)
+        summaries.append(
+            {
+                "id": region["id"],
+                "name": region["name"],
+                "type": region["type"],
+                "center": region["center"],
+                "default_zoom": region["default_zoom"],
+                "default_spot_limit": region["default_spot_limit"],
+                "spot_count": len(region["spot_ids"]),
+            }
+        )
+    return summaries
 
 
 def zone_configs_for_region(region_id: str = DEFAULT_REGION_ID, limit: int | None = None) -> dict:

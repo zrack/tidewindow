@@ -132,6 +132,30 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(payload["windows"][0]["current_source"], "predicted")
         self.assertEqual(payload["timeline"][0]["current_source"], "predicted")
 
+    def test_api_regions_returns_region_picker_metadata(self):
+        payload = asyncio.run(web_app.api_regions())
+
+        self.assertEqual(payload["default_region"], DEFAULT_REGION_ID)
+        self.assertEqual(payload["regions"][0]["id"], DEFAULT_REGION_ID)
+        self.assertEqual(payload["regions"][0]["name"], "Gig Harbor")
+        self.assertEqual(payload["regions"][0]["default_spot_limit"], 10)
+        self.assertEqual(payload["regions"][0]["spot_count"], len(ALL_ZONES))
+
+    def test_api_state_can_limit_region_spots(self):
+        self._use_cache(lambda: StubClient(live_telemetry(), live_forecast()))
+        payload = asyncio.run(web_app.api_state(region=DEFAULT_REGION_ID, limit=10))
+
+        self.assertEqual(len(payload["zones"]), 10)
+        self.assertEqual(payload["config"]["region"]["id"], DEFAULT_REGION_ID)
+        self.assertEqual(payload["config"]["region"]["visible_spot_limit"], 10)
+        self.assertEqual(
+            [zone["id"] for zone in payload["zones"]],
+            list(zone_configs_for_region(DEFAULT_REGION_ID, limit=10).keys()),
+        )
+        returned_ids = {zone["id"] for zone in payload["zones"]}
+        self.assertTrue(all(window["zone_id"] in returned_ids for window in payload["windows"]))
+        self.assertTrue(all(set(item["zones"]).issubset(returned_ids) for item in payload["timeline"]))
+
     def test_api_state_includes_cache_metadata_and_data_age(self):
         self._use_cache(lambda: StubClient(live_telemetry(), live_forecast()))
         payload = asyncio.run(web_app.api_state())
@@ -196,6 +220,7 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(payload["zones"], len(ALL_ZONES))
         self.assertEqual(payload["default_zones"], len(ZONES))
         self.assertEqual(payload["optional_zones"], len(OPTIONAL_ZONES))
+        self.assertEqual(payload["regions"], 1)
         self.assertIn("generated_at", payload)
         self.assertIn("providers", payload)
         self.assertIn("noaa_tide_station", payload["providers"])

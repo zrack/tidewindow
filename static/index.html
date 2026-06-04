@@ -11,7 +11,7 @@
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin=""
     >
-    <link rel="stylesheet" href="/static/styles.css?v=timeline-containment-2-20260604">
+    <link rel="stylesheet" href="/static/styles.css?v=region-controls-20260604">
     <link rel="manifest" href="/static/manifest.webmanifest">
     <meta name="theme-color" content="#0c1418">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -55,6 +55,12 @@
           <button class="filter-button active" type="button" data-filter="All">All</button>
           <button class="filter-button" type="button" data-filter="Kayak">Kayak</button>
           <button class="filter-button" type="button" data-filter="Fish">Fish</button>
+        </div>
+        <div class="region-tools">
+          <select id="region-select" class="location-select" aria-label="Region"></select>
+          <button id="spot-fewer" class="tool-button" type="button">Fewer</button>
+          <span id="spot-limit" class="spot-limit">10 spots</span>
+          <button id="spot-more" class="tool-button" type="button">More</button>
         </div>
         <p id="updated-at" class="updated">Updated when data loads</p>
       </section>
@@ -125,6 +131,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script src="/static/app.js?v=timeline-containment-2-20260604" defer></script>
+    <script src="/static/app.js?v=region-controls-20260604" defer></script>
   </body>
 </html>

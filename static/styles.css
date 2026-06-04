@@ -361,6 +361,24 @@ h2 {
   margin: 22px 0 4px;
 }
 
+.region-tools {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) auto auto auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.spot-limit {
+  min-width: 82px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 .segmented {
   display: inline-grid;
   grid-auto-flow: column;
@@ -1214,6 +1232,11 @@ h2 {
   .segmented {
     width: 100%;
     grid-auto-columns: 1fr;
+  }
+
+  .region-tools {
+    width: 100%;
+    grid-template-columns: 1fr auto auto auto;
   }
 
   .filter-button {

@@ -2,7 +2,7 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -22,7 +22,10 @@ from marine_cache import MarineStateCache
 from marine_engine import MarineSafetyEngine
 from marine_regions import (
     DEFAULT_REGION_ID,
+    get_region,
     default_spot_ids_for_region,
+    region_count,
+    region_summaries,
     zone_configs_for_region,
 )
 from noaa_client import NoaaMarineClient
@@ -68,6 +71,7 @@ async def health():
         "zones": len(ALL_ZONES),
         "default_zones": len(ZONES),
         "optional_zones": len(OPTIONAL_ZONES),
+        "regions": region_count(),
         "forecast_hours": FORECAST_HOURS,
         "refresh_seconds": WEB_REFRESH_INTERVAL_SECONDS,
         "providers": {
@@ -78,19 +82,38 @@ async def health():
     }
 
 
+@app.get("/api/regions")
+async def api_regions():
+    return {
+        "default_region": DEFAULT_REGION_ID,
+        "regions": region_summaries(),
+    }
+
+
 @app.get("/api/state")
-async def api_state():
+async def api_state(region: str = DEFAULT_REGION_ID, limit: int | None = None):
     engine = MarineSafetyEngine()
     telemetry, forecast, cache_meta = await state_cache.get()
-    payload = build_state_payload(engine, telemetry, forecast)
+    payload = build_state_payload(engine, telemetry, forecast, region_id=region, limit=limit)
     payload["cache"] = cache_meta
     return payload
 
 
-def build_state_payload(engine, telemetry: dict, forecast: dict) -> dict:
+def build_state_payload(
+    engine,
+    telemetry: dict,
+    forecast: dict,
+    region_id: str = DEFAULT_REGION_ID,
+    limit: int | None = None,
+) -> dict:
     """Assembles the dashboard payload from telemetry and forecast data."""
-    zone_configs = zone_configs_for_region(DEFAULT_REGION_ID)
-    default_spot_ids = set(default_spot_ids_for_region(DEFAULT_REGION_ID))
+    try:
+        region = get_region(region_id)
+        zone_configs = zone_configs_for_region(region_id, limit=limit)
+        default_spot_ids = set(default_spot_ids_for_region(region_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
     zones = engine.get_zone_telemetry(
         telemetry["current_knots"],
         telemetry["tide_feet"],
@@ -157,6 +180,16 @@ def build_state_payload(engine, telemetry: dict, forecast: dict) -> dict:
             "app": WEB_APP_NAME,
             "refresh_seconds": WEB_REFRESH_INTERVAL_SECONDS,
             "forecast_hours": FORECAST_HOURS,
+            "region": {
+                "id": region["id"],
+                "name": region["name"],
+                "type": region["type"],
+                "center": region["center"],
+                "default_zoom": region["default_zoom"],
+                "default_spot_limit": region["default_spot_limit"],
+                "spot_count": len(region["spot_ids"]),
+                "visible_spot_limit": len(zone_configs),
+            },
         },
         "telemetry": telemetry,
         "forecast": {

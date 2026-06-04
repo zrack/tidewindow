@@ -10,6 +10,7 @@ from marine_regions import (
     get_region,
     optional_spot_ids_for_region,
     ranked_spots_for_region,
+    region_summaries,
     visible_spots_for_region,
     zone_configs_for_region,
 )
@@ -43,6 +44,21 @@ class MarineRegionTests(unittest.TestCase):
         self.assertEqual(len(visible), 10)
         self.assertEqual([spot["id"] for spot in visible], [spot["id"] for spot in ranked[:10]])
         self.assertTrue(all(DEFAULT_REGION_ID in spot["region_ids"] for spot in visible))
+
+    def test_visible_spots_clamps_to_region_size(self):
+        visible = visible_spots_for_region(DEFAULT_REGION_ID, limit=999)
+
+        self.assertEqual(len(visible), len(ALL_ZONES))
+
+    def test_region_summaries_are_public_control_metadata(self):
+        summaries = region_summaries()
+        gig_harbor = summaries[0]
+
+        self.assertEqual(gig_harbor["id"], DEFAULT_REGION_ID)
+        self.assertEqual(gig_harbor["name"], "Gig Harbor")
+        self.assertEqual(gig_harbor["default_spot_limit"], 10)
+        self.assertEqual(gig_harbor["spot_count"], len(ALL_ZONES))
+        self.assertNotIn("provider_context", gig_harbor)
 
     def test_parity_snapshot_documents_current_contract(self):
         snapshot = gig_harbor_parity_snapshot()

@@ -1,4 +1,4 @@
-const CACHE = "tidewindow-v5";
+const CACHE = "tidewindow-v6";
 const SHELL = [
   "/",
   "/static/styles.css",

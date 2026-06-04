@@ -1,10 +1,14 @@
 const storageKeys = {
   filter: "tidewindow.filter",
-  visibleZones: "tidewindow.visibleZones",
+  region: "tidewindow.region",
+  spotLimit: "tidewindow.spotLimit",
 };
 
 const state = {
   data: null,
+  regions: [],
+  regionId: localStorage.getItem(storageKeys.region) || "gig_harbor",
+  spotLimit: Number(localStorage.getItem(storageKeys.spotLimit) || 10),
   filter: localStorage.getItem(storageKeys.filter) || "All",
   autoRefreshMs: 5 * 60 * 1000,
   nextRefreshAt: null,
@@ -104,6 +108,10 @@ const elements = {
   slackEvents: document.querySelector("#slack-events"),
   eventsNote: document.querySelector("#events-note"),
   alerts: document.querySelector("#alerts"),
+  regionSelect: document.querySelector("#region-select"),
+  spotFewer: document.querySelector("#spot-fewer"),
+  spotLimit: document.querySelector("#spot-limit"),
+  spotMore: document.querySelector("#spot-more"),
   locationCount: document.querySelector("#location-count"),
   locationSelect: document.querySelector("#location-select"),
   locationAdd: document.querySelector("#location-add"),
@@ -117,13 +125,48 @@ elements.zoneDialog.addEventListener("click", (event) => {
 });
 elements.locationAdd.addEventListener("click", addSelectedLocation);
 elements.locationReset.addEventListener("click", restoreDefaultLocations);
+elements.regionSelect.addEventListener("change", () => setRegion(elements.regionSelect.value));
+elements.spotFewer.addEventListener("click", () => changeSpotLimit(-5));
+elements.spotMore.addEventListener("click", () => changeSpotLimit(5));
 elements.filterButtons.forEach((button) => {
   button.addEventListener("click", () => setFilter(button.dataset.filter));
 });
 
 setFilter(state.filter, { render: false });
-loadState();
-scheduleAutoRefresh();
+initializeApp();
+
+async function initializeApp() {
+  await loadRegions();
+  await loadState();
+}
+
+async function loadRegions() {
+  try {
+    const response = await fetch("/api/regions");
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
+    const payload = await response.json();
+    state.regions = payload.regions || [];
+    const defaultRegion = payload.default_region || "gig_harbor";
+    if (!state.regions.some((region) => region.id === state.regionId)) {
+      state.regionId = defaultRegion;
+    }
+    const region = selectedRegion();
+    if (!state.spotLimit || state.spotLimit < 1) {
+      state.spotLimit = region?.default_spot_limit || 10;
+    }
+    state.spotLimit = clampSpotLimit(state.spotLimit);
+    saveRegionSelection();
+    renderRegionControls();
+  } catch {
+    state.regions = [{
+      id: "gig_harbor",
+      name: "Gig Harbor",
+      default_spot_limit: 10,
+      spot_count: 10,
+    }];
+    renderRegionControls();
+  }
+}
 
 async function loadState() {
   elements.refresh.disabled = true;
@@ -136,7 +179,7 @@ async function loadState() {
   }
 
   try {
-    const response = await fetch("/api/state");
+    const response = await fetch(stateUrl());
     if (!response.ok) throw new Error(`API returned ${response.status}`);
     state.data = await response.json();
     state.autoRefreshMs = Math.max(30, Number(state.data.config?.refresh_seconds || 300)) * 1000;
@@ -219,22 +262,29 @@ function setFilter(filter, options = {}) {
 
 function initializeVisibleLocations() {
   const allIds = state.data.zones.map((zone) => zone.id);
-  const defaults = state.data.zones.filter((zone) => zone.active_by_default).map((zone) => zone.id);
   let stored = [];
 
   try {
-    stored = JSON.parse(localStorage.getItem(storageKeys.visibleZones) || "[]");
+    stored = JSON.parse(localStorage.getItem(visibleZonesKey()) || "[]");
   } catch {
     stored = [];
   }
 
   const validStored = stored.filter((id) => allIds.includes(id));
-  state.visibleZoneIds = validStored.length ? validStored : defaults;
+  state.visibleZoneIds = validStored.length ? validStored : defaultVisibleZoneIds();
   saveVisibleLocations();
 }
 
+function defaultVisibleZoneIds() {
+  return state.data.zones.map((zone) => zone.id);
+}
+
+function visibleZonesKey() {
+  return `tidewindow.visibleZones.${state.regionId}.${state.spotLimit}`;
+}
+
 function saveVisibleLocations() {
-  localStorage.setItem(storageKeys.visibleZones, JSON.stringify(state.visibleZoneIds));
+  localStorage.setItem(visibleZonesKey(), JSON.stringify(state.visibleZoneIds));
 }
 
 function visibleZones() {
@@ -263,7 +313,7 @@ function hideLocation(zoneId) {
 }
 
 function restoreDefaultLocations() {
-  state.visibleZoneIds = state.data.zones.filter((zone) => zone.active_by_default).map((zone) => zone.id);
+  state.visibleZoneIds = defaultVisibleZoneIds();
   saveVisibleLocations();
   renderLocationDrivenViews();
 }
@@ -306,11 +356,87 @@ function updateRefreshLine(generatedAt = state.data?.generated_at) {
 function renderLocationControls() {
   const visible = visibleZones();
   const available = availableZones();
-  elements.locationCount.textContent = `${visible.length} visible | ${available.length} addable`;
+  elements.locationCount.textContent = `${visible.length} visible | ${available.length} hidden`;
   elements.locationSelect.innerHTML = available.length
     ? available.map((zone) => `<option value="${escapeHtml(zone.id)}">${escapeHtml(zone.title)}</option>`).join("")
-    : `<option value="">All locations are visible</option>`;
+    : `<option value="">All region spots are visible</option>`;
   elements.locationAdd.disabled = !available.length;
+  renderRegionControls();
+}
+
+function selectedRegion() {
+  return state.regions.find((region) => region.id === state.regionId) || state.regions[0] || null;
+}
+
+function clampSpotLimit(value) {
+  const region = selectedRegion();
+  const total = Number(region?.spot_count || value || 10);
+  const limit = Math.max(1, Number(value) || Number(region?.default_spot_limit || 10));
+  return Math.min(limit, total);
+}
+
+function saveRegionSelection() {
+  localStorage.setItem(storageKeys.region, state.regionId);
+  localStorage.setItem(storageKeys.spotLimit, String(state.spotLimit));
+}
+
+function setRegion(regionId) {
+  if (!state.regions.some((region) => region.id === regionId)) return;
+  state.regionId = regionId;
+  state.spotLimit = clampSpotLimit(selectedRegion()?.default_spot_limit || 10);
+  saveRegionSelection();
+  renderRegionControls();
+  loadState();
+}
+
+function changeSpotLimit(delta) {
+  const options = spotLimitOptions();
+  if (!options.length) return;
+
+  const currentLimit = clampSpotLimit(state.spotLimit);
+  const currentIndex = options.findIndex((option) => option >= currentLimit);
+  const optionIndex = currentIndex === -1 ? options.length - 1 : currentIndex;
+  const nextIndex = delta > 0
+    ? Math.min(options.length - 1, optionIndex + 1)
+    : Math.max(0, optionIndex - 1);
+  const nextLimit = options[nextIndex];
+  if (nextLimit === state.spotLimit) return;
+  state.spotLimit = nextLimit;
+  saveRegionSelection();
+  renderRegionControls();
+  loadState();
+}
+
+function spotLimitOptions() {
+  const region = selectedRegion();
+  const total = Number(region?.spot_count || state.spotLimit || 10);
+  const options = [5, 10, 15, 20, total]
+    .filter((option) => option > 0 && option <= total);
+  return [...new Set(options)].sort((a, b) => a - b);
+}
+
+function renderRegionControls() {
+  const region = selectedRegion();
+  if (!region) return;
+
+  elements.regionSelect.innerHTML = state.regions.map((item) => `
+    <option value="${escapeHtml(item.id)}" ${item.id === state.regionId ? "selected" : ""}>${escapeHtml(item.name)}</option>
+  `).join("");
+
+  const total = Number(region.spot_count || state.spotLimit);
+  const options = spotLimitOptions();
+  const visibleLimit = Math.min(state.spotLimit, total);
+  elements.spotLimit.textContent = `${visibleLimit} of ${total} spots`;
+  elements.spotFewer.disabled = visibleLimit <= options[0];
+  elements.spotMore.disabled = visibleLimit >= options[options.length - 1];
+}
+
+function stateUrl() {
+  const params = new URLSearchParams({
+    region: state.regionId,
+    limit: String(state.spotLimit),
+  });
+  return `/api/state?${params.toString()}`;
 }
 
 function renderMap() {
