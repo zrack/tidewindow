@@ -1,4 +1,3 @@
-import asyncio
 import os
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +16,7 @@ from marine_config import (
     WEB_REFRESH_INTERVAL_SECONDS,
     ZONES,
 )
+from marine_cache import MarineStateCache
 from marine_engine import MarineSafetyEngine
 from noaa_client import NoaaMarineClient
 
@@ -27,6 +27,12 @@ APP_VERSION = "0.1.0"
 
 app = FastAPI(title=WEB_APP_NAME, version=APP_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# Cache upstream marine state so reloads and multiple tabs don't each hit
+# NOAA/OpenWeather, and so a brief upstream outage serves the last good
+# reading instead of static seed data. Resolves NoaaMarineClient lazily so
+# tests can patch it.
+state_cache = MarineStateCache(WEB_REFRESH_INTERVAL_SECONDS, lambda: NoaaMarineClient())
 
 
 @app.get("/")
@@ -56,13 +62,15 @@ async def health():
 
 @app.get("/api/state")
 async def api_state():
-    client = NoaaMarineClient()
     engine = MarineSafetyEngine()
-    telemetry, forecast = await asyncio.gather(
-        client.fetch_telemetry(),
-        client.fetch_forecast(),
-    )
+    telemetry, forecast, cache_meta = await state_cache.get()
+    payload = build_state_payload(engine, telemetry, forecast)
+    payload["cache"] = cache_meta
+    return payload
 
+
+def build_state_payload(engine, telemetry: dict, forecast: dict) -> dict:
+    """Assembles the dashboard payload from telemetry and forecast data."""
     zones = engine.get_zone_telemetry(
         telemetry["current_knots"],
         telemetry["tide_feet"],

@@ -244,7 +244,12 @@ function renderSummary() {
 
   const telemetrySources = telemetry.sources || {};
   const forecastSources = forecast.sources || {};
-  elements.sourceLine.textContent = sourceHeadline(telemetrySources, forecastSources);
+  const cache = state.data.cache || {};
+  const stale = Boolean(cache.telemetry_stale || cache.forecast_stale);
+  elements.sourceLine.textContent = stale
+    ? "Showing last good data"
+    : sourceHeadline(telemetrySources, forecastSources);
+  elements.sourceLine.className = stale ? "status-yellow" : "";
   elements.sourceNote.innerHTML = dataStatusRows(telemetry, forecast);
   updateRefreshLine(generated_at);
 }
@@ -598,8 +603,8 @@ function dataStatusRows(telemetry, forecast) {
   const telemetrySources = telemetry.sources || {};
   const forecastSources = forecast.sources || {};
   const rows = [
-    statusRow("Now", telemetrySources, telemetry.fallback_reason),
-    statusRow("Forecast", forecastSources, forecast.fallback_reason || forecast.wind_fallback_reason),
+    statusRow("Now", telemetrySources, telemetry.fallback_reason, telemetry.age_seconds, telemetry.stale),
+    statusRow("Forecast", forecastSources, forecast.fallback_reason || forecast.wind_fallback_reason, forecast.age_seconds, forecast.stale),
   ];
 
   const notices = [
@@ -615,14 +620,29 @@ function dataStatusRows(telemetry, forecast) {
   return rows.join("");
 }
 
-function statusRow(label, sources, reason) {
-  const health = reason ? "yellow" : Object.values(sources).includes("seed") || Object.values(sources).includes("fallback") ? "yellow" : "green";
+function statusRow(label, sources, reason, ageSeconds, stale) {
+  const health = stale || reason ? "yellow" : Object.values(sources).includes("seed") || Object.values(sources).includes("fallback") ? "yellow" : "green";
+  const ageText = ageSeconds == null ? "" : formatAge(ageSeconds);
+  const ageLabel = [ageText, stale ? "last good reading" : ""].filter(Boolean).join(" · ");
   return `
     <div class="source-row">
       <span>${escapeHtml(label)}</span>
-      <strong class="status-${health}">${sourceText(sources)}</strong>
+      <div class="source-value">
+        <strong class="status-${health}">${sourceText(sources)}</strong>
+        ${ageLabel ? `<span class="source-age${stale ? " status-yellow" : ""}">${escapeHtml(ageLabel)}</span>` : ""}
+      </div>
     </div>
   `;
+}
+
+function formatAge(seconds) {
+  const total = Math.max(0, Math.round(Number(seconds) || 0));
+  if (total < 60) return "just now";
+  const minutes = Math.round(total / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder ? `${hours}h ${remainder}m ago` : `${hours}h ago`;
 }
 
 function sourceHeadline(telemetrySources, forecastSources) {

@@ -257,6 +257,18 @@ h2 {
   font-weight: 600;
 }
 
+.source-value {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.source-age {
+  color: var(--muted);
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+}
+
 .source-reason {
   margin-top: 10px;
   padding: 8px 10px;
