@@ -43,20 +43,6 @@ SILVERDALE_PROVIDER_CONTEXT = {
     "weather_lat": "47.6445",
     "weather_lon": "-122.6949",
 }
-CHICO_PROVIDER_CONTEXT = {
-    "tide_station": BREMERTON_TIDE_STATION,
-    "current_station": "PUG1510",
-    "nws_zone": NWS_MARINE_ZONE,
-    "weather_lat": "47.6110",
-    "weather_lon": "-122.7108",
-}
-GORST_PROVIDER_CONTEXT = {
-    "tide_station": BREMERTON_TIDE_STATION,
-    "current_station": "PUG1514",
-    "nws_zone": NWS_MARINE_ZONE,
-    "weather_lat": "47.5237",
-    "weather_lon": "-122.7046",
-}
 
 REGIONS = {
     DEFAULT_REGION_ID: {
@@ -143,49 +129,6 @@ REGIONS = {
             "port_washington_narrows",
         ),
         "provider_context": SILVERDALE_PROVIDER_CONTEXT,
-    },
-    "chico": {
-        "id": "chico",
-        "name": "Chico",
-        "type": "city",
-        "center": {"lat": 47.6110, "lon": -122.7108},
-        "default_zoom": 12,
-        "default_spot_limit": 10,
-        "spot_ids": (
-            "chico_bay_north",
-            "chico_creek_estuary",
-            "dyes_inlet_west_shore",
-            "erlands_point",
-            "oyster_bay_bremerton",
-            "phinney_bay",
-            "silverdale_waterfront_park",
-            "old_town_silverdale",
-            "tracyton_beach",
-            "rocky_point_bremerton",
-        ),
-        "provider_context": CHICO_PROVIDER_CONTEXT,
-    },
-    "gorst": {
-        "id": "gorst",
-        "name": "Gorst",
-        "type": "city",
-        "center": {"lat": 47.5237, "lon": -122.7046},
-        "default_zoom": 12,
-        "default_spot_limit": 10,
-        "spot_ids": (
-            "gorst_creek_delta",
-            "sinclair_inlet_head",
-            "ross_point",
-            "sinclair_inlet_south_shore",
-            "annapolis_foot_ferry",
-            "port_orchard_waterfront",
-            "bremerton_marina",
-            "oyster_bay_bremerton",
-            "phinney_bay",
-            "rocky_point_bremerton",
-            "rich_passage_south_shore",
-        ),
-        "provider_context": GORST_PROVIDER_CONTEXT,
     },
 }
 

@@ -147,8 +147,8 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("port_orchard", {region["id"] for region in payload["regions"]})
         self.assertIn("bremerton", {region["id"] for region in payload["regions"]})
         self.assertIn("silverdale", {region["id"] for region in payload["regions"]})
-        self.assertIn("chico", {region["id"] for region in payload["regions"]})
-        self.assertIn("gorst", {region["id"] for region in payload["regions"]})
+        self.assertNotIn("chico", {region["id"] for region in payload["regions"]})
+        self.assertNotIn("gorst", {region["id"] for region in payload["regions"]})
 
     def test_api_state_can_limit_region_spots(self):
         self._use_cache(lambda: StubClient(live_telemetry(), live_forecast()))

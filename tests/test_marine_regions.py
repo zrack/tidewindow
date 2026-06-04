@@ -67,8 +67,6 @@ class MarineRegionTests(unittest.TestCase):
             "port_orchard": "Port Orchard",
             "bremerton": "Bremerton",
             "silverdale": "Silverdale",
-            "chico": "Chico",
-            "gorst": "Gorst",
         }
 
         summaries = {region["id"]: region for region in region_summaries()}
@@ -87,8 +85,6 @@ class MarineRegionTests(unittest.TestCase):
             "port_orchard": "PUG1514",
             "bremerton": "PUG1510",
             "silverdale": "PUG1510",
-            "chico": "PUG1510",
-            "gorst": "PUG1514",
         }
 
         for region_id, current_station in expected_current_stations.items():
@@ -98,6 +94,12 @@ class MarineRegionTests(unittest.TestCase):
                 self.assertEqual(context["current_station"], current_station)
                 self.assertIn("weather_lat", context)
                 self.assertIn("weather_lon", context)
+
+    def test_places_without_station_context_are_not_selectable_regions(self):
+        for region_id in ("chico", "gorst"):
+            with self.subTest(region=region_id):
+                with self.assertRaisesRegex(ValueError, "Unknown TideWindow region"):
+                    get_region(region_id)
 
     def test_parity_snapshot_documents_current_contract(self):
         snapshot = gig_harbor_parity_snapshot()

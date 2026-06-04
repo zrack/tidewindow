@@ -26,7 +26,7 @@ The full reliability phase and the first polish/safety/accuracy features are don
 - **Installable PWA with offline last-state** — manifest + service worker cache the app shell and last `/api/state`. _(df35a54)_
 - **NOAA predicted current in forecast windows** — best-window and timeline scoring now prefer NOAA `currents_predictions`; tide-slope-derived current remains the fallback. _(current work)_
 - **Confidence downgrade for stale last-good data** — source age still shows the detail, and the confidence note now reflects last-good staleness. _(current work)_
-- **Regional place selector foundation** — Gig Harbor, Port Orchard, Bremerton, Silverdale, Chico, and Gorst now have selectable city catalogs, top-10 spot limits, map fitting, and region-scoped NOAA/OpenWeather provider context. _(current work)_
+- **Regional place selector foundation** — Gig Harbor, Port Orchard, Bremerton, and Silverdale now have selectable city catalogs, top-10 spot limits, map fitting, and region-scoped NOAA/OpenWeather provider context. Chico and Gorst remain nearby spot references, not selectable regions, until they have station-quality provider context. _(current work)_
 
 Earlier: the refined marine-dark UI redesign _(131c7dc)_ and this roadmap.
 

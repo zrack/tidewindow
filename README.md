@@ -2,7 +2,7 @@
 
 TideWindow is a terminal and web marine-conditions dashboard for the Gig Harbor, Tacoma Narrows, and central Kitsap area. It combines NOAA tide/current observations and predictions with optional OpenWeather wind data, then scores local spots for kayaking and fly fishing. It also highlights the best kayak and fishing windows across a 72-hour planning window.
 
-The web dashboard adds a Leaflet/OpenStreetMap area map, an hourly tide/wind/activity timeline, a remembered activity mode, and region-aware spot controls. You can choose Gig Harbor, Port Orchard, Bremerton, Silverdale, Chico, or Gorst, show fewer or more nearby spots, and hide individual spots you do not use.
+The web dashboard adds a Leaflet/OpenStreetMap area map, an hourly tide/wind/activity timeline, a remembered activity mode, and region-aware spot controls. You can choose Gig Harbor, Port Orchard, Bremerton, or Silverdale, show fewer or more nearby spots, and hide individual spots you do not use.
 
 ## Visuals
 

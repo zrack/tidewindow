@@ -95,7 +95,8 @@ Phase 2: Region picker and spot count controls — shipped
 
 Phase 3: Puget Sound catalog expansion — started
 
-- Added Port Orchard, Bremerton, Silverdale, Chico, and Gorst as selectable city regions.
+- Added Port Orchard, Bremerton, and Silverdale as selectable city regions with station-backed provider context.
+- Skipped Chico and Gorst as selectable regions for now because they do not have their own station-quality provider context in the catalog.
 - Started with manually curated Kitsap spots and priorities.
 - Wired each region to tide/current/weather provider context so station choices can vary by place.
 - Continue with Aberdeen and broader Puget Sound marine areas.
