@@ -203,18 +203,128 @@ class NoaaMarineClient:
                 else:
                     responses = [await tide_task]
 
-                tide_json = await responses[0].json()
-                wind_json = await responses[1].json() if wind_task else None
+                tide_json = await self._safe_json(responses[0])
+                wind_json = await self._safe_json(responses[1]) if wind_task else None
 
-            forecast = self._parse_forecast_payload(tide_json, now, end)
-            wind_forecast = self._parse_wind_forecast_payload(wind_json, now, end)
-            forecast["wind_predictions"] = wind_forecast["predictions"]
-            forecast["sources"]["wind"] = wind_forecast["source"]
-            forecast["wind_fallback_reason"] = wind_forecast["fallback_reason"]
+                forecast = self._parse_forecast_payload(tide_json, now, end)
+                wind_forecast = self._parse_wind_forecast_payload(wind_json, now, end)
+                forecast["wind_predictions"] = wind_forecast["predictions"]
+                forecast["sources"]["wind"] = wind_forecast["source"]
+                forecast["wind_fallback_reason"] = wind_forecast["fallback_reason"]
+
+                # High/low tide and slack/max-current events for the planning
+                # table. These are best-effort: a failure leaves empty lists
+                # rather than discarding the hourly forecast.
+                forecast["tide_events"] = await self._fetch_tide_events(session, now, end)
+                forecast["slack_events"] = await self._fetch_slack_events(session, now, end)
             return forecast
         except Exception as e:
             logging.warning("Forecast fetch failed: %s", e)
             return self.get_seed_forecast(hours=hours, reason=str(e))
+
+    async def _fetch_tide_events(self, session, start: datetime, end: datetime) -> list:
+        """Fetches NOAA high/low tide predictions for the planning window."""
+        params = {
+            "begin_date": start.strftime("%Y%m%d %H:%M"),
+            "end_date": end.strftime("%Y%m%d %H:%M"),
+            "station": self.tide_station,
+            "product": "predictions",
+            "datum": "MLLW",
+            "interval": "hilo",
+            "time_zone": "lst_ldt",
+            "units": "english",
+            "format": "json",
+        }
+        try:
+            response = await session.get(self.NOAA_URL, params=params)
+            payload = await self._safe_json(response)
+            return self._parse_tide_events(payload, start, end)
+        except Exception as e:
+            logging.warning("Tide event fetch failed: %s", e)
+            return []
+
+    async def _fetch_slack_events(self, session, start: datetime, end: datetime) -> list:
+        """Fetches NOAA slack and max-current events for the planning window."""
+        params = {
+            "begin_date": start.strftime("%Y%m%d %H:%M"),
+            "end_date": end.strftime("%Y%m%d %H:%M"),
+            "station": self.current_station,
+            "product": "currents_predictions",
+            "time_zone": "lst_ldt",
+            "interval": "MAX_SLACK",
+            "units": "english",
+            "vel_type": "speed_dir",
+            "format": "json",
+        }
+        try:
+            response = await session.get(self.NOAA_URL, params=params)
+            payload = await self._safe_json(response)
+            return self._parse_slack_events(payload, start, end)
+        except Exception as e:
+            logging.warning("Slack event fetch failed: %s", e)
+            return []
+
+    @staticmethod
+    def _parse_tide_events(payload: dict | None, start: datetime, end: datetime) -> list:
+        """Normalizes NOAA hilo predictions into high/low tide events."""
+        if not isinstance(payload, dict):
+            return []
+        labels = {"H": "High", "L": "Low", "HH": "Higher High", "LL": "Lower Low"}
+        events = []
+        for item in payload.get("predictions", []):
+            timestamp = item.get("t")
+            if not timestamp:
+                continue
+            try:
+                event_time = datetime.strptime(timestamp, "%Y-%m-%d %H:%M")
+            except (ValueError, TypeError):
+                continue
+            if not (start <= event_time <= end):
+                continue
+            try:
+                tide_feet = round(float(item["v"]), 1)
+            except (KeyError, ValueError, TypeError):
+                continue
+            events.append(
+                {
+                    "time": event_time,
+                    "type": labels.get(item.get("type"), "Tide"),
+                    "tide_feet": tide_feet,
+                }
+            )
+        return events
+
+    @staticmethod
+    def _parse_slack_events(payload: dict | None, start: datetime, end: datetime) -> list:
+        """Normalizes NOAA MAX_SLACK predictions into slack/max-current events."""
+        if not isinstance(payload, dict):
+            return []
+        labels = {"slack": "Slack", "flood": "Max Flood", "ebb": "Max Ebb"}
+        events = []
+        for item in payload.get("current_predictions", {}).get("cp", []):
+            timestamp = item.get("Time")
+            if not timestamp:
+                continue
+            try:
+                event_time = datetime.strptime(timestamp, "%Y-%m-%d %H:%M")
+            except (ValueError, TypeError):
+                continue
+            if not (start <= event_time <= end):
+                continue
+            kind = str(item.get("Type", "")).lower()
+            raw_speed = item.get("Speed", item.get("Velocity_Major"))
+            try:
+                speed = round(abs(float(raw_speed)), 2) if raw_speed is not None else 0.0
+            except (ValueError, TypeError):
+                speed = 0.0
+            events.append(
+                {
+                    "time": event_time,
+                    "type": labels.get(kind, "Current"),
+                    "speed": speed,
+                }
+            )
+        return events
 
     def get_seed_forecast(self, hours: int = FORECAST_HOURS, reason="forecast unavailable") -> dict:
         """Builds a minimal forecast if NOAA predictions are unavailable."""
@@ -231,6 +341,8 @@ class NoaaMarineClient:
         return {
             "predictions": predictions,
             "wind_predictions": [],
+            "tide_events": [],
+            "slack_events": [],
             "sources": {"tide": "seed", "current": "derived", "wind": "fallback"},
             "fallback_reason": reason,
             "wind_fallback_reason": "using current/fallback wind for all windows",

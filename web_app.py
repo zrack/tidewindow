@@ -139,6 +139,8 @@ def build_state_payload(engine, telemetry: dict, forecast: dict) -> dict:
             **forecast,
             "predictions": _serialize_points(forecast.get("predictions", [])),
             "wind_predictions": _serialize_points(forecast.get("wind_predictions", [])),
+            "tide_events": _serialize_points(forecast.get("tide_events", [])),
+            "slack_events": _serialize_points(forecast.get("slack_events", [])),
         },
         "zones": zone_cards,
         "windows": [_serialize_window(window) for window in windows],

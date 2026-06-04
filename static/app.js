@@ -100,6 +100,9 @@ const elements = {
   mapMode: document.querySelector("#map-mode"),
   timelineStrip: document.querySelector("#timeline-strip"),
   timelineCount: document.querySelector("#timeline-count"),
+  tideEvents: document.querySelector("#tide-events"),
+  slackEvents: document.querySelector("#slack-events"),
+  eventsNote: document.querySelector("#events-note"),
   locationCount: document.querySelector("#location-count"),
   locationSelect: document.querySelector("#location-select"),
   locationAdd: document.querySelector("#location-add"),
@@ -125,6 +128,8 @@ async function loadState() {
   elements.refresh.disabled = true;
   elements.windowsGrid.innerHTML = `<div class="loading">Loading forecast windows...</div>`;
   elements.timelineStrip.innerHTML = `<div class="loading">Loading hourly timeline...</div>`;
+  if (elements.tideEvents) elements.tideEvents.innerHTML = `<div class="loading">Loading tide events...</div>`;
+  if (elements.slackEvents) elements.slackEvents.innerHTML = `<div class="loading">Loading current events...</div>`;
   if (!state.leafletMap) {
     elements.zoneMap.innerHTML = `<div class="loading">Loading map...</div>`;
   }
@@ -152,6 +157,7 @@ function renderDashboard() {
   renderSummary();
   renderLocationControls();
   renderMap();
+  renderEvents();
   renderTimeline();
   renderWindows();
   drawTideChart();
@@ -344,6 +350,56 @@ function initializeLeafletMap() {
     maxZoom: 18,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(state.leafletMap);
+}
+
+function renderEvents() {
+  if (!elements.tideEvents || !elements.slackEvents) return;
+
+  const forecast = state.data.forecast || {};
+  const tideEvents = (forecast.tide_events || []).slice(0, 6);
+  const slackEvents = (forecast.slack_events || []).slice(0, 6);
+
+  elements.tideEvents.innerHTML = tideEvents.length
+    ? tideEvents.map((event) => eventRow({
+        time: event.time,
+        label: event.type,
+        value: `${Number(event.tide_feet).toFixed(1)} ft`,
+        icon: event.type === "Low" ? "▼" : "▲",
+        tone: event.type === "Low" ? "low" : "high",
+      })).join("")
+    : `<div class="empty">No tide events available.</div>`;
+
+  elements.slackEvents.innerHTML = slackEvents.length
+    ? slackEvents.map((event) => eventRow({
+        time: event.time,
+        label: event.type,
+        value: event.type === "Slack" ? "slack" : `${Number(event.speed).toFixed(1)} kt`,
+        icon: event.type === "Slack" ? "○" : "→",
+        tone: event.type === "Slack" ? "slack" : "current",
+      })).join("")
+    : `<div class="empty">No current events available.</div>`;
+}
+
+function eventRow({ time, label, value, icon, tone }) {
+  return `
+    <div class="event-row">
+      <span class="event-time">${escapeHtml(formatTime(time))}</span>
+      <span class="event-type event-${escapeHtml(tone)}"><span class="event-icon" aria-hidden="true">${icon}</span>${escapeHtml(label)}</span>
+      <span class="event-value">${escapeHtml(value)}</span>
+      <span class="event-when">${escapeHtml(relativeTime(time))}</span>
+    </div>
+  `;
+}
+
+function relativeTime(value) {
+  const deltaMs = new Date(value).getTime() - Date.now();
+  if (Number.isNaN(deltaMs)) return "";
+  if (deltaMs <= 0) return "now";
+  const minutes = Math.round(deltaMs / 60000);
+  if (minutes < 60) return `in ${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder ? `in ${hours}h ${remainder}m` : `in ${hours}h`;
 }
 
 function renderTimeline() {

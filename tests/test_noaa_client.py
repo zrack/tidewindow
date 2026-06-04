@@ -168,5 +168,55 @@ class NoaaMarineClientTelemetryTests(unittest.TestCase):
         self.assertEqual(NoaaMarineClient._parse_current_predictions({}), [])
 
 
+class NoaaMarineClientEventTests(unittest.TestCase):
+    def test_parse_tide_events_labels_and_filters_window(self):
+        start = datetime(2026, 6, 3, 0, 0)
+        end = start + timedelta(hours=24)
+        payload = {
+            "predictions": [
+                {"t": "2026-06-02 23:00", "v": "10.5", "type": "H"},  # before window
+                {"t": "2026-06-03 03:24", "v": "11.2", "type": "H"},
+                {"t": "2026-06-03 09:48", "v": "-1.3", "type": "L"},
+                {"t": "bad", "v": "5.0", "type": "H"},
+                {"t": "2026-06-04 02:00", "v": "9.0", "type": "H"},  # after window
+            ]
+        }
+
+        events = NoaaMarineClient._parse_tide_events(payload, start, end)
+
+        self.assertEqual(len(events), 2)
+        self.assertEqual(events[0]["type"], "High")
+        self.assertEqual(events[0]["tide_feet"], 11.2)
+        self.assertEqual(events[0]["time"], datetime(2026, 6, 3, 3, 24))
+        self.assertEqual(events[1]["type"], "Low")
+        self.assertEqual(events[1]["tide_feet"], -1.3)
+
+    def test_parse_slack_events_labels_types_and_speeds(self):
+        start = datetime(2026, 6, 3, 0, 0)
+        end = start + timedelta(hours=24)
+        payload = {
+            "current_predictions": {
+                "cp": [
+                    {"Time": "2026-06-03 01:00", "Type": "slack", "Speed": "0.0"},
+                    {"Time": "2026-06-03 04:00", "Type": "flood", "Speed": "2.3"},
+                    {"Time": "2026-06-03 07:30", "Type": "ebb", "Speed": "-1.8"},
+                    {"Time": "2026-06-04 05:00", "Type": "slack", "Speed": "0.0"},
+                ]
+            }
+        }
+
+        events = NoaaMarineClient._parse_slack_events(payload, start, end)
+
+        self.assertEqual([e["type"] for e in events], ["Slack", "Max Flood", "Max Ebb"])
+        self.assertEqual(events[1]["speed"], 2.3)
+        self.assertEqual(events[2]["speed"], 1.8)  # magnitude
+
+    def test_event_parsers_handle_empty_payloads(self):
+        start = datetime(2026, 6, 3)
+        end = start + timedelta(hours=24)
+        self.assertEqual(NoaaMarineClient._parse_tide_events(None, start, end), [])
+        self.assertEqual(NoaaMarineClient._parse_slack_events({}, start, end), [])
+
+
 if __name__ == "__main__":
     unittest.main()
