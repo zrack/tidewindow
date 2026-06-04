@@ -497,6 +497,36 @@ h2 {
   box-shadow: var(--shadow-lg), var(--edge);
 }
 
+.timeline-hour.light-night {
+  background:
+    linear-gradient(180deg, rgba(10, 16, 28, 0.55), rgba(10, 16, 28, 0.2)),
+    var(--panel);
+}
+
+.timeline-hour.light-golden {
+  background:
+    linear-gradient(180deg, rgba(240, 207, 87, 0.10), transparent 70%),
+    var(--panel);
+}
+
+.hour-glyph {
+  margin-right: 6px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.light-night .hour-glyph {
+  color: #8ea2c4;
+}
+
+.light-golden .hour-glyph {
+  color: var(--yellow);
+}
+
+.light-day .hour-glyph {
+  color: var(--cyan);
+}
+
 .status-border-green {
   border-left-color: var(--green);
 }

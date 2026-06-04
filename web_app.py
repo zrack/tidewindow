@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -12,6 +12,8 @@ from marine_config import (
     NOAA_CURRENT_STATION,
     NOAA_TIDE_STATION,
     OPTIONAL_ZONES,
+    WEATHER_LAT,
+    WEATHER_LON,
     WEB_APP_NAME,
     WEB_REFRESH_INTERVAL_SECONDS,
     ZONES,
@@ -19,6 +21,7 @@ from marine_config import (
 from marine_cache import MarineStateCache
 from marine_engine import MarineSafetyEngine
 from noaa_client import NoaaMarineClient
+from sun_times import sun_events
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -146,7 +149,35 @@ def build_state_payload(engine, telemetry: dict, forecast: dict) -> dict:
         "windows": [_serialize_window(window) for window in windows],
         "timeline": [_serialize_window(window) for window in timeline],
         "confidence": confidence,
+        "daylight": build_daylight(),
     }
+
+
+def build_daylight(hours: int = FORECAST_HOURS) -> dict:
+    """Returns sunrise/sunset (and civil dawn/dusk) for each date in the window.
+
+    Keyed by ISO date string so the frontend can shade each timeline hour.
+    Computed locally from the configured coordinates, so it works without any
+    weather API key.
+    """
+    try:
+        lat = float(WEATHER_LAT)
+        lon = float(WEATHER_LON)
+    except (TypeError, ValueError):
+        return {}
+
+    now = datetime.now()
+    end = now + timedelta(hours=hours)
+    daylight = {}
+    day = now.date()
+    while day <= end.date():
+        events = sun_events(lat, lon, day)
+        daylight[day.isoformat()] = {
+            key: (value.isoformat(timespec="minutes") if value else None)
+            for key, value in events.items()
+        }
+        day = day + timedelta(days=1)
+    return daylight
 
 
 def _serialize_points(points: list) -> list:

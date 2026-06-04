@@ -405,7 +405,7 @@ function relativeTime(value) {
 function renderTimeline() {
   const visible = new Set(state.visibleZoneIds);
   const items = (state.data.timeline || []).slice(0, 24);
-  elements.timelineCount.textContent = `${items.length} hours`;
+  elements.timelineCount.textContent = `${items.length} hours${daylightCaption()}`;
 
   if (!items.length) {
     elements.timelineStrip.innerHTML = `<div class="empty">No hourly tide timeline available.</div>`;
@@ -417,16 +417,41 @@ function renderTimeline() {
     const fish = bestTimelineZone(item, "Fish", visible);
     const main = state.filter === "Fish" ? fish : kayak;
     const color = main?.evaluation.color || "yellow";
+    const light = daylightPhase(item.start);
 
     return `
-      <article class="timeline-hour status-border-${color}">
-        <p class="timeline-time">${formatTime(item.start)}</p>
+      <article class="timeline-hour status-border-${color} light-${light}">
+        <p class="timeline-time"><span class="hour-glyph" aria-hidden="true">${light === "night" ? "☾" : "☀"}</span>${formatTime(item.start)}</p>
         <p class="timeline-metric">${item.tide.toFixed(1)} ft | ${item.wind.toFixed(0)} kt</p>
         <p class="timeline-phase">${escapeHtml(item.phase)}</p>
         ${state.filter === "All" ? timelinePair(kayak, fish) : timelineSingle(main, state.filter)}
       </article>
     `;
   }).join("");
+}
+
+function daylightFor(isoTime) {
+  const daylight = state.data.daylight || {};
+  const key = String(isoTime).slice(0, 10);
+  return daylight[key] || null;
+}
+
+function daylightPhase(isoTime) {
+  const day = daylightFor(isoTime);
+  if (!day || !day.sunrise || !day.sunset) return "day";
+  const t = new Date(isoTime).getTime();
+  const sunrise = new Date(day.sunrise).getTime();
+  const sunset = new Date(day.sunset).getTime();
+  if (t < sunrise || t >= sunset) return "night";
+  const goldenMs = 60 * 60 * 1000;
+  if (t < sunrise + goldenMs || t >= sunset - goldenMs) return "golden";
+  return "day";
+}
+
+function daylightCaption() {
+  const day = daylightFor(state.data.timeline?.[0]?.start || state.data.generated_at);
+  if (!day || !day.sunrise || !day.sunset) return "";
+  return ` · ☀ ${formatTime(day.sunrise)}–${formatTime(day.sunset)}`;
 }
 
 function bestTimelineZone(item, activity, visible) {
