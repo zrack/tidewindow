@@ -11,7 +11,13 @@
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin=""
     >
-    <link rel="stylesheet" href="/static/styles.css?v=daylight-20260603">
+    <link rel="stylesheet" href="/static/styles.css?v=weekend-pwa-20260603">
+    <link rel="manifest" href="/static/manifest.webmanifest">
+    <meta name="theme-color" content="#0c1418">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TideWindow">
+    <link rel="apple-touch-icon" href="/static/icon.svg">
   </head>
   <body>
     <main class="app-shell">
@@ -25,6 +31,8 @@
         </button>
       </header>
 
+      <div id="alerts" class="alerts" aria-live="polite" hidden></div>
+
       <section class="summary-grid" aria-label="Current summary">
         <div class="summary-panel confidence-panel">
           <span class="label">Confidence</span>
@@ -37,7 +45,7 @@
           <p id="source-note">NOAA and OpenWeather status will appear here.</p>
         </div>
         <div class="summary-panel tide-visual">
-          <span class="label">Next 24 Hours</span>
+          <span class="label">Tide Outlook</span>
           <canvas id="tide-chart" width="420" height="120" aria-label="Tide forecast chart"></canvas>
         </div>
       </section>
@@ -117,6 +125,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script src="/static/app.js?v=daylight-20260603" defer></script>
+    <script src="/static/app.js?v=weekend-pwa-20260603" defer></script>
   </body>
 </html>

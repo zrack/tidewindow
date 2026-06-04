@@ -9,6 +9,8 @@ from marine_config import (
     FORECAST_HOURS,
     NOAA_CURRENT_STATION,
     NOAA_TIDE_STATION,
+    NWS_MARINE_ZONE,
+    NWS_USER_AGENT,
     SEEDED_CURRENT_DIRECTION,
     SEEDED_CURRENT_KNOTS,
     SEEDED_TIDE_FEET,
@@ -27,6 +29,7 @@ class NoaaMarineClient:
     NOAA_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
     OWM_URL = "https://api.openweathermap.org/data/2.5/weather"
     OWM_ONECALL_URL = "https://api.openweathermap.org/data/3.0/onecall"
+    NWS_ALERTS_URL = "https://api.weather.gov/alerts/active"
     
     def __init__(self):
         self.tide_station = NOAA_TIDE_STATION
@@ -217,6 +220,7 @@ class NoaaMarineClient:
                 # rather than discarding the hourly forecast.
                 forecast["tide_events"] = await self._fetch_tide_events(session, now, end)
                 forecast["slack_events"] = await self._fetch_slack_events(session, now, end)
+                forecast["alerts"] = await self._fetch_marine_alerts(session)
             return forecast
         except Exception as e:
             logging.warning("Forecast fetch failed: %s", e)
@@ -263,6 +267,43 @@ class NoaaMarineClient:
         except Exception as e:
             logging.warning("Slack event fetch failed: %s", e)
             return []
+
+    async def _fetch_marine_alerts(self, session) -> list:
+        """Fetches active NWS marine advisories/warnings for the configured zone."""
+        params = {"zone": NWS_MARINE_ZONE}
+        headers = {"User-Agent": NWS_USER_AGENT, "Accept": "application/geo+json"}
+        try:
+            response = await session.get(self.NWS_ALERTS_URL, params=params, headers=headers)
+            payload = await self._safe_json(response)
+            return self._parse_marine_alerts(payload)
+        except Exception as e:
+            logging.warning("Marine alert fetch failed: %s", e)
+            return []
+
+    @staticmethod
+    def _parse_marine_alerts(payload: dict | None) -> list:
+        """Normalizes NWS active-alert GeoJSON into a compact advisory list."""
+        if not isinstance(payload, dict):
+            return []
+        severity_rank = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3, "Unknown": 4}
+        alerts = []
+        for feature in payload.get("features", []):
+            props = feature.get("properties", {}) if isinstance(feature, dict) else {}
+            event = props.get("event")
+            if not event:
+                continue
+            alerts.append(
+                {
+                    "event": event,
+                    "headline": props.get("headline") or "",
+                    "severity": props.get("severity") or "Unknown",
+                    "urgency": props.get("urgency") or "",
+                    "expires": props.get("expires") or props.get("ends"),
+                    "sender": props.get("senderName") or "",
+                }
+            )
+        alerts.sort(key=lambda item: severity_rank.get(item["severity"], 5))
+        return alerts
 
     @staticmethod
     def _parse_tide_events(payload: dict | None, start: datetime, end: datetime) -> list:
@@ -343,6 +384,7 @@ class NoaaMarineClient:
             "wind_predictions": [],
             "tide_events": [],
             "slack_events": [],
+            "alerts": [],
             "sources": {"tide": "seed", "current": "derived", "wind": "fallback"},
             "fallback_reason": reason,
             "wind_fallback_reason": "using current/fallback wind for all windows",

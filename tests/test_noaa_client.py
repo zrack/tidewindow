@@ -218,5 +218,42 @@ class NoaaMarineClientEventTests(unittest.TestCase):
         self.assertEqual(NoaaMarineClient._parse_slack_events({}, start, end), [])
 
 
+class NoaaMarineClientAlertTests(unittest.TestCase):
+    def test_parse_marine_alerts_extracts_and_sorts_by_severity(self):
+        payload = {
+            "features": [
+                {"properties": {
+                    "event": "Small Craft Advisory",
+                    "headline": "SCA in effect until 9 PM",
+                    "severity": "Moderate",
+                    "urgency": "Expected",
+                    "expires": "2026-06-03T21:00:00-07:00",
+                    "senderName": "NWS Seattle",
+                }},
+                {"properties": {
+                    "event": "Gale Warning",
+                    "headline": "Gale Warning tonight",
+                    "severity": "Severe",
+                    "ends": "2026-06-04T06:00:00-07:00",
+                }},
+                {"properties": {"headline": "no event field"}},  # skipped
+            ]
+        }
+
+        alerts = NoaaMarineClient._parse_marine_alerts(payload)
+
+        self.assertEqual(len(alerts), 2)
+        # Severe sorts ahead of Moderate.
+        self.assertEqual(alerts[0]["event"], "Gale Warning")
+        self.assertEqual(alerts[1]["event"], "Small Craft Advisory")
+        # 'ends' is used when 'expires' is absent.
+        self.assertEqual(alerts[0]["expires"], "2026-06-04T06:00:00-07:00")
+        self.assertEqual(alerts[1]["sender"], "NWS Seattle")
+
+    def test_parse_marine_alerts_handles_empty_payloads(self):
+        self.assertEqual(NoaaMarineClient._parse_marine_alerts(None), [])
+        self.assertEqual(NoaaMarineClient._parse_marine_alerts({"features": []}), [])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,19 @@
+{
+  "name": "TideWindow",
+  "short_name": "TideWindow",
+  "description": "Gig Harbor marine conditions for kayaking and fishing.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#070b0e",
+  "theme_color": "#0c1418",
+  "icons": [
+    {
+      "src": "/static/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

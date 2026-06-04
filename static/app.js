@@ -103,6 +103,7 @@ const elements = {
   tideEvents: document.querySelector("#tide-events"),
   slackEvents: document.querySelector("#slack-events"),
   eventsNote: document.querySelector("#events-note"),
+  alerts: document.querySelector("#alerts"),
   locationCount: document.querySelector("#location-count"),
   locationSelect: document.querySelector("#location-select"),
   locationAdd: document.querySelector("#location-add"),
@@ -154,6 +155,7 @@ async function loadState() {
 }
 
 function renderDashboard() {
+  renderAlerts();
   renderSummary();
   renderLocationControls();
   renderMap();
@@ -161,6 +163,37 @@ function renderDashboard() {
   renderTimeline();
   renderWindows();
   drawTideChart();
+}
+
+function renderAlerts() {
+  if (!elements.alerts) return;
+  const alerts = state.data.alerts || [];
+  if (!alerts.length) {
+    elements.alerts.innerHTML = "";
+    elements.alerts.hidden = true;
+    return;
+  }
+
+  elements.alerts.hidden = false;
+  elements.alerts.innerHTML = alerts.map((alert) => {
+    const tone = alertTone(alert.severity);
+    const until = alert.expires ? `<p class="alert-meta">Until ${escapeHtml(formatDateTime(alert.expires))}</p>` : "";
+    return `
+      <div class="alert alert-${tone}">
+        <span class="alert-icon" aria-hidden="true">⚠</span>
+        <div class="alert-body">
+          <p class="alert-event">${escapeHtml(alert.event || "Marine advisory")}</p>
+          ${alert.headline ? `<p class="alert-headline">${escapeHtml(alert.headline)}</p>` : ""}
+          ${until}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function alertTone(severity) {
+  if (severity === "Extreme" || severity === "Severe") return "red";
+  return "yellow";
 }
 
 function scheduleAutoRefresh() {
@@ -404,7 +437,7 @@ function relativeTime(value) {
 
 function renderTimeline() {
   const visible = new Set(state.visibleZoneIds);
-  const items = (state.data.timeline || []).slice(0, 24);
+  const items = state.data.timeline || [];
   elements.timelineCount.textContent = `${items.length} hours${daylightCaption()}`;
 
   if (!items.length) {
@@ -412,22 +445,54 @@ function renderTimeline() {
     return;
   }
 
-  elements.timelineStrip.innerHTML = items.map((item) => {
-    const kayak = bestTimelineZone(item, "Kayak", visible);
-    const fish = bestTimelineZone(item, "Fish", visible);
-    const main = state.filter === "Fish" ? fish : kayak;
-    const color = main?.evaluation.color || "yellow";
-    const light = daylightPhase(item.start);
+  const order = [];
+  const byDay = new Map();
+  items.forEach((item) => {
+    const key = String(item.start).slice(0, 10);
+    if (!byDay.has(key)) {
+      byDay.set(key, []);
+      order.push(key);
+    }
+    byDay.get(key).push(item);
+  });
 
+  elements.timelineStrip.innerHTML = order.map((key) => {
+    const cards = byDay.get(key).map((item) => timelineCard(item, visible)).join("");
     return `
-      <article class="timeline-hour status-border-${color} light-${light}">
-        <p class="timeline-time"><span class="hour-glyph" aria-hidden="true">${light === "night" ? "☾" : "☀"}</span>${formatTime(item.start)}</p>
-        <p class="timeline-metric">${item.tide.toFixed(1)} ft | ${item.wind.toFixed(0)} kt</p>
-        <p class="timeline-phase">${escapeHtml(item.phase)}</p>
-        ${state.filter === "All" ? timelinePair(kayak, fish) : timelineSingle(main, state.filter)}
-      </article>
+      <div class="timeline-day">
+        <p class="timeline-day-head">${escapeHtml(dayLabel(key))}</p>
+        <div class="timeline-track">${cards}</div>
+      </div>
     `;
   }).join("");
+}
+
+function timelineCard(item, visible) {
+  const kayak = bestTimelineZone(item, "Kayak", visible);
+  const fish = bestTimelineZone(item, "Fish", visible);
+  const main = state.filter === "Fish" ? fish : kayak;
+  const color = main?.evaluation.color || "yellow";
+  const light = daylightPhase(item.start);
+
+  return `
+    <article class="timeline-hour status-border-${color} light-${light}">
+      <p class="timeline-time"><span class="hour-glyph" aria-hidden="true">${light === "night" ? "☾" : "☀"}</span>${formatTime(item.start)}</p>
+      <p class="timeline-metric">${item.tide.toFixed(1)} ft | ${item.wind.toFixed(0)} kt</p>
+      <p class="timeline-phase">${escapeHtml(item.phase)}</p>
+      ${state.filter === "All" ? timelinePair(kayak, fish) : timelineSingle(main, state.filter)}
+    </article>
+  `;
+}
+
+function dayLabel(isoDate) {
+  const date = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return isoDate;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((date - today) / 86400000);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Tomorrow";
+  return date.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
 }
 
 function daylightFor(isoTime) {
@@ -760,6 +825,12 @@ function formatTime(value) {
 
 function formatDateTime(value) {
   return new Date(value).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/service-worker.js").catch(() => {});
+  });
 }
 
 function escapeHtml(value) {

@@ -10,13 +10,22 @@ load_dotenv()
 NOAA_TIDE_STATION = "9446484"     # Tacoma Narrows Bridge
 NOAA_CURRENT_STATION = "PUG1527"  # The Narrows, 0.3 mi N of bridge (current predictions)
 
+# NWS marine forecast zone for advisories/warnings.
+# PZZ135 = Puget Sound and Hood Canal (covers the Tacoma Narrows / Gig Harbor basin).
+NWS_MARINE_ZONE = os.getenv("TIDEWINDOW_NWS_ZONE", "PZZ135")
+# NWS requires a descriptive User-Agent on all API requests.
+NWS_USER_AGENT = os.getenv(
+    "TIDEWINDOW_NWS_USER_AGENT",
+    "TideWindow/0.1 (marine planning aid; contact via app host)",
+)
+
 # Coordinates for the Tacoma Narrows / Gig Harbor basin.
 WEATHER_LAT = "47.2690"
 WEATHER_LON = "-122.5517"
 
 UPDATE_INTERVAL_SECONDS = 360.0
-FORECAST_HOURS = 24
-FORECAST_MAX_WINDOWS_PER_ACTIVITY = 2
+FORECAST_HOURS = 72
+FORECAST_MAX_WINDOWS_PER_ACTIVITY = 4
 VISIBLE_ZONE_COUNT = 3
 
 WEB_APP_NAME = os.getenv("TIDEWINDOW_WEB_APP_NAME", "TideWindow")

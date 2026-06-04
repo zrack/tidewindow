@@ -43,6 +43,16 @@ async def index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.get("/service-worker.js")
+async def service_worker():
+    # Served from the root so its scope covers the whole app, not just /static.
+    return FileResponse(
+        STATIC_DIR / "service-worker.js",
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/"},
+    )
+
+
 @app.get("/health")
 async def health():
     return {
@@ -150,6 +160,7 @@ def build_state_payload(engine, telemetry: dict, forecast: dict) -> dict:
         "timeline": [_serialize_window(window) for window in timeline],
         "confidence": confidence,
         "daylight": build_daylight(),
+        "alerts": forecast.get("alerts", []),
     }
 
 
