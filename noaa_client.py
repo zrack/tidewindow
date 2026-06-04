@@ -35,6 +35,8 @@ class NoaaMarineClient:
         provider_context = provider_context or {}
         self.tide_station = provider_context.get("tide_station", NOAA_TIDE_STATION)
         self.current_station = provider_context.get("current_station", NOAA_CURRENT_STATION)
+        self.current_bin = provider_context.get("current_bin")
+        self.current_bin_depth_ft = provider_context.get("current_bin_depth_ft")
         self.nws_zone = provider_context.get("nws_zone", NWS_MARINE_ZONE)
         self.lat = provider_context.get("weather_lat", WEATHER_LAT)
         self.lon = provider_context.get("weather_lon", WEATHER_LON)
@@ -152,6 +154,7 @@ class NoaaMarineClient:
             "vel_type": "speed_dir",
             "format": "json",
         }
+        self._apply_current_bin(params)
         try:
             response = await session.get(self.NOAA_URL, params=params)
             payload = await self._safe_json(response)
@@ -275,6 +278,7 @@ class NoaaMarineClient:
             "units": "english",
             "format": "json",
         }
+        self._apply_current_bin(params)
         try:
             response = await session.get(self.NOAA_URL, params=params)
             payload = await self._safe_json(response)
@@ -295,6 +299,7 @@ class NoaaMarineClient:
             "units": "english",
             "format": "json",
         }
+        self._apply_current_bin(params)
         try:
             response = await session.get(self.NOAA_URL, params=params)
             payload = await self._safe_json(response)
@@ -428,7 +433,7 @@ class NoaaMarineClient:
         }
 
     def _build_noaa_params(self, station: str, product: str) -> dict:
-        return {
+        params = {
             "range": "4",           
             "station": station,
             "product": product,
@@ -437,6 +442,13 @@ class NoaaMarineClient:
             "units": "english",     
             "format": "json"
         }
+        if product == "currents":
+            self._apply_current_bin(params)
+        return params
+
+    def _apply_current_bin(self, params: dict) -> None:
+        if self.current_bin is not None:
+            params["bin"] = str(self.current_bin)
 
     def _parse_payload(
         self,
@@ -508,6 +520,8 @@ class NoaaMarineClient:
                 "tide_feet": tide_feet,
                 "current_knots": current_speed,
                 "current_direction": current_dir,
+                "current_bin": self.current_bin,
+                "current_bin_depth_ft": self.current_bin_depth_ft,
                 "phase": phase,
                 "wind_knots": final_wind,
                 "sources": {

@@ -67,6 +67,12 @@ class MarineRegionTests(unittest.TestCase):
             "port_orchard": "Port Orchard",
             "bremerton": "Bremerton",
             "silverdale": "Silverdale",
+            "tacoma_narrows": "Tacoma Narrows",
+            "carr_inlet": "Carr Inlet",
+            "case_inlet": "Case Inlet",
+            "anderson_island": "Anderson Island",
+            "steilacoom_nisqually": "Steilacoom & Nisqually",
+            "olympia_budd_inlet": "Olympia & Budd Inlet",
         }
 
         summaries = {region["id"]: region for region in region_summaries()}
@@ -75,23 +81,31 @@ class MarineRegionTests(unittest.TestCase):
             with self.subTest(region=region_id):
                 region = get_region(region_id)
                 self.assertEqual(region["name"], name)
-                self.assertEqual(region["type"], "city")
+                self.assertIn(region["type"], {"city", "subregion"})
                 self.assertGreaterEqual(len(region["spot_ids"]), 10)
                 self.assertEqual(summaries[region_id]["spot_count"], len(region["spot_ids"]))
                 self.assertEqual(len(visible_spots_for_region(region_id, limit=10)), 10)
 
-    def test_kitsap_regions_use_bremerton_tide_context(self):
-        expected_current_stations = {
-            "port_orchard": "PUG1514",
-            "bremerton": "PUG1510",
-            "silverdale": "PUG1510",
+    def test_regions_carry_station_and_current_bin_context(self):
+        expected = {
+            "port_orchard": (BREMERTON_TIDE_STATION, "PUG1514", 8),
+            "bremerton": (BREMERTON_TIDE_STATION, "PUG1510", 6),
+            "silverdale": (BREMERTON_TIDE_STATION, "PUG1510", 6),
+            "tacoma_narrows": ("9446484", "PUG1527", 19),
+            "carr_inlet": ("9446291", "PUG1530", 18),
+            "case_inlet": ("9446281", "PUG1548", 10),
+            "anderson_island": ("9446804", "PUG1535", 16),
+            "steilacoom_nisqually": ("9446714", "PUG1532", 16),
+            "olympia_budd_inlet": ("9446807", "PUG1540", 10),
         }
 
-        for region_id, current_station in expected_current_stations.items():
+        for region_id, (tide_station, current_station, current_bin) in expected.items():
             with self.subTest(region=region_id):
                 context = provider_context_for_region(region_id)
-                self.assertEqual(context["tide_station"], BREMERTON_TIDE_STATION)
+                self.assertEqual(context["tide_station"], tide_station)
                 self.assertEqual(context["current_station"], current_station)
+                self.assertEqual(context["current_bin"], current_bin)
+                self.assertIn("current_bin_depth_ft", context)
                 self.assertIn("weather_lat", context)
                 self.assertIn("weather_lon", context)
 

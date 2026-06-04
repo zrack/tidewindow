@@ -15,6 +15,8 @@ class NoaaMarineClientForecastTests(unittest.TestCase):
         client = NoaaMarineClient({
             "tide_station": "9445958",
             "current_station": "PUG1514",
+            "current_bin": 8,
+            "current_bin_depth_ft": 12,
             "nws_zone": "PZZ135",
             "weather_lat": "47.5404",
             "weather_lon": "-122.6362",
@@ -22,6 +24,8 @@ class NoaaMarineClientForecastTests(unittest.TestCase):
 
         self.assertEqual(client.tide_station, "9445958")
         self.assertEqual(client.current_station, "PUG1514")
+        self.assertEqual(client.current_bin, 8)
+        self.assertEqual(client.current_bin_depth_ft, 12)
         self.assertEqual(client.nws_zone, "PZZ135")
         self.assertEqual(client.lat, "47.5404")
         self.assertEqual(client.lon, "-122.6362")
@@ -198,7 +202,7 @@ class NoaaMarineClientEventTests(unittest.TestCase):
                 self.params = params
                 return StubResponse()
 
-        client = NoaaMarineClient({"current_station": "PUG1514"})
+        client = NoaaMarineClient({"current_station": "PUG1514", "current_bin": 8})
         session = StubSession()
         start = datetime(2026, 6, 3)
         end = start + timedelta(hours=24)
@@ -207,6 +211,7 @@ class NoaaMarineClientEventTests(unittest.TestCase):
 
         self.assertEqual(session.params["station"], "PUG1514")
         self.assertEqual(session.params["interval"], "MAX_SLACK")
+        self.assertEqual(session.params["bin"], "8")
         self.assertNotIn("vel_type", session.params)
 
     def test_parse_tide_events_labels_and_filters_window(self):

@@ -147,6 +147,12 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("port_orchard", {region["id"] for region in payload["regions"]})
         self.assertIn("bremerton", {region["id"] for region in payload["regions"]})
         self.assertIn("silverdale", {region["id"] for region in payload["regions"]})
+        self.assertIn("tacoma_narrows", {region["id"] for region in payload["regions"]})
+        self.assertIn("carr_inlet", {region["id"] for region in payload["regions"]})
+        self.assertIn("case_inlet", {region["id"] for region in payload["regions"]})
+        self.assertIn("anderson_island", {region["id"] for region in payload["regions"]})
+        self.assertIn("steilacoom_nisqually", {region["id"] for region in payload["regions"]})
+        self.assertIn("olympia_budd_inlet", {region["id"] for region in payload["regions"]})
         self.assertNotIn("chico", {region["id"] for region in payload["regions"]})
         self.assertNotIn("gorst", {region["id"] for region in payload["regions"]})
 
@@ -178,6 +184,7 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(payload["config"]["region"]["id"], "port_orchard")
         self.assertEqual(payload["config"]["region"]["provider_context"]["tide_station"], BREMERTON_TIDE_STATION)
         self.assertEqual(payload["config"]["region"]["provider_context"]["current_station"], "PUG1514")
+        self.assertEqual(payload["config"]["region"]["provider_context"]["current_bin"], 8)
         self.assertEqual(len(payload["zones"]), 10)
         self.assertEqual(
             [zone["id"] for zone in payload["zones"]],
@@ -254,7 +261,25 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("noaa_tide_station", payload["providers"])
         self.assertEqual(len(payload["providers"]["regions"]), len(REGIONS))
         self.assertIn(
-            {"id": "port_orchard", "tide_station": BREMERTON_TIDE_STATION, "current_station": "PUG1514", "nws_zone": "PZZ135"},
+            {
+                "id": "port_orchard",
+                "tide_station": BREMERTON_TIDE_STATION,
+                "current_station": "PUG1514",
+                "current_bin": 8,
+                "current_bin_depth_ft": 12,
+                "nws_zone": "PZZ135",
+            },
+            payload["providers"]["regions"],
+        )
+        self.assertIn(
+            {
+                "id": "tacoma_narrows",
+                "tide_station": "9446484",
+                "current_station": "PUG1527",
+                "current_bin": 19,
+                "current_bin_depth_ft": 23,
+                "nws_zone": "PZZ135",
+            },
             payload["providers"]["regions"],
         )
 

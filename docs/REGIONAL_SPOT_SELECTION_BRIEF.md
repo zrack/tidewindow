@@ -97,6 +97,8 @@ Phase 3: Puget Sound catalog expansion — started
 
 - Added Port Orchard, Bremerton, and Silverdale as selectable city regions with station-backed provider context.
 - Skipped Chico and Gorst as selectable regions for now because they do not have their own station-quality provider context in the catalog.
+- Added Tacoma Narrows, Carr Inlet, Case Inlet, Anderson Island, Steilacoom & Nisqually, and Olympia & Budd Inlet as the first South Sound region set.
+- Added explicit current-bin metadata to provider context so each region can request and label the NOAA current bin/depth being scored.
 - Started with manually curated Kitsap spots and priorities.
 - Wired each region to tide/current/weather provider context so station choices can vary by place.
 - Continue with Aberdeen and broader Puget Sound marine areas.

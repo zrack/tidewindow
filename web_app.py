@@ -35,7 +35,7 @@ from sun_times import sun_events
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0"
 
 app = FastAPI(title=WEB_APP_NAME, version=APP_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -100,6 +100,8 @@ async def health():
                     "id": region["id"],
                     "tide_station": provider_context_for_region(region["id"])["tide_station"],
                     "current_station": provider_context_for_region(region["id"])["current_station"],
+                    "current_bin": provider_context_for_region(region["id"]).get("current_bin"),
+                    "current_bin_depth_ft": provider_context_for_region(region["id"]).get("current_bin_depth_ft"),
                     "nws_zone": provider_context_for_region(region["id"])["nws_zone"],
                 }
                 for region in region_summaries()
