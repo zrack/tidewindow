@@ -172,6 +172,7 @@ These are real-time NOAA water-level stations in or near the app's target expans
 - NOAA current station list for Puget Sound current survey stations: `https://tidesandcurrents.noaa.gov/cdata/StationList?filter=historic&keyword=pug&type=Current+Data`
 - NOAA current predictions: `https://tidesandcurrents.noaa.gov/noaacurrents/index.html`
 - NOAA tide predictions: `https://tidesandcurrents.noaa.gov/stations.html?type=Tide+Predictions`
+- NWS Seattle marine zones, including Grays Harbor Bar (`PZZ110`): `https://www.weather.gov/marine/sewmz`
 
 ## App Sequence
 
@@ -179,9 +180,12 @@ Done:
 
 - Added `ProviderContext` selection per region with explicit `tide_station`, `current_station`, and current `bin`.
 - Added the first South Sound regions while current coverage is dense and harmonic (`H`): Tacoma Narrows, Carr Inlet, Case Inlet, Anderson Island, Steilacoom/Nisqually, and Olympia/Budd Inlet.
+- Added a provider-debug panel in the UI so each region shows exactly which tide station, current station, and current bin/depth are being used.
+- Added South Hood Canal using Union tide station `9445478` and Hazel Point current station `PUG1601`, bin `21@23ft`.
+- Added Aberdeen using Aberdeen tide station `9441187`, validated Grays Harbor entrance current station `ACT8496`, bin `1`, and NWS marine zone `PZZ110`.
 
 Next:
 
-1. Add a provider-debug panel in the UI so each region shows exactly which tide station, current station, and current bin/depth are being used.
-2. Add South Hood Canal after the app has confidence labels per station type, because several current candidates are sparse or weak/variable.
-3. Add Aberdeen after selecting coastal stations and a different confidence profile from the inland Puget Sound regions.
+1. Add per-region provider fallback priority lists for sparse-current or river/bar-influenced areas.
+2. Expand reviewed wind-exposure bearings across the newer regional spot catalogs.
+3. Evaluate broader Puget Sound regions after station context is reviewed.

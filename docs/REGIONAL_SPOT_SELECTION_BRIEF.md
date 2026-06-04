@@ -93,21 +93,25 @@ Phase 2: Region picker and spot count controls — shipped
 - Make the map fit visible spots.
 - Persist selected region and visible count in local storage.
 
-Phase 3: Puget Sound catalog expansion — started
+Phase 3: Puget Sound catalog expansion — expanded
 
 - Added Port Orchard, Bremerton, and Silverdale as selectable city regions with station-backed provider context.
 - Skipped Chico and Gorst as selectable regions for now because they do not have their own station-quality provider context in the catalog.
 - Added Tacoma Narrows, Carr Inlet, Case Inlet, Anderson Island, Steilacoom & Nisqually, and Olympia & Budd Inlet as the first South Sound region set.
 - Added explicit current-bin metadata to provider context so each region can request and label the NOAA current bin/depth being scored.
+- Added South Hood Canal with Union tide predictions (`9445478`) and Hazel Point Hood Canal current predictions (`PUG1601`, bin 21).
+- Added Aberdeen with Aberdeen tide predictions (`9441187`), Grays Harbor entrance current predictions (`ACT8496`, bin 1), and Grays Harbor Bar marine alerts (`PZZ110`).
+- Added provider diagnostics and station-confidence labels so region-specific station choices are visible.
 - Started with manually curated Kitsap spots and priorities.
 - Wired each region to tide/current/weather provider context so station choices can vary by place.
-- Continue with Aberdeen and broader Puget Sound marine areas.
+- Continue with broader Puget Sound marine areas.
 
-Phase 4: Accuracy upgrades
+Phase 4: Accuracy upgrades — started
 
-- Add wind-direction exposure metadata per spot.
+- Added wind-direction-aware exposure scoring for modeled spots.
+- Expand reviewed wind-exposure metadata across the newer regional spot catalogs.
 - Move thresholds into configuration.
-- Support per-region station fallback strategies.
+- Support per-region station fallback strategies, especially for sparse Hood Canal current coverage and river/bar-influenced Grays Harbor spots.
 
 ## Open Questions
 
@@ -119,4 +123,4 @@ Phase 4: Accuracy upgrades
 
 ## Recommended Next Step
 
-Build Phase 1 first: introduce regions and spots behind the scenes while keeping the current Gig Harbor UI behavior unchanged. Once parity is tested, add the region picker and top-10 controls without risking the existing dashboard.
+Build provider fallback strategies next. The region picker is now useful enough that the app needs more nuanced source handling for places where the closest tide station, current station, river flow, and bar forecast do not all describe the same water.

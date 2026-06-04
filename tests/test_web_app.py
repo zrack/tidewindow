@@ -160,6 +160,8 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("anderson_island", {region["id"] for region in payload["regions"]})
         self.assertIn("steilacoom_nisqually", {region["id"] for region in payload["regions"]})
         self.assertIn("olympia_budd_inlet", {region["id"] for region in payload["regions"]})
+        self.assertIn("south_hood_canal", {region["id"] for region in payload["regions"]})
+        self.assertIn("aberdeen", {region["id"] for region in payload["regions"]})
         self.assertNotIn("chico", {region["id"] for region in payload["regions"]})
         self.assertNotIn("gorst", {region["id"] for region in payload["regions"]})
 
@@ -280,6 +282,14 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(providers["tacoma_narrows"]["current_bin"], 19)
         self.assertEqual(providers["tacoma_narrows"]["current_bin_depth_ft"], 23)
         self.assertEqual(providers["case_inlet"]["provider_confidence"], "Medium")
+        self.assertEqual(providers["south_hood_canal"]["tide_station"], "9445478")
+        self.assertEqual(providers["south_hood_canal"]["current_station"], "PUG1601")
+        self.assertEqual(providers["south_hood_canal"]["current_bin"], 21)
+        self.assertEqual(providers["south_hood_canal"]["provider_confidence"], "High")
+        self.assertEqual(providers["aberdeen"]["tide_station"], "9441187")
+        self.assertEqual(providers["aberdeen"]["current_station"], "ACT8496")
+        self.assertEqual(providers["aberdeen"]["current_bin"], 1)
+        self.assertEqual(providers["aberdeen"]["provider_confidence"], "Medium")
 
 
 if __name__ == "__main__":

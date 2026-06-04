@@ -26,21 +26,23 @@ The full reliability phase and the first polish/safety/accuracy features are don
 - **Installable PWA with offline last-state** — manifest + service worker cache the app shell and last `/api/state`. _(df35a54)_
 - **NOAA predicted current in forecast windows** — best-window and timeline scoring now prefer NOAA `currents_predictions`; tide-slope-derived current remains the fallback. _(current work)_
 - **Confidence downgrade for stale last-good data** — source age still shows the detail, and the confidence note now reflects last-good staleness. _(current work)_
-- **Regional place selector foundation** — Gig Harbor, Port Orchard, Bremerton, Silverdale, Tacoma Narrows, Carr Inlet, Case Inlet, Anderson Island, Steilacoom & Nisqually, and Olympia & Budd Inlet now have selectable catalogs, top-10 spot limits, map fitting, and region-scoped NOAA/OpenWeather provider context with explicit current bins. Chico and Gorst remain nearby spot references, not selectable regions, until they have station-quality provider context. _(current work)_
+- **Provider diagnostics panel** — the web dashboard and `/health` now expose each selected region's tide station, current station, current bin/depth, station type, and provider confidence. _(45073b5)_
+- **Wind-direction-aware exposure scoring** — OpenWeather wind direction is carried into telemetry/forecast scoring, and modeled spots adjust effective wind by exposed, partial, or sheltered fetch. _(f8232c0)_
+- **Regional place selector expansion** — Gig Harbor, Port Orchard, Bremerton, Silverdale, Tacoma Narrows, Carr Inlet, Case Inlet, Anderson Island, Steilacoom & Nisqually, Olympia & Budd Inlet, South Hood Canal, and Aberdeen now have selectable catalogs, top-10 spot limits, map fitting, and region-scoped NOAA/OpenWeather provider context with explicit current bins. Chico and Gorst remain nearby spot references, not selectable regions, until they have station-quality provider context. _(current work)_
 
 Earlier: the refined marine-dark UI redesign _(131c7dc)_ and this roadmap.
 
 ## Next — accuracy, personalization, and everyday usefulness
 
-1. **Wind-direction-aware exposure scoring (M-L).** Score each zone against wind direction relative to its fetch, not just speed. OpenWeather already provides `wind_deg`; the main work is adding per-zone exposure bearings and testing the scoring.
-2. **Regional/place spot selection expansion (L).** Continue adding Puget Sound regions beyond the Kitsap and South Sound sets, especially South Hood Canal and Aberdeen, with manually reviewed spot catalogs and honest provider-confidence labels. See [Regional Spot Selection Brief](REGIONAL_SPOT_SELECTION_BRIEF.md).
-3. **Config-driven thresholds + personalization (M).** Move scoring thresholds out of the long `evaluate_*` ladder into `marine_config`, then add a conservative/standard/aggressive risk-tolerance toggle.
+1. **Region-specific provider fallback strategies (M-L).** Some regions now use strong harmonic stations while Aberdeen and parts of Hood Canal need more nuanced fallback behavior. Add per-region provider priority lists, explicit "derived only" handling where current products are weak, and UI notes when river/bar effects can overwhelm tide predictions.
+2. **Config-driven thresholds + personalization (M).** Move scoring thresholds out of the long `evaluate_*` ladder into `marine_config`, then add a conservative/standard/aggressive risk-tolerance toggle.
+3. **Spot-level exposure metadata expansion (M).** Add reviewed fetch bearings and local current notes to the newer regional catalogs so wind-direction scoring covers more than the original Gig Harbor zones.
 4. **Daily best-window digest (M).** A "tomorrow's best window" summary on a schedule — turns the app from pull-only into something that tells you when to go.
 5. **PWA install/offline QA (S-M).** The PWA exists; the next pass should verify install prompts, iOS icon behavior, service-worker upgrades, and offline map/data behavior on a phone.
 
 ## Later — accuracy and reach
 
-6. **Region-specific provider fallback strategies (M-L).** Improve station selection and fallback logic for areas with weaker current-prediction coverage.
+6. **Broader Puget Sound reach (L).** Add Central Sound, Bainbridge/Kingston, Vashon/Maury, and North Hood Canal after their provider contexts are reviewed.
 
 ## Housekeeping
 
@@ -49,4 +51,4 @@ Earlier: the refined marine-dark UI redesign _(131c7dc)_ and this roadmap.
 
 ## Suggested next step
 
-**#1 (wind-direction-aware exposure scoring)** is now the biggest accuracy gain. Predicted current improves timing; wind direction should improve whether a specific shoreline is actually comfortable or exposed.
+**#1 (region-specific provider fallback strategies)** is now the biggest accuracy gain. The app has enough regions that it needs a smarter way to say "this station is close and strong," "this station is usable but approximate," or "this place needs derived current only."

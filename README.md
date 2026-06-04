@@ -2,7 +2,7 @@
 
 TideWindow is a terminal and web marine-conditions dashboard for the Gig Harbor, Tacoma Narrows, and central Kitsap area. It combines NOAA tide/current observations and predictions with optional OpenWeather wind data, then scores local spots for kayaking and fly fishing. It also highlights the best kayak and fishing windows across a 72-hour planning window.
 
-The web dashboard adds a Leaflet/OpenStreetMap area map, an hourly tide/wind/activity timeline, a remembered activity mode, and region-aware spot controls. You can choose Gig Harbor, Port Orchard, Bremerton, Silverdale, Tacoma Narrows, Carr Inlet, Case Inlet, Anderson Island, Steilacoom & Nisqually, or Olympia & Budd Inlet, show fewer or more nearby spots, and hide individual spots you do not use.
+The web dashboard adds a Leaflet/OpenStreetMap area map, an hourly tide/wind/activity timeline, a remembered activity mode, and region-aware spot controls. You can choose Gig Harbor, Port Orchard, Bremerton, Silverdale, Tacoma Narrows, Carr Inlet, Case Inlet, Anderson Island, Steilacoom & Nisqually, Olympia & Budd Inlet, South Hood Canal, or Aberdeen, show fewer or more nearby spots, and hide individual spots you do not use.
 
 ## Visuals
 
@@ -84,7 +84,7 @@ The web dashboard starts with the top spots for the selected region. The selecte
 
 The forecast panel uses official NOAA tide predictions and NOAA current predictions when available. Tide forecast data is labeled as `live`; current forecast data is labeled as `predicted` when NOAA current predictions are available and `derived` only when TideWindow falls back to estimating current strength from the tide slope.
 
-When `OPENWEATHER_API_KEY` has access to OpenWeather One Call 3.0, TideWindow also uses hourly wind forecast points for each window. Forecast wind is labeled as `live`, `fallback`, or `missing`; if hourly wind is unavailable, the app falls back to the current wind value for scoring and says so in the panel.
+When `OPENWEATHER_API_KEY` has access to OpenWeather One Call 3.0, TideWindow also uses hourly wind forecast points for each window. Forecast wind is labeled as `live`, `fallback`, or `missing`; if hourly wind is unavailable, the app falls back to the current wind value for scoring and says so in the panel. When wind direction is available, spot scoring adjusts wind exposure against each modeled shoreline's fetch.
 
 The app also displays a confidence label. `High` means live or official predicted marine data with light wind. `Medium` means live tide forecast with derived current guidance. `Low` means seed or missing forecast data is involved.
 

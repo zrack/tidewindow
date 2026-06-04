@@ -73,6 +73,8 @@ class MarineRegionTests(unittest.TestCase):
             "anderson_island": "Anderson Island",
             "steilacoom_nisqually": "Steilacoom & Nisqually",
             "olympia_budd_inlet": "Olympia & Budd Inlet",
+            "south_hood_canal": "South Hood Canal",
+            "aberdeen": "Aberdeen",
         }
 
         summaries = {region["id"]: region for region in region_summaries()}
@@ -97,6 +99,8 @@ class MarineRegionTests(unittest.TestCase):
             "anderson_island": ("9446804", "PUG1535", 16),
             "steilacoom_nisqually": ("9446714", "PUG1532", 16),
             "olympia_budd_inlet": ("9446807", "PUG1540", 10),
+            "south_hood_canal": ("9445478", "PUG1601", 21),
+            "aberdeen": ("9441187", "ACT8496", 1),
         }
 
         for region_id, (tide_station, current_station, current_bin) in expected.items():
@@ -117,6 +121,15 @@ class MarineRegionTests(unittest.TestCase):
 
         self.assertEqual(context["tide_station_type"], "S")
         self.assertEqual(context["current_station_type"], "H")
+        self.assertEqual(context["provider_confidence"]["level"], "Medium")
+
+    def test_aberdeen_uses_coastal_provider_context(self):
+        context = provider_context_for_region("aberdeen")
+
+        self.assertEqual(context["nws_zone"], "PZZ110")
+        self.assertEqual(context["tide_station_name"], "Aberdeen")
+        self.assertEqual(context["current_station_name"], "Grays Harbor Entrance")
+        self.assertEqual(context["current_station_type"], "S")
         self.assertEqual(context["provider_confidence"]["level"], "Medium")
 
     def test_places_without_station_context_are_not_selectable_regions(self):
