@@ -99,10 +99,13 @@ async def health():
                 {
                     "id": region["id"],
                     "tide_station": provider_context_for_region(region["id"])["tide_station"],
+                    "tide_station_type": provider_context_for_region(region["id"])["tide_station_type"],
                     "current_station": provider_context_for_region(region["id"])["current_station"],
+                    "current_station_type": provider_context_for_region(region["id"])["current_station_type"],
                     "current_bin": provider_context_for_region(region["id"]).get("current_bin"),
                     "current_bin_depth_ft": provider_context_for_region(region["id"]).get("current_bin_depth_ft"),
                     "nws_zone": provider_context_for_region(region["id"])["nws_zone"],
+                    "provider_confidence": provider_context_for_region(region["id"])["provider_confidence"]["level"],
                 }
                 for region in region_summaries()
             ],

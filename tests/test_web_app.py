@@ -185,6 +185,8 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(payload["config"]["region"]["provider_context"]["tide_station"], BREMERTON_TIDE_STATION)
         self.assertEqual(payload["config"]["region"]["provider_context"]["current_station"], "PUG1514")
         self.assertEqual(payload["config"]["region"]["provider_context"]["current_bin"], 8)
+        self.assertEqual(payload["config"]["region"]["provider_context"]["current_station_type"], "H")
+        self.assertEqual(payload["config"]["region"]["provider_context"]["provider_confidence"]["level"], "High")
         self.assertEqual(len(payload["zones"]), 10)
         self.assertEqual(
             [zone["id"] for zone in payload["zones"]],
@@ -260,28 +262,17 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("providers", payload)
         self.assertIn("noaa_tide_station", payload["providers"])
         self.assertEqual(len(payload["providers"]["regions"]), len(REGIONS))
-        self.assertIn(
-            {
-                "id": "port_orchard",
-                "tide_station": BREMERTON_TIDE_STATION,
-                "current_station": "PUG1514",
-                "current_bin": 8,
-                "current_bin_depth_ft": 12,
-                "nws_zone": "PZZ135",
-            },
-            payload["providers"]["regions"],
-        )
-        self.assertIn(
-            {
-                "id": "tacoma_narrows",
-                "tide_station": "9446484",
-                "current_station": "PUG1527",
-                "current_bin": 19,
-                "current_bin_depth_ft": 23,
-                "nws_zone": "PZZ135",
-            },
-            payload["providers"]["regions"],
-        )
+        providers = {item["id"]: item for item in payload["providers"]["regions"]}
+        self.assertEqual(providers["port_orchard"]["tide_station"], BREMERTON_TIDE_STATION)
+        self.assertEqual(providers["port_orchard"]["current_station"], "PUG1514")
+        self.assertEqual(providers["port_orchard"]["current_bin"], 8)
+        self.assertEqual(providers["port_orchard"]["current_station_type"], "H")
+        self.assertEqual(providers["port_orchard"]["provider_confidence"], "High")
+        self.assertEqual(providers["tacoma_narrows"]["tide_station"], "9446484")
+        self.assertEqual(providers["tacoma_narrows"]["current_station"], "PUG1527")
+        self.assertEqual(providers["tacoma_narrows"]["current_bin"], 19)
+        self.assertEqual(providers["tacoma_narrows"]["current_bin_depth_ft"], 23)
+        self.assertEqual(providers["case_inlet"]["provider_confidence"], "Medium")
 
 
 if __name__ == "__main__":

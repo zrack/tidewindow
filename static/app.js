@@ -92,6 +92,8 @@ const elements = {
   confidenceNote: document.querySelector("#confidence-note"),
   sourceLine: document.querySelector("#source-line"),
   sourceNote: document.querySelector("#source-note"),
+  providerLine: document.querySelector("#provider-line"),
+  providerDetails: document.querySelector("#provider-details"),
   updatedAt: document.querySelector("#updated-at"),
   windowsGrid: document.querySelector("#windows-grid"),
   windowCount: document.querySelector("#window-count"),
@@ -340,7 +342,49 @@ function renderSummary() {
     : sourceHeadline(telemetrySources, forecastSources);
   elements.sourceLine.className = stale ? "status-yellow" : "";
   elements.sourceNote.innerHTML = dataStatusRows(telemetry, forecast);
+  renderProviderPanel();
   updateRefreshLine(generated_at);
+}
+
+function renderProviderPanel() {
+  if (!elements.providerLine || !elements.providerDetails) return;
+
+  const region = state.data.config?.region || {};
+  const provider = region.provider_context || {};
+  const confidence = provider.provider_confidence || {};
+  const currentBin = provider.current_bin
+    ? `bin ${provider.current_bin}${provider.current_bin_depth_ft ? ` @ ${provider.current_bin_depth_ft} ft` : ""}`
+    : "default bin";
+
+  elements.providerLine.textContent = `${confidence.level || "Unknown"} station fit`;
+  elements.providerLine.className = `status-${confidence.color || "yellow"}`;
+  elements.providerDetails.innerHTML = `
+    ${providerRow("Region", region.name || region.id || "Unknown")}
+    ${providerRow("Tide", `${provider.tide_station || "unknown"} · ${provider.tide_station_name || "station"} · ${stationTypeLabel(provider.tide_station_type)}`)}
+    ${providerRow("Current", `${provider.current_station || "unknown"} · ${provider.current_station_name || "station"} · ${currentBin} · ${stationTypeLabel(provider.current_station_type)}`)}
+    ${providerRow("Weather", `${provider.weather_lat || "?"}, ${provider.weather_lon || "?"}`)}
+    ${providerRow("NWS", provider.nws_zone || "unknown")}
+    ${confidence.note ? `<p class="provider-note">${escapeHtml(confidence.note)}</p>` : ""}
+  `;
+}
+
+function providerRow(label, value) {
+  return `
+    <div class="provider-row">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>
+  `;
+}
+
+function stationTypeLabel(type) {
+  const labels = {
+    R: "reference",
+    S: "subordinate",
+    H: "harmonic",
+    W: "weak/variable",
+  };
+  return labels[type] || "unknown";
 }
 
 function updateRefreshLine(generatedAt = state.data?.generated_at) {

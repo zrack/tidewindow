@@ -106,8 +106,18 @@ class MarineRegionTests(unittest.TestCase):
                 self.assertEqual(context["current_station"], current_station)
                 self.assertEqual(context["current_bin"], current_bin)
                 self.assertIn("current_bin_depth_ft", context)
+                self.assertIn(context["current_station_type"], {"H", "S", "W"})
+                self.assertIn(context["tide_station_type"], {"R", "S"})
+                self.assertIn(context["provider_confidence"]["level"], {"High", "Medium", "Low"})
                 self.assertIn("weather_lat", context)
                 self.assertIn("weather_lon", context)
+
+    def test_provider_confidence_downgrades_subordinate_tide_context(self):
+        context = provider_context_for_region("case_inlet")
+
+        self.assertEqual(context["tide_station_type"], "S")
+        self.assertEqual(context["current_station_type"], "H")
+        self.assertEqual(context["provider_confidence"]["level"], "Medium")
 
     def test_places_without_station_context_are_not_selectable_regions(self):
         for region_id in ("chico", "gorst"):

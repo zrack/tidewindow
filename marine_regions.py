@@ -21,6 +21,69 @@ from marine_config import (
 
 DEFAULT_REGION_ID = "gig_harbor"
 
+TIDE_STATION_METADATA = {
+    "9445958": {"name": "Bremerton", "type": "R"},
+    "9446484": {"name": "Tacoma", "type": "R"},
+    "9446291": {"name": "Wauna, Carr Inlet", "type": "R"},
+    "9446281": {"name": "Allyn, Case Inlet", "type": "S"},
+    "9446804": {"name": "Sandy Point Anderson Island", "type": "R"},
+    "9446714": {"name": "Steilacoom, Cormorant Passage", "type": "S"},
+    "9446807": {"name": "Budd Inlet, Olympia Shoal", "type": "R"},
+}
+CURRENT_STATION_METADATA = {
+    "PUG1510": {"name": "Port Washington Narrows, Warren Ave. Bridge", "type": "H"},
+    "PUG1514": {"name": "Rich Passage, West end", "type": "H"},
+    "PUG1527": {"name": "The Narrows, 0.3 miles North of Bridge", "type": "H"},
+    "PUG1530": {"name": "Hale Passage, West end", "type": "H"},
+    "PUG1548": {"name": "Pickering Passage, North end", "type": "H"},
+    "PUG1535": {"name": "Balch Passage, NE of Eagle Island", "type": "H"},
+    "PUG1532": {"name": "Steilacoom, 0.8 miles North of", "type": "H"},
+    "PUG1540": {"name": "Budd Inlet Entrance", "type": "H"},
+}
+
+
+def describe_provider_context(provider_context: dict) -> dict:
+    """Adds station names, NOAA station types, and confidence guidance."""
+    context = deepcopy(provider_context)
+    tide_meta = TIDE_STATION_METADATA.get(context.get("tide_station"), {})
+    current_meta = CURRENT_STATION_METADATA.get(context.get("current_station"), {})
+    context["tide_station_name"] = tide_meta.get("name", context.get("tide_station"))
+    context["tide_station_type"] = tide_meta.get("type", "unknown")
+    context["current_station_name"] = current_meta.get("name", context.get("current_station"))
+    context["current_station_type"] = current_meta.get("type", "unknown")
+    context["provider_confidence"] = provider_confidence(context)
+    return context
+
+
+def provider_confidence(provider_context: dict) -> dict:
+    """Rates provider fit using NOAA tide/current station type metadata."""
+    tide_type = provider_context.get("tide_station_type", "unknown")
+    current_type = provider_context.get("current_station_type", "unknown")
+    if current_type == "W":
+        return {
+            "level": "Low",
+            "color": "red",
+            "note": "Current station is weak/variable; treat current scoring as approximate.",
+        }
+    if "unknown" in {tide_type, current_type}:
+        return {
+            "level": "Low",
+            "color": "red",
+            "note": "Station type metadata is incomplete for this region.",
+        }
+    if tide_type == "S" or current_type == "S":
+        return {
+            "level": "Medium",
+            "color": "yellow",
+            "note": "Uses a subordinate NOAA station for part of the provider context.",
+        }
+    return {
+        "level": "High",
+        "color": "green",
+        "note": "Uses station-backed tide data and harmonic NOAA current predictions.",
+    }
+
+
 BREMERTON_TIDE_STATION = "9445958"
 BREMERTON_PROVIDER_CONTEXT = {
     "tide_station": BREMERTON_TIDE_STATION,
@@ -1266,7 +1329,9 @@ SPOTS = _build_spots()
 def get_region(region_id: str = DEFAULT_REGION_ID) -> dict:
     """Returns a copy of a configured region."""
     try:
-        return deepcopy(REGIONS[region_id])
+        region = deepcopy(REGIONS[region_id])
+        region["provider_context"] = describe_provider_context(region["provider_context"])
+        return region
     except KeyError as exc:
         raise ValueError(f"Unknown TideWindow region: {region_id}") from exc
 
