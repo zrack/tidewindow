@@ -32,7 +32,7 @@ Earlier: the refined marine-dark UI redesign _(131c7dc)_ and this roadmap.
 ## Next — accuracy, personalization, and everyday usefulness
 
 1. **Wind-direction-aware exposure scoring (M-L).** Score each zone against wind direction relative to its fetch, not just speed. OpenWeather already provides `wind_deg`; the main work is adding per-zone exposure bearings and testing the scoring.
-2. **Regional spot selection (L).** Let users choose Puget Sound regions, automatically show the top nearby spots, move the map to that area, and allow more/fewer visible spots. This is the main path from a Gig Harbor dashboard to a Puget Sound planner. See [Regional Spot Selection Brief](REGIONAL_SPOT_SELECTION_BRIEF.md).
+2. **Regional/place spot selection (L).** Let users choose Puget Sound regions or cities such as Port Orchard and Aberdeen, automatically show the top nearby spots, move the map to that area, and allow more/fewer visible spots. This is the main path from a Gig Harbor dashboard to a place-based marine planner. See [Regional Spot Selection Brief](REGIONAL_SPOT_SELECTION_BRIEF.md).
 3. **Config-driven thresholds + personalization (M).** Move scoring thresholds out of the long `evaluate_*` ladder into `marine_config`, then add a conservative/standard/aggressive risk-tolerance toggle.
 4. **Daily best-window digest (M).** A "tomorrow's best window" summary on a schedule — turns the app from pull-only into something that tells you when to go.
 5. **PWA install/offline QA (S-M).** The PWA exists; the next pass should verify install prompts, iOS icon behavior, service-worker upgrades, and offline map/data behavior on a phone.
