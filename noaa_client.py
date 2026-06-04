@@ -119,7 +119,6 @@ class NoaaMarineClient:
 
     async def _fetch_current_predictions(self, session) -> list:
         """Fetches NOAA harmonic current predictions for the current station."""
-        now = datetime.now()
         params = {
             "date": "today",
             "station": self.current_station,
@@ -136,6 +135,30 @@ class NoaaMarineClient:
             return self._parse_current_predictions(payload)
         except Exception as e:
             logging.warning("Current prediction fetch failed: %s", e)
+            return []
+
+    async def _fetch_forecast_current_predictions(self, session, start: datetime, end: datetime) -> list:
+        """Fetches NOAA current predictions across the forecast planning window."""
+        params = {
+            "begin_date": start.strftime("%Y%m%d %H:%M"),
+            "end_date": end.strftime("%Y%m%d %H:%M"),
+            "station": self.current_station,
+            "product": "currents_predictions",
+            "time_zone": "lst_ldt",
+            "interval": "30",
+            "units": "english",
+            "vel_type": "speed_dir",
+            "format": "json",
+        }
+        try:
+            response = await session.get(self.NOAA_URL, params=params)
+            payload = await self._safe_json(response)
+            return [
+                point for point in self._parse_current_predictions(payload)
+                if start <= point["time"] <= end
+            ]
+        except Exception as e:
+            logging.warning("Forecast current prediction fetch failed: %s", e)
             return []
 
     @staticmethod
@@ -215,12 +238,23 @@ class NoaaMarineClient:
                 forecast["sources"]["wind"] = wind_forecast["source"]
                 forecast["wind_fallback_reason"] = wind_forecast["fallback_reason"]
 
-                # High/low tide and slack/max-current events for the planning
-                # table. These are best-effort: a failure leaves empty lists
-                # rather than discarding the hourly forecast.
-                forecast["tide_events"] = await self._fetch_tide_events(session, now, end)
-                forecast["slack_events"] = await self._fetch_slack_events(session, now, end)
-                forecast["alerts"] = await self._fetch_marine_alerts(session)
+                # High/low tide, slack/max-current events, NWS alerts, and
+                # current predictions are best-effort enrichments. Fetch them
+                # together so one slow upstream product doesn't serially delay
+                # the dashboard.
+                (
+                    forecast["tide_events"],
+                    forecast["slack_events"],
+                    forecast["alerts"],
+                    forecast["current_predictions"],
+                ) = await asyncio.gather(
+                    self._fetch_tide_events(session, now, end),
+                    self._fetch_slack_events(session, now, end),
+                    self._fetch_marine_alerts(session),
+                    self._fetch_forecast_current_predictions(session, now, end),
+                )
+                if forecast["current_predictions"]:
+                    forecast["sources"]["current"] = "predicted"
             return forecast
         except Exception as e:
             logging.warning("Forecast fetch failed: %s", e)
@@ -382,6 +416,7 @@ class NoaaMarineClient:
         return {
             "predictions": predictions,
             "wind_predictions": [],
+            "current_predictions": [],
             "tide_events": [],
             "slack_events": [],
             "alerts": [],

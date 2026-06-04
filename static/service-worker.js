@@ -1,4 +1,4 @@
-const CACHE = "tidewindow-v1";
+const CACHE = "tidewindow-v5";
 const SHELL = [
   "/",
   "/static/styles.css",
@@ -55,7 +55,7 @@ self.addEventListener("fetch", (event) => {
 
   // Everything else (CSS, JS, icon, map tiles): cache-first, then network.
   event.respondWith(
-    caches.match(request, { ignoreSearch: true }).then((cached) => {
+    caches.match(request, { ignoreSearch: !url.search }).then((cached) => {
       if (cached) return cached;
       return fetch(request)
         .then((response) => {

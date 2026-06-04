@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import web_app
 from marine_cache import MarineStateCache
-from marine_config import ALL_ZONES, OPTIONAL_ZONES, WEB_REFRESH_INTERVAL_SECONDS, ZONES
+from marine_config import ALL_ZONES, FORECAST_HOURS, OPTIONAL_ZONES, WEB_REFRESH_INTERVAL_SECONDS, ZONES
 
 
 def live_telemetry():
@@ -40,7 +40,11 @@ def live_forecast():
         "wind_predictions": [
             {"time": point["time"], "wind_knots": 4.0} for point in predictions
         ],
-        "sources": {"tide": "live", "current": "derived", "wind": "live"},
+        "current_predictions": [
+            {"time": point["time"], "speed": 1.0 + index * 0.1, "dir": 150.0}
+            for index, point in enumerate(predictions)
+        ],
+        "sources": {"tide": "live", "current": "predicted", "wind": "live"},
         "fallback_reason": None,
         "wind_fallback_reason": None,
     }
@@ -50,6 +54,7 @@ def seed_forecast():
     return {
         "predictions": [],
         "wind_predictions": [],
+        "current_predictions": [],
         "sources": {"tide": "seed", "current": "derived", "wind": "fallback"},
         "fallback_reason": "forecast unavailable",
         "wind_fallback_reason": "fallback",
@@ -106,7 +111,7 @@ class WebAppTests(unittest.TestCase):
             len(OPTIONAL_ZONES),
         )
         self.assertEqual(payload["config"]["app"], "TideWindow")
-        self.assertEqual(payload["config"]["forecast_hours"], 24)
+        self.assertEqual(payload["config"]["forecast_hours"], FORECAST_HOURS)
         self.assertIn("generated_at", payload)
         self.assertIn("confidence", payload)
         self.assertGreater(len(payload["windows"]), 0)
@@ -116,6 +121,9 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("map", payload["zones"][0])
         self.assertIsInstance(payload["forecast"]["predictions"][0]["time"], str)
         self.assertIsInstance(payload["forecast"]["wind_predictions"][0]["time"], str)
+        self.assertIsInstance(payload["forecast"]["current_predictions"][0]["time"], str)
+        self.assertEqual(payload["windows"][0]["current_source"], "predicted")
+        self.assertEqual(payload["timeline"][0]["current_source"], "predicted")
 
     def test_api_state_includes_cache_metadata_and_data_age(self):
         self._use_cache(lambda: StubClient(live_telemetry(), live_forecast()))

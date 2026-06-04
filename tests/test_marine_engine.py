@@ -180,6 +180,30 @@ class MarineSafetyEngineTests(unittest.TestCase):
         self.assertTrue(all(window["wind_source"] == "live" for window in windows))
         self.assertTrue(any(window["wind"] != 6.0 for window in windows))
 
+    def test_forecast_windows_prefer_noaa_current_predictions(self):
+        start = datetime(2026, 5, 30, 6)
+        tide_predictions = [
+            {"time": start, "tide_feet": 2.0},
+            {"time": start + timedelta(hours=1), "tide_feet": 2.1},
+            {"time": start + timedelta(hours=2), "tide_feet": 2.2},
+        ]
+        current_predictions = [
+            {"time": start + timedelta(minutes=30), "speed": 1.4, "dir": 150.0},
+            {"time": start + timedelta(hours=1, minutes=30), "speed": 1.6, "dir": 20.0},
+        ]
+
+        windows = self.engine.build_forecast_windows(
+            tide_predictions=tide_predictions,
+            wind_knots=4.0,
+            current_predictions=current_predictions,
+            current_source="predicted",
+            max_windows_per_activity=1,
+        )
+
+        self.assertTrue(all(window["current_source"] == "predicted" for window in windows))
+        self.assertTrue(any(window["current"] > 1.0 for window in windows))
+        self.assertTrue(any(window["phase"] in {"Flood/South", "Ebb/North"} for window in windows))
+
     def test_hourly_timeline_includes_zone_scores(self):
         start = datetime(2026, 5, 30, 6)
         tide_predictions = [
@@ -195,6 +219,7 @@ class MarineSafetyEngineTests(unittest.TestCase):
 
         self.assertEqual(len(timeline), 2)
         self.assertIn("purdy_bridge", timeline[0]["zones"])
+        self.assertEqual(timeline[0]["current_source"], "derived")
         self.assertIn("kayak_score", timeline[0]["zones"]["purdy_bridge"])
         self.assertIn("fish_score", timeline[0]["zones"]["purdy_bridge"])
 
@@ -269,6 +294,27 @@ class MarineSafetyEngineTests(unittest.TestCase):
         )
 
         self.assertEqual(confidence["level"], "Low")
+
+    def test_confidence_is_medium_when_showing_last_good_data(self):
+        telemetry = {
+            "sources": {"tide": "live", "current": "predicted", "wind": "live"},
+            "fallback_reason": None,
+            "stale": True,
+        }
+        forecast = {
+            "sources": {"tide": "live", "current": "predicted", "wind": "live"},
+            "fallback_reason": None,
+            "stale": False,
+        }
+
+        confidence = self.engine.evaluate_confidence(
+            telemetry=telemetry,
+            forecast=forecast,
+            wind_knots=6.0,
+        )
+
+        self.assertEqual(confidence["level"], "Medium")
+        self.assertIn("last good", confidence["note"])
 
 
 if __name__ == "__main__":

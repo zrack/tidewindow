@@ -39,6 +39,8 @@ class MarineSafetyEngine:
         tide_predictions: list,
         wind_knots: float,
         wind_predictions: list | None = None,
+        current_predictions: list | None = None,
+        current_source: str = "derived",
         wind_source: str = "fallback",
         max_windows_per_activity: int = FORECAST_MAX_WINDOWS_PER_ACTIVITY,
         zones_config: dict | None = None,
@@ -49,6 +51,8 @@ class MarineSafetyEngine:
             tide_predictions,
             wind_knots,
             wind_predictions or [],
+            current_predictions or [],
+            current_source,
             wind_source,
             zones_config,
         )
@@ -97,6 +101,8 @@ class MarineSafetyEngine:
         tide_predictions: list,
         wind_knots: float,
         wind_predictions: list | None = None,
+        current_predictions: list | None = None,
+        current_source: str = "derived",
         wind_source: str = "fallback",
         zones_config: dict | None = None,
     ) -> list:
@@ -106,6 +112,8 @@ class MarineSafetyEngine:
             tide_predictions,
             wind_knots,
             wind_predictions or [],
+            current_predictions or [],
+            current_source,
             wind_source,
             zones_config,
         )
@@ -132,6 +140,7 @@ class MarineSafetyEngine:
                     "end": window["end"],
                     "phase": window["phase"],
                     "base_current": round(window["base_current"], 2),
+                    "current_source": window["current_source"],
                     "tide": round(window["average_tide"], 1),
                     "wind": round(window["base_wind"], 1),
                     "wind_source": window["wind_source"],
@@ -163,6 +172,7 @@ class MarineSafetyEngine:
             forecast_sources.get("wind"),
         ]
         has_seed = "seed" in all_sources
+        has_predicted = "predicted" in all_sources
         has_derived = "derived" in all_sources
         has_missing = "missing" in all_sources
         has_fallback = bool(fallback_reasons) or "fallback" in all_sources
@@ -174,11 +184,18 @@ class MarineSafetyEngine:
                 "note": "Seed or missing forecast data is involved.",
             }
 
+        if telemetry.get("stale") or forecast.get("stale"):
+            return {
+                "level": "Medium",
+                "color": "yellow",
+                "note": "Showing the last good marine data; check source age.",
+            }
+
         if not has_fallback and wind_knots < 12.0 and not has_derived:
             return {
                 "level": "High",
                 "color": "green",
-                "note": "Live tide, current, and wind data with light wind.",
+                "note": "Live data with NOAA predicted current guidance." if has_predicted else "Live tide, current, and wind data with light wind.",
             }
 
         if not has_seed and forecast_sources.get("tide") == "live" and has_derived:
@@ -199,6 +216,8 @@ class MarineSafetyEngine:
         tide_predictions: list,
         wind_knots: float,
         wind_predictions: list,
+        current_predictions: list,
+        current_source: str,
         wind_source: str,
         zones_config: dict,
     ) -> list:
@@ -210,9 +229,21 @@ class MarineSafetyEngine:
                 continue
 
             tide_delta = next_point["tide_feet"] - current_point["tide_feet"]
-            base_current = abs(tide_delta / hours) * TIDE_SLOPE_TO_CURRENT_KNOTS
+            derived_current = abs(tide_delta / hours) * TIDE_SLOPE_TO_CURRENT_KNOTS
             average_tide = (current_point["tide_feet"] + next_point["tide_feet"]) / 2
-            phase = self._forecast_phase(tide_delta, base_current)
+            base_current, current_direction, window_current_source = self._current_for_window(
+                current_point["time"],
+                next_point["time"],
+                derived_current,
+                current_predictions,
+                current_source,
+            )
+            phase = self._forecast_phase(
+                tide_delta,
+                base_current,
+                current_direction=current_direction,
+                current_source=window_current_source,
+            )
             window_wind, window_wind_source = self._wind_for_window(
                 current_point["time"],
                 next_point["time"],
@@ -227,6 +258,7 @@ class MarineSafetyEngine:
                     "end": next_point["time"],
                     "phase": phase,
                     "base_current": base_current,
+                    "current_source": window_current_source,
                     "average_tide": average_tide,
                     "base_wind": window_wind,
                     "wind_source": window_wind_source,
@@ -260,6 +292,7 @@ class MarineSafetyEngine:
             "status": evaluation["status"],
             "score": self._forecast_score(activity, evaluation["status"], zone_data),
             "current": zone_data["current"],
+            "current_source": window["current_source"],
             "wind": zone_data["wind"],
             "wind_source": window["wind_source"],
             "tide": zone_data["tide"],
@@ -291,9 +324,40 @@ class MarineSafetyEngine:
         return fallback_wind_knots, "fallback"
 
     @staticmethod
-    def _forecast_phase(tide_delta: float, base_current: float) -> str:
+    def _current_for_window(
+        start,
+        end,
+        derived_current_knots: float,
+        current_predictions: list,
+        current_source: str,
+    ) -> tuple[float, float | None, str]:
+        if not current_predictions:
+            return derived_current_knots, None, "derived"
+
+        midpoint = start + (end - start) / 2
+        nearest = min(
+            current_predictions,
+            key=lambda item: abs((item["time"] - midpoint).total_seconds()),
+        )
+        distance_seconds = abs((nearest["time"] - midpoint).total_seconds())
+        if distance_seconds <= 5400:
+            return nearest["speed"], nearest.get("dir"), current_source if current_source != "derived" else "predicted"
+
+        return derived_current_knots, None, "derived"
+
+    @staticmethod
+    def _forecast_phase(
+        tide_delta: float,
+        base_current: float,
+        current_direction: float | None = None,
+        current_source: str = "derived",
+    ) -> str:
         if base_current < 0.25:
             return "Slack-ish"
+        if current_source == "predicted" and current_direction is not None:
+            if 100 < current_direction < 260:
+                return "Flood/South"
+            return "Ebb/North"
         if tide_delta > 0:
             return "Flood/Rising"
         return "Ebb/Falling"

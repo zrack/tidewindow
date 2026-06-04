@@ -1,6 +1,6 @@
 # TideWindow
 
-TideWindow is a terminal and web marine-conditions dashboard for the Gig Harbor and Tacoma Narrows area. It combines NOAA tide/current observations with optional OpenWeather wind data, then scores eight local zones for kayaking and fly fishing. It also highlights the best kayak and fishing windows for the next 24 hours from NOAA tide predictions.
+TideWindow is a terminal and web marine-conditions dashboard for the Gig Harbor and Tacoma Narrows area. It combines NOAA tide/current observations and predictions with optional OpenWeather wind data, then scores eight local zones for kayaking and fly fishing. It also highlights the best kayak and fishing windows across a 72-hour planning window.
 
 The web dashboard adds a Leaflet/OpenStreetMap area map, an hourly tide/wind/activity timeline, a remembered activity mode, and local location controls. You can hide areas you do not use and add optional Gig Harbor-area locations such as Wollochet Bay, Horsehead Bay, Raft Island, Rosedale Gardens Beach, and Point Fosdick Shoreline.
 
@@ -82,11 +82,11 @@ The web dashboard starts with those eight default areas. Optional locations are 
 
 ## Forecast Windows
 
-The forecast panel uses official NOAA tide predictions and estimates current strength from the hourly tide slope. Tide forecast data is labeled as `live`; current forecast data is labeled as `derived` because the app is calculating local planning guidance from the tide curve and zone multipliers.
+The forecast panel uses official NOAA tide predictions and NOAA current predictions when available. Tide forecast data is labeled as `live`; current forecast data is labeled as `predicted` when NOAA current predictions are available and `derived` only when TideWindow falls back to estimating current strength from the tide slope.
 
 When `OPENWEATHER_API_KEY` has access to OpenWeather One Call 3.0, TideWindow also uses hourly wind forecast points for each window. Forecast wind is labeled as `live`, `fallback`, or `missing`; if hourly wind is unavailable, the app falls back to the current wind value for scoring and says so in the panel.
 
-The app also displays a confidence label. `High` means live tide, current, and wind data with light wind. `Medium` means live tide forecast with derived current guidance. `Low` means seed or missing forecast data is involved.
+The app also displays a confidence label. `High` means live or official predicted marine data with light wind. `Medium` means live tide forecast with derived current guidance. `Low` means seed or missing forecast data is involved.
 
 ## Configuration
 
@@ -137,7 +137,7 @@ python3 -m unittest discover
 ## Data Sources
 
 - NOAA CO-OPS API for tide and current observations
-- NOAA CO-OPS API for tide predictions
+- NOAA CO-OPS API for tide and current predictions
 - OpenWeather current weather API for optional wind observations
 - OpenWeather One Call 3.0 API for optional hourly wind forecasts
 

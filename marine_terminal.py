@@ -5,6 +5,7 @@ from textual.widgets import Header, Footer, Static
 from noaa_client import NoaaMarineClient
 from marine_engine import MarineSafetyEngine
 from marine_config import (
+    FORECAST_HOURS,
     FORECAST_MAX_WINDOWS_PER_ACTIVITY,
     UPDATE_INTERVAL_SECONDS,
     VISIBLE_ZONE_COUNT,
@@ -140,6 +141,8 @@ class MarineTerminalApp(App):
             forecast.get("predictions", []),
             data["wind_knots"],
             wind_predictions=forecast.get("wind_predictions", []),
+            current_predictions=forecast.get("current_predictions", []),
+            current_source=forecast.get("sources", {}).get("current", "derived"),
             wind_source=forecast.get("sources", {}).get("wind", "fallback"),
             max_windows_per_activity=FORECAST_MAX_WINDOWS_PER_ACTIVITY,
         )
@@ -241,7 +244,7 @@ class MarineTerminalApp(App):
         confidence_level = confidence.get("level", "Unknown")
         confidence_color = confidence.get("color", "white")
         title = (
-            "[bold]NEXT 24 HOURS: BEST WINDOWS[/] "
+            f"[bold]NEXT {FORECAST_HOURS} HOURS: BEST WINDOWS[/] "
             f"[dim]Mode: {self.forecast_filter} | Tide: {sources.get('tide', 'unknown')} | "
             f"Current: {sources.get('current', 'unknown')} | Wind: {sources.get('wind', 'unknown')} | "
             f"Confidence: [{confidence_color}]{confidence_level}[/][/]"
@@ -258,7 +261,8 @@ class MarineTerminalApp(App):
             lines.append(
                 f"[bold]{window['activity']}[/] {window['start']:%a %I%p}-{window['end']:%I%p} "
                 f"| {zone_name} | {window['status']} | {window['phase']} | "
-                f"{window['current']:.1f} kt, {window['wind']:.0f} kt wind ({window['wind_source']})"
+                f"{window['current']:.1f} kt current ({window.get('current_source', 'derived')}), "
+                f"{window['wind']:.0f} kt wind ({window['wind_source']})"
             )
 
         lines.extend(self._diagnostic_lines(forecast, confidence))

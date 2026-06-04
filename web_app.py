@@ -26,7 +26,7 @@ from sun_times import sun_events
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.2.0"
 
 app = FastAPI(title=WEB_APP_NAME, version=APP_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -124,6 +124,8 @@ def build_state_payload(engine, telemetry: dict, forecast: dict) -> dict:
         forecast.get("predictions", []),
         telemetry["wind_knots"],
         wind_predictions=forecast.get("wind_predictions", []),
+        current_predictions=forecast.get("current_predictions", []),
+        current_source=forecast.get("sources", {}).get("current", "derived"),
         wind_source=forecast.get("sources", {}).get("wind", "fallback"),
         zones_config=ALL_ZONES,
     )
@@ -131,6 +133,8 @@ def build_state_payload(engine, telemetry: dict, forecast: dict) -> dict:
         forecast.get("predictions", []),
         telemetry["wind_knots"],
         wind_predictions=forecast.get("wind_predictions", []),
+        current_predictions=forecast.get("current_predictions", []),
+        current_source=forecast.get("sources", {}).get("current", "derived"),
         wind_source=forecast.get("sources", {}).get("wind", "fallback"),
         zones_config=ALL_ZONES,
     )
@@ -152,6 +156,7 @@ def build_state_payload(engine, telemetry: dict, forecast: dict) -> dict:
             **forecast,
             "predictions": _serialize_points(forecast.get("predictions", [])),
             "wind_predictions": _serialize_points(forecast.get("wind_predictions", [])),
+            "current_predictions": _serialize_points(forecast.get("current_predictions", [])),
             "tide_events": _serialize_points(forecast.get("tide_events", [])),
             "slack_events": _serialize_points(forecast.get("slack_events", [])),
         },

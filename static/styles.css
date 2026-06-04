@@ -533,7 +533,19 @@ h2 {
 
 .timeline-strip {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.timeline-day {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .timeline-day-head {
@@ -548,9 +560,13 @@ h2 {
 .timeline-track {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(150px, 1fr);
+  grid-auto-columns: minmax(150px, 168px);
   gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
+  overflow-y: hidden;
   padding-bottom: 10px;
   scroll-snap-type: x proximity;
   scrollbar-width: thin;

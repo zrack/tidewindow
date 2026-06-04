@@ -588,7 +588,7 @@ function renderWindows() {
         ${statusPill(window.status)}
       </header>
       <p class="window-time">${formatTime(window.start)}-${formatTime(window.end)}</p>
-      <p class="window-meta">${window.current.toFixed(1)} kt current | ${window.wind.toFixed(0)} kt wind (${escapeHtml(window.wind_source)})</p>
+      <p class="window-meta">${window.current.toFixed(1)} kt ${escapeHtml(sourceLabel(window.current_source))} current | ${window.wind.toFixed(0)} kt wind (${escapeHtml(sourceLabel(window.wind_source))})</p>
       <p class="notice">${escapeHtml(window.note)}</p>
     </article>
   `).join("");
@@ -767,7 +767,7 @@ function dataStatusRows(telemetry, forecast) {
 }
 
 function statusRow(label, sources, reason, ageSeconds, stale) {
-  const degraded = ["seed", "fallback", "predicted", "missing"];
+  const degraded = ["seed", "fallback", "missing"];
   const health = stale || reason ? "yellow" : Object.values(sources).some((value) => degraded.includes(value)) ? "yellow" : "green";
   const ageText = ageSeconds == null ? "" : formatAge(ageSeconds);
   const ageLabel = [ageText, stale ? "last good reading" : ""].filter(Boolean).join(" · ");
@@ -798,12 +798,17 @@ function sourceHeadline(telemetrySources, forecastSources) {
     ...Object.values(forecastSources),
   ];
   if (sourceValues.includes("seed")) return "Seed data active";
-  if (["fallback", "missing", "predicted"].some((value) => sourceValues.includes(value))) return "Partial live data";
+  if (["fallback", "missing"].some((value) => sourceValues.includes(value))) return "Partial live data";
+  if (sourceValues.includes("predicted")) return "Live + predicted data";
   return "Live data";
 }
 
 function sourceText(sources) {
   return `Tide ${sources.tide || "unknown"}, Current ${sources.current || "unknown"}, Wind ${sources.wind || "unknown"}`;
+}
+
+function sourceLabel(source) {
+  return source || "unknown";
 }
 
 function zoneTitle(zoneId) {
