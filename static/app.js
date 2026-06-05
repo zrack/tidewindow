@@ -89,6 +89,7 @@ const zoneDetails = {
 };
 
 const elements = {
+  appContextLabel: document.querySelector("#app-context-label"),
   refresh: document.querySelector("#refresh-button"),
   confidenceLevel: document.querySelector("#confidence-level"),
   confidenceNote: document.querySelector("#confidence-note"),
@@ -204,6 +205,7 @@ async function loadState() {
 }
 
 function renderDashboard() {
+  renderAppContextLabel();
   renderAlerts();
   renderSummary();
   renderLocationControls();
@@ -423,6 +425,17 @@ function selectedRegion() {
   return state.regions.find((region) => region.id === state.regionId) || state.regions[0] || null;
 }
 
+function selectedRegionName() {
+  const dataRegion = state.data?.config?.region;
+  if (dataRegion?.id === state.regionId && dataRegion.name) return dataRegion.name;
+  return selectedRegion()?.name || "Puget Sound";
+}
+
+function renderAppContextLabel() {
+  if (!elements.appContextLabel) return;
+  elements.appContextLabel.textContent = `${selectedRegionName()} Marine Windows`;
+}
+
 function clampSpotLimit(value) {
   const region = selectedRegion();
   const total = Number(region?.spot_count || value || 10);
@@ -482,6 +495,7 @@ function spotLimitOptions() {
 function renderRegionControls() {
   const region = selectedRegion();
   if (!region) return;
+  renderAppContextLabel();
 
   elements.regionSelect.innerHTML = state.regions.map((item) => `
     <option value="${escapeHtml(item.id)}" ${item.id === state.regionId ? "selected" : ""}>${escapeHtml(item.name)}</option>
@@ -528,13 +542,14 @@ function renderMap() {
   zones.forEach((zone) => {
     if (!zone.map?.lat || !zone.map?.lon) return;
     const evaluation = mode === "Fish" ? zone.fish : zone.kayak;
+    const touchMarker = isMobileViewport();
     const marker = L.circleMarker([zone.map.lat, zone.map.lon], {
       className: `leaflet-status-circle status-${evaluation.color}`,
-      radius: 9,
+      radius: touchMarker ? 12 : 9,
       color: statusColor(evaluation.color),
       fillColor: statusColor(evaluation.color),
       fillOpacity: 0.72,
-      weight: 3,
+      weight: touchMarker ? 4 : 3,
       title: zone.title,
     });
 
@@ -560,6 +575,10 @@ function renderMap() {
     state.leafletMap.setView(bounds[0], 12);
   }
   setTimeout(() => state.leafletMap.invalidateSize(), 0);
+}
+
+function isMobileViewport() {
+  return window.matchMedia?.("(max-width: 680px)").matches || window.innerWidth <= 680;
 }
 
 function initializeLeafletMap() {
