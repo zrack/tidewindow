@@ -1,8 +1,8 @@
 # TideWindow
 
-TideWindow is a terminal and web marine-conditions dashboard for the Gig Harbor, Tacoma Narrows, and central Kitsap area. It combines NOAA tide/current observations and predictions with optional OpenWeather wind data, then scores local spots for kayaking and fly fishing. It also highlights the best kayak and fishing windows across a 72-hour planning window.
+TideWindow is a terminal and web marine-conditions dashboard for Puget Sound, South Hood Canal, and Aberdeen-area marine planning. It combines NOAA tide/current observations and predictions with optional OpenWeather wind data, then scores local spots for kayaking and fly fishing. It also highlights the best kayak and fishing windows across a 72-hour planning window.
 
-The web dashboard adds a Leaflet/OpenStreetMap area map, an hourly tide/wind/activity timeline, a remembered activity mode, and region-aware spot controls. You can choose Gig Harbor, Port Orchard, Bremerton, Silverdale, Tacoma Narrows, Carr Inlet, Case Inlet, Anderson Island, Steilacoom & Nisqually, Olympia & Budd Inlet, South Hood Canal, or Aberdeen, show fewer or more nearby spots, and hide individual spots you do not use.
+The web dashboard adds a Leaflet/OpenStreetMap area map, region-aware spot controls, provider diagnostics, risk tolerance, a mobile-friendly hourly timeline, and remembered activity/location preferences. You can choose Gig Harbor, Port Orchard, Bremerton, Silverdale, Tacoma Narrows, Carr Inlet, Case Inlet, Anderson Island, Steilacoom & Nisqually, Olympia & Budd Inlet, South Hood Canal, or Aberdeen, show fewer or more nearby spots, and hide individual spots you do not use.
 
 ## Visuals
 
@@ -76,9 +76,9 @@ Press `q` to quit.
 Press `[` and `]` to page through current-condition areas.
 Press `a` for all forecast windows, `k` for kayak windows, and `f` for fishing windows.
 
-Current-condition areas include Purdy Bridge, Inside Gig Harbor, Fox Island/Hale Passage, Sunrise Beach Park, Narrows Park, Fox Island Fishing Pier, Purdy Sand Spit, and Kopachuck State Park.
+The terminal dashboard still focuses on the original Gig Harbor/Narrows planning set: Purdy Bridge, Inside Gig Harbor, Fox Island/Hale Passage, Sunrise Beach Park, Narrows Park, Fox Island Fishing Pier, Purdy Sand Spit, and Kopachuck State Park.
 
-The web dashboard starts with the top spots for the selected region. The selected region, visible spot count, hidden spots, and activity mode are stored in the browser.
+The web dashboard starts with the top spots for the selected region. The selected region, risk tolerance, visible spot count, hidden spots, and activity mode are stored in the browser. On phones, the dashboard uses a compact sticky header, stacked summary cards, larger map tap targets, and a vertical hourly timeline.
 
 ## Forecast Windows
 
@@ -88,7 +88,7 @@ When `OPENWEATHER_API_KEY` has access to OpenWeather One Call 3.0, TideWindow al
 
 The app also displays confidence labels. The source confidence summarizes live/predicted/derived/fallback data health, while the provider panel labels station fit with more specific categories such as high station fit, subordinate station fit, sparse current coverage, or river/bar influenced. The provider panel also shows the tide/current priority context, the derived-current fallback, and region-specific caveats.
 
-The web dashboard includes a risk tolerance setting: conservative, standard, or aggressive. Standard preserves the default TideWindow thresholds; conservative flags wind/current risk earlier, while aggressive gives experienced users a wider planning envelope.
+The web dashboard includes a risk tolerance setting: conservative, standard, or aggressive. Standard preserves the default TideWindow thresholds; conservative flags wind/current risk earlier, while aggressive gives experienced users a wider planning envelope. Spot map popups include current, wind, tide, kayak/fish status, and the local rule copy that used to live in the separate area-details section.
 
 ## Configuration
 
