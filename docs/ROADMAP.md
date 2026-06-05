@@ -30,14 +30,15 @@ The full reliability phase and the first polish/safety/accuracy features are don
 - **Wind-direction-aware exposure scoring** — OpenWeather wind direction is carried into telemetry/forecast scoring, and modeled spots adjust effective wind by exposed, partial, or sheltered fetch. _(f8232c0)_
 - **Regional place selector expansion** — Gig Harbor, Port Orchard, Bremerton, Silverdale, Tacoma Narrows, Carr Inlet, Case Inlet, Anderson Island, Steilacoom & Nisqually, Olympia & Budd Inlet, South Hood Canal, and Aberdeen now have selectable catalogs, top-10 spot limits, map fitting, and region-scoped NOAA/OpenWeather provider context with explicit current bins. Chico and Gorst remain nearby spot references, not selectable regions, until they have station-quality provider context. _(current work)_
 - **Provider fallback strategies** — each region now carries tide/current priority lists, a derived-current fallback, more specific confidence labels, and special sparse-current / river-bar warnings for South Hood Canal and Aberdeen. _(current work)_
+- **Regional wind-exposure metadata** — newer regional spots now carry shoreline-family `wind_exposure_bearing` metadata, so wind-direction-aware scoring applies beyond the original Gig Harbor zones. _(current work)_
 
 Earlier: the refined marine-dark UI redesign _(131c7dc)_ and this roadmap.
 
 ## Next — accuracy, personalization, and everyday usefulness
 
-1. **Spot-level exposure metadata expansion (M).** Add reviewed fetch bearings and local current notes to the newer regional catalogs so wind-direction scoring covers more than the original Gig Harbor zones.
-2. **Config-driven thresholds + personalization (M).** Move scoring thresholds out of the long `evaluate_*` ladder into `marine_config`, then add a conservative/standard/aggressive risk-tolerance toggle.
-3. **Provider fallback execution (M-L).** The metadata model exists; next, let regions define multiple usable station candidates that the fetcher can try in order before using derived current.
+1. **Config-driven thresholds + personalization (M).** Move scoring thresholds out of the long `evaluate_*` ladder into `marine_config`, then add a conservative/standard/aggressive risk-tolerance toggle.
+2. **Provider fallback execution (M-L).** The metadata model exists; next, let regions define multiple usable station candidates that the fetcher can try in order before using derived current.
+3. **Spot-level exposure refinement (M).** Replace shoreline-family bearings with spot-reviewed bearings where local knowledge says the default fetch direction is too broad.
 4. **Daily best-window digest (M).** A "tomorrow's best window" summary on a schedule — turns the app from pull-only into something that tells you when to go.
 5. **PWA install/offline QA (S-M).** The PWA exists; the next pass should verify install prompts, iOS icon behavior, service-worker upgrades, and offline map/data behavior on a phone.
 
@@ -52,4 +53,4 @@ Earlier: the refined marine-dark UI redesign _(131c7dc)_ and this roadmap.
 
 ## Suggested next step
 
-**#1 (spot-level exposure metadata expansion)** is now the biggest accuracy gain. Wind direction is wired through, but the newer regional catalogs need reviewed bearings and local notes so the scoring reads each shoreline more honestly.
+**#1 (config-driven thresholds + personalization)** is now the biggest accuracy/product gain. The catalog and provider metadata are much richer, so the next step is making the scoring thresholds easier to tune and eventually personalize.

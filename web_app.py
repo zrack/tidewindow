@@ -35,7 +35,7 @@ from sun_times import sun_events
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-APP_VERSION = "0.4.1"
+APP_VERSION = "0.4.2"
 
 app = FastAPI(title=WEB_APP_NAME, version=APP_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

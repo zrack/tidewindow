@@ -1,9 +1,11 @@
 import unittest
 
 from marine_config import ALL_ZONES, NOAA_CURRENT_STATION, NOAA_TIDE_STATION, OPTIONAL_ZONES, ZONES
+from marine_engine import MarineSafetyEngine
 from marine_regions import (
     BREMERTON_TIDE_STATION,
     DEFAULT_REGION_ID,
+    REGIONAL_SPOTS,
     REGIONS,
     SPOTS,
     default_spot_ids_for_region,
@@ -34,6 +36,43 @@ class MarineRegionTests(unittest.TestCase):
         self.assertEqual(tuple(zone_configs.keys()), tuple(ALL_ZONES.keys()))
         self.assertEqual(zone_configs, ALL_ZONES)
         self.assertTrue(set(ALL_ZONES).issubset(SPOTS))
+
+    def test_regional_spots_include_wind_exposure_bearings(self):
+        for spot_id, spot in REGIONAL_SPOTS.items():
+            with self.subTest(spot=spot_id):
+                self.assertIn("wind_exposure_bearing", spot)
+                self.assertIn("wind_exposure_basis", spot)
+                self.assertGreaterEqual(spot["wind_exposure_bearing"], 0)
+                self.assertLess(spot["wind_exposure_bearing"], 360)
+
+    def test_regional_zone_configs_preserve_wind_exposure_for_scoring(self):
+        zones_config = zone_configs_for_region("south_hood_canal", limit=10)
+        spot = zones_config["union_hood_canal"]
+        bearing = spot["wind_exposure_bearing"]
+        sheltered_bearing = (bearing + 180) % 360
+        engine = MarineSafetyEngine()
+
+        exposed = engine.get_zone_telemetry(
+            base_current=1.0,
+            base_tide=7.0,
+            base_wind=10.0,
+            base_wind_direction=bearing,
+            zones_config={"union_hood_canal": spot},
+        )
+        sheltered = engine.get_zone_telemetry(
+            base_current=1.0,
+            base_tide=7.0,
+            base_wind=10.0,
+            base_wind_direction=sheltered_bearing,
+            zones_config={"union_hood_canal": spot},
+        )
+
+        self.assertGreater(
+            exposed["union_hood_canal"]["wind"],
+            sheltered["union_hood_canal"]["wind"],
+        )
+        self.assertEqual(exposed["union_hood_canal"]["wind_exposure"], "exposed")
+        self.assertEqual(sheltered["union_hood_canal"]["wind_exposure"], "sheltered")
 
     def test_default_and_optional_spots_match_legacy_sets(self):
         self.assertEqual(default_spot_ids_for_region(DEFAULT_REGION_ID), tuple(ZONES.keys()))

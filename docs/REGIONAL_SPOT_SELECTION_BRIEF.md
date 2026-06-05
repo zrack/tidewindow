@@ -110,7 +110,8 @@ Phase 3: Puget Sound catalog expansion — expanded
 Phase 4: Accuracy upgrades — started
 
 - Added wind-direction-aware exposure scoring for modeled spots.
-- Expand reviewed wind-exposure metadata across the newer regional spot catalogs.
+- Added shoreline-family wind-exposure bearings across the newer regional spot catalogs.
+- Refine individual spot bearings where local review says the shoreline-family default is too broad.
 - Move thresholds into configuration.
 - Execute per-region alternate station fallback in the fetcher, using the priority metadata now present in provider context.
 
@@ -124,4 +125,4 @@ Phase 4: Accuracy upgrades — started
 
 ## Recommended Next Step
 
-Expand spot-level exposure metadata next. The app now says more clearly which provider context it trusts, so the next accuracy gain is making the regional spot catalogs as locally expressive as the original Gig Harbor zones.
+Move thresholds into configuration next. The app now carries provider strategy and broader exposure metadata, so the next accuracy gain is making thresholds easier to tune by spot, activity, and risk tolerance.

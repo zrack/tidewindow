@@ -184,9 +184,10 @@ Done:
 - Added South Hood Canal using Union tide station `9445478` and Hazel Point current station `PUG1601`, bin `21@23ft`.
 - Added Aberdeen using Aberdeen tide station `9441187`, validated Grays Harbor entrance current station `ACT8496`, bin `1`, and NWS marine zone `PZZ110`.
 - Added provider priority/fallback metadata, including sparse-current and river/bar-influenced confidence profiles and derived-current fallback labeling.
+- Added shoreline-family wind-exposure bearings across the newer regional spot catalogs.
 
 Next:
 
 1. Wire the fetcher to try alternate configured station candidates in priority order before derived-current fallback.
-2. Expand reviewed wind-exposure bearings across the newer regional spot catalogs.
+2. Refine individual spot exposure bearings where local review should override the shoreline-family default.
 3. Evaluate broader Puget Sound regions after station context is reviewed.

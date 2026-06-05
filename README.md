@@ -84,7 +84,7 @@ The web dashboard starts with the top spots for the selected region. The selecte
 
 The forecast panel uses official NOAA tide predictions and NOAA current predictions when available. Tide forecast data is labeled as `live`; current forecast data is labeled as `predicted` when NOAA current predictions are available and `derived` only when TideWindow falls back to estimating current strength from the tide slope.
 
-When `OPENWEATHER_API_KEY` has access to OpenWeather One Call 3.0, TideWindow also uses hourly wind forecast points for each window. Forecast wind is labeled as `live`, `fallback`, or `missing`; if hourly wind is unavailable, the app falls back to the current wind value for scoring and says so in the panel. When wind direction is available, spot scoring adjusts wind exposure against each modeled shoreline's fetch.
+When `OPENWEATHER_API_KEY` has access to OpenWeather One Call 3.0, TideWindow also uses hourly wind forecast points for each window. Forecast wind is labeled as `live`, `fallback`, or `missing`; if hourly wind is unavailable, the app falls back to the current wind value for scoring and says so in the panel. When wind direction is available, spot scoring adjusts wind exposure against each modeled shoreline's fetch, including the broader regional spot catalog.
 
 The app also displays confidence labels. The source confidence summarizes live/predicted/derived/fallback data health, while the provider panel labels station fit with more specific categories such as high station fit, subordinate station fit, sparse current coverage, or river/bar influenced. The provider panel also shows the tide/current priority context, the derived-current fallback, and region-specific caveats.
 

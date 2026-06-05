@@ -577,6 +577,81 @@ REGIONS = {
 }
 
 
+SHORELINE_EXPOSURE_BEARINGS = (
+    ("grays harbor entrance", 250),
+    ("north jetty", 245),
+    ("south jetty", 260),
+    ("westport", 245),
+    ("south grays harbor", 215),
+    ("north grays harbor", 205),
+    ("grays harbor inner channel", 235),
+    ("grays harbor channel", 245),
+    ("chehalis river", 235),
+    ("wishkah river", 230),
+    ("hoquiam river", 230),
+    ("hood canal west shore", 90),
+    ("hood canal east shore", 270),
+    ("south hood canal", 35),
+    ("lynch cove", 220),
+    ("union", 20),
+    ("great bend", 20),
+    ("hood canal", 35),
+    ("tacoma narrows", 220),
+    ("dalco passage", 45),
+    ("day island", 210),
+    ("south vashon", 200),
+    ("commencement bay", 45),
+    ("cormorant passage", 230),
+    ("nisqually reach", 260),
+    ("nisqually", 260),
+    ("carr inlet", 180),
+    ("case inlet", 180),
+    ("rocky bay", 170),
+    ("mayo cove", 190),
+    ("pickering passage", 210),
+    ("squaxin passage", 210),
+    ("balch passage", 220),
+    ("drayton passage", 210),
+    ("pitt passage", 210),
+    ("filucy bay", 190),
+    ("budd inlet", 350),
+    ("eld inlet", 220),
+    ("henderson inlet", 210),
+    ("sinclair inlet south shore", 0),
+    ("sinclair inlet north shore", 180),
+    ("sinclair inlet head", 70),
+    ("sinclair inlet", 180),
+    ("rich passage approach", 95),
+    ("rich passage", 100),
+    ("colvos passage approach", 110),
+    ("colvos passage", 110),
+    ("port washington narrows", 90),
+    ("port orchard / dyes inlet approach", 120),
+    ("port orchard / brownsville", 110),
+    ("dyes inlet north shore", 180),
+    ("dyes inlet east shore", 270),
+    ("dyes inlet west shore", 90),
+    ("dyes inlet / sinclair approach", 120),
+    ("dyes inlet", 180),
+    ("phinney bay", 140),
+    ("oyster bay", 110),
+    ("chico bay", 120),
+    ("chico creek", 120),
+    ("blackjack creek", 20),
+    ("south kitsap", 210),
+    ("clear creek", 180),
+)
+
+
+def _wind_exposure_bearing_for_shoreline(shoreline: str) -> int:
+    """Returns the reviewed shoreline-family fetch bearing for regional spots."""
+    normalized = shoreline.lower()
+    for keyword, bearing in SHORELINE_EXPOSURE_BEARINGS:
+        if keyword in normalized:
+            return bearing
+    return 225
+
+
 def _regional_spot(
     title: str,
     ui_prefix: str,
@@ -589,13 +664,21 @@ def _regional_spot(
     activity_tags: tuple[str, ...] = ("kayak", "fish"),
     access_note: str = "",
     shoreline: str = "",
+    wind_exposure_bearing: int | None = None,
 ) -> dict:
+    exposure_bearing = (
+        wind_exposure_bearing
+        if wind_exposure_bearing is not None
+        else _wind_exposure_bearing_for_shoreline(shoreline)
+    )
     spot = {
         "title": title,
         "ui_prefix": ui_prefix,
         "lat": lat,
         "lon": lon,
         "wind_multiplier": wind_multiplier,
+        "wind_exposure_bearing": exposure_bearing,
+        "wind_exposure_basis": "spot" if wind_exposure_bearing is not None else "shoreline_family",
         "active_by_default": active_by_default,
         "activity_tags": activity_tags,
         "access_note": access_note,
