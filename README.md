@@ -88,6 +88,8 @@ When `OPENWEATHER_API_KEY` has access to OpenWeather One Call 3.0, TideWindow al
 
 The app also displays confidence labels. The source confidence summarizes live/predicted/derived/fallback data health, while the provider panel labels station fit with more specific categories such as high station fit, subordinate station fit, sparse current coverage, or river/bar influenced. The provider panel also shows the tide/current priority context, the derived-current fallback, and region-specific caveats.
 
+The web dashboard includes a risk tolerance setting: conservative, standard, or aggressive. Standard preserves the default TideWindow thresholds; conservative flags wind/current risk earlier, while aggressive gives experienced users a wider planning envelope.
+
 ## Configuration
 
 Edit `marine_config.py` to change NOAA station IDs, weather coordinates, refresh interval, forecast length, seeded fallback values, or local zone multipliers.

@@ -112,7 +112,7 @@ Phase 4: Accuracy upgrades — started
 - Added wind-direction-aware exposure scoring for modeled spots.
 - Added shoreline-family wind-exposure bearings across the newer regional spot catalogs.
 - Refine individual spot bearings where local review says the shoreline-family default is too broad.
-- Move thresholds into configuration.
+- Moved kayak/fish thresholds into configuration and added conservative/standard/aggressive risk tolerance selection.
 - Execute per-region alternate station fallback in the fetcher, using the priority metadata now present in provider context.
 
 ## Open Questions
@@ -125,4 +125,4 @@ Phase 4: Accuracy upgrades — started
 
 ## Recommended Next Step
 
-Move thresholds into configuration next. The app now carries provider strategy and broader exposure metadata, so the next accuracy gain is making thresholds easier to tune by spot, activity, and risk tolerance.
+Execute provider fallback priority next. The app now describes station priority and fallback assumptions, so the fetcher should try those configured candidates before derived-current fallback.

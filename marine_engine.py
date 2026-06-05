@@ -1,5 +1,12 @@
 from marine_config import (
+    DEFAULT_RISK_TOLERANCE,
+    FISH_RULES_BY_ZONE,
     FORECAST_MAX_WINDOWS_PER_ACTIVITY,
+    GENERIC_FISH_RULES,
+    GENERIC_KAYAK_RULES,
+    KAYAK_RULES_BY_ZONE,
+    RISK_TOLERANCE_PROFILES,
+    STATUS_COLORS,
     TIDE_SLOPE_TO_CURRENT_KNOTS,
     ZONES,
 )
@@ -7,6 +14,9 @@ from marine_config import (
 
 class MarineSafetyEngine:
     """Evaluates physical marine parameters across distinct Gig Harbor micro-regions."""
+
+    def __init__(self, risk_tolerance: str = DEFAULT_RISK_TOLERANCE):
+        self.risk_tolerance = self.normalize_risk_tolerance(risk_tolerance)
     
     @staticmethod
     def get_zone_telemetry(
@@ -73,8 +83,18 @@ class MarineSafetyEngine:
         scored = []
         for window in hourly_windows:
             for zone_id, zone_data in window["zones"].items():
-                kayak = self.evaluate_kayaking(zone_id, zone_data["current"], zone_data["wind"])
-                fish = self.evaluate_fly_fishing(zone_id, zone_data["current"], zone_data["tide"])
+                kayak = self.evaluate_kayaking(
+                    zone_id,
+                    zone_data["current"],
+                    zone_data["wind"],
+                    risk_tolerance=self.risk_tolerance,
+                )
+                fish = self.evaluate_fly_fishing(
+                    zone_id,
+                    zone_data["current"],
+                    zone_data["tide"],
+                    risk_tolerance=self.risk_tolerance,
+                )
 
                 scored.append(
                     self._forecast_entry(
@@ -135,8 +155,18 @@ class MarineSafetyEngine:
         for window in hourly_windows:
             zone_scores = {}
             for zone_id, zone_data in window["zones"].items():
-                kayak = self.evaluate_kayaking(zone_id, zone_data["current"], zone_data["wind"])
-                fish = self.evaluate_fly_fishing(zone_id, zone_data["current"], zone_data["tide"])
+                kayak = self.evaluate_kayaking(
+                    zone_id,
+                    zone_data["current"],
+                    zone_data["wind"],
+                    risk_tolerance=self.risk_tolerance,
+                )
+                fish = self.evaluate_fly_fishing(
+                    zone_id,
+                    zone_data["current"],
+                    zone_data["tide"],
+                    risk_tolerance=self.risk_tolerance,
+                )
                 zone_scores[zone_id] = {
                     "current": round(zone_data["current"], 2),
                     "wind": round(zone_data["wind"], 1),
@@ -438,117 +468,87 @@ class MarineSafetyEngine:
         return round(score, 2)
 
     @staticmethod
-    def evaluate_kayaking(zone: str, current: float, wind: float) -> dict:
-        """Zone-specific kayaking safety thresholds."""
-        if zone == "purdy_bridge":
-            if current > 2.0:
-                return {"status": "DANGER", "color": "red", "note": "Purdy spit current is acting like a river. Do not paddle."}
-            elif current > 1.0:
-                return {"status": "CAUTION", "color": "yellow", "note": "Strong pull under the bridge. Stay near the edges."}
-            return {"status": "SAFE", "color": "green", "note": "Near slack water. Safe to transit under bridge."}
-            
-        elif zone == "gig_harbor":
-            if wind > 15.0:
-                return {"status": "CAUTION", "color": "yellow", "note": "High winds creating chop inside harbor."}
-            return {"status": "SAFE", "color": "green", "note": "Enclosed water. Ideal for casual paddling."}
-            
-        elif zone == "fox_island":
-            if wind > 12.0 or current > 2.0:
-                return {"status": "DANGER", "color": "red", "note": "High exposure. Dangerous fetch and currents."}
-            elif wind > 8.0 or current > 1.0:
-                return {"status": "CAUTION", "color": "yellow", "note": "Moderate chop in Hale Passage. Stay close to shore."}
-            return {"status": "SAFE", "color": "green", "note": "Good conditions around Fox Island bridge and shores."}
-
-        elif zone == "sunrise_beach":
-            if wind > 14.0 or current > 1.8:
-                return {"status": "DANGER", "color": "red", "note": "Open shoreline exposure. Avoid marginal paddling windows."}
-            elif wind > 9.0 or current > 1.0:
-                return {"status": "CAUTION", "color": "yellow", "note": "Exposed beach. Watch for chop and landing conditions."}
-            return {"status": "SAFE", "color": "green", "note": "Manageable shoreline conditions near Sunrise Beach."}
-
-        elif zone == "narrows_park":
-            if current > 1.8 or wind > 12.0:
-                return {"status": "DANGER", "color": "red", "note": "Narrows exposure can build fast. Strong current risk."}
-            elif current > 0.8 or wind > 8.0:
-                return {"status": "CAUTION", "color": "yellow", "note": "Stay alert near Narrows Park; conditions can change quickly."}
-            return {"status": "SAFE", "color": "green", "note": "Lower current window along the Narrows shoreline."}
-
-        elif zone == "fox_island_pier":
-            if wind > 12.0 or current > 2.0:
-                return {"status": "DANGER", "color": "red", "note": "Pier area is exposed to fetch and current."}
-            elif wind > 8.0 or current > 1.0:
-                return {"status": "CAUTION", "color": "yellow", "note": "Use caution around pier structure and wind chop."}
-            return {"status": "SAFE", "color": "green", "note": "Reasonable conditions around the fishing pier."}
-
-        elif zone == "purdy_sand_spit":
-            if current > 2.0:
-                return {"status": "DANGER", "color": "red", "note": "Strong flow near the spit and bridge. Avoid paddling."}
-            elif current > 1.0 or wind > 12.0:
-                return {"status": "CAUTION", "color": "yellow", "note": "Watch the spit edges and bridge current."}
-            return {"status": "SAFE", "color": "green", "note": "Manageable spit conditions near slack or slower water."}
-
-        elif zone == "kopachuck":
-            if wind > 15.0 or current > 1.8:
-                return {"status": "DANGER", "color": "red", "note": "Henderson Bay exposure can create rough landings."}
-            elif wind > 9.0 or current > 1.0:
-                return {"status": "CAUTION", "color": "yellow", "note": "Moderate exposure off Kopachuck. Mind beach landing."}
-            return {"status": "SAFE", "color": "green", "note": "Good sheltered-to-moderate beach conditions."}
-
-        if wind > 15.0 or current > 2.0:
-            return {"status": "DANGER", "color": "red", "note": "Generic threshold exceeded. Check local conditions closely."}
-        if wind > 8.0 or current > 1.0:
-            return {"status": "CAUTION", "color": "yellow", "note": "Generic caution threshold exceeded."}
-        return {"status": "SAFE", "color": "green", "note": "Generic thresholds show manageable conditions."}
+    def normalize_risk_tolerance(risk_tolerance: str | None) -> str:
+        if risk_tolerance in RISK_TOLERANCE_PROFILES:
+            return risk_tolerance
+        return DEFAULT_RISK_TOLERANCE
 
     @staticmethod
-    def evaluate_fly_fishing(zone: str, current: float, tide: float) -> dict:
-        """Zone-specific fly fishing thresholds."""
-        if zone == "purdy_bridge":
-            if current > 3.0:
-                return {"status": "DANGER", "color": "red", "note": "Current too fast to safely wade the spit."}
-            elif 1.0 <= current <= 3.0:
-                return {"status": "OPTIMAL", "color": "green", "note": "Current is ripping bait through the channel. Cast into the seams."}
-            return {"status": "POOR", "color": "yellow", "note": "Slack water. Sea-run cutthroat are likely inactive."}
-            
-        elif zone == "gig_harbor":
-            if tide > 8.0:
-                return {"status": "OPTIMAL", "color": "green", "note": "High tide pushing bait into the harbor estuaries."}
-            return {"status": "POOR", "color": "yellow", "note": "Low water. Fish have moved out to deeper Narrows structure."}
-            
-        elif zone == "fox_island":
-            if 0.5 <= current <= 2.0:
-                return {"status": "OPTIMAL", "color": "green", "note": "Good current sweeping the Hale Passage drop-offs."}
-            return {"status": "CAUTION", "color": "yellow", "note": "Wait for moving water to trigger feeding."}
+    def evaluate_kayaking(
+        zone: str,
+        current: float,
+        wind: float,
+        risk_tolerance: str = DEFAULT_RISK_TOLERANCE,
+    ) -> dict:
+        """Evaluates kayaking safety from configured thresholds."""
+        rules = KAYAK_RULES_BY_ZONE.get(zone, GENERIC_KAYAK_RULES)
+        metrics = {"current": current, "wind": wind}
+        return MarineSafetyEngine._evaluate_rules(metrics, rules, risk_tolerance)
 
-        elif zone == "sunrise_beach":
-            if 0.4 <= current <= 1.8:
-                return {"status": "OPTIMAL", "color": "green", "note": "Good moving water along Sunrise Beach structure."}
-            return {"status": "POOR", "color": "yellow", "note": "Look for more current along the shoreline."}
+    @staticmethod
+    def evaluate_fly_fishing(
+        zone: str,
+        current: float,
+        tide: float,
+        risk_tolerance: str = DEFAULT_RISK_TOLERANCE,
+    ) -> dict:
+        """Evaluates fly-fishing quality from configured thresholds."""
+        rules = FISH_RULES_BY_ZONE.get(zone, GENERIC_FISH_RULES)
+        metrics = {"current": current, "tide": tide}
+        return MarineSafetyEngine._evaluate_rules(metrics, rules, risk_tolerance)
 
-        elif zone == "narrows_park":
-            if 0.5 <= current <= 1.8:
-                return {"status": "OPTIMAL", "color": "green", "note": "Current is moving bait along the Narrows shoreline."}
-            elif current > 2.5:
-                return {"status": "DANGER", "color": "red", "note": "Too much current for comfortable shore casting."}
-            return {"status": "CAUTION", "color": "yellow", "note": "Wait for a stronger but manageable current push."}
+    @staticmethod
+    def _evaluate_rules(metrics: dict, rules: tuple[dict, ...], risk_tolerance: str) -> dict:
+        for rule in rules:
+            if MarineSafetyEngine._rule_matches(metrics, rule, risk_tolerance):
+                status = rule["status"]
+                return {
+                    "status": status,
+                    "color": STATUS_COLORS.get(status, "yellow"),
+                    "note": rule["note"],
+                }
+        return {
+            "status": "CAUTION",
+            "color": STATUS_COLORS["CAUTION"],
+            "note": "No configured threshold matched these conditions.",
+        }
 
-        elif zone == "fox_island_pier":
-            if 0.5 <= current <= 2.0:
-                return {"status": "OPTIMAL", "color": "green", "note": "Good current around pier structure and drop-offs."}
-            return {"status": "CAUTION", "color": "yellow", "note": "Better when water is moving around the pier."}
+    @staticmethod
+    def _rule_matches(metrics: dict, rule: dict, risk_tolerance: str) -> bool:
+        all_conditions = rule.get("all", ())
+        any_conditions = rule.get("any", ())
 
-        elif zone == "purdy_sand_spit":
-            if 1.0 <= current <= 2.8:
-                return {"status": "OPTIMAL", "color": "green", "note": "Moving water along the spit can concentrate bait."}
-            elif current > 3.0:
-                return {"status": "DANGER", "color": "red", "note": "Current too fast near the spit and bridge."}
-            return {"status": "POOR", "color": "yellow", "note": "Slack water around the spit is often less productive."}
+        if all_conditions and not all(
+            MarineSafetyEngine._condition_matches(metrics, condition, risk_tolerance)
+            for condition in all_conditions
+        ):
+            return False
+        if any_conditions and not any(
+            MarineSafetyEngine._condition_matches(metrics, condition, risk_tolerance)
+            for condition in any_conditions
+        ):
+            return False
+        return True
 
-        elif zone == "kopachuck":
-            if tide > 8.0 and current > 0.3:
-                return {"status": "OPTIMAL", "color": "green", "note": "Higher water and movement can work the beach edge."}
-            return {"status": "POOR", "color": "yellow", "note": "Wait for higher water or more beach movement."}
+    @staticmethod
+    def _condition_matches(metrics: dict, condition: dict, risk_tolerance: str) -> bool:
+        actual = metrics[condition["metric"]]
+        expected = float(condition["value"])
+        if condition.get("risk_adjust"):
+            profile = RISK_TOLERANCE_PROFILES[
+                MarineSafetyEngine.normalize_risk_tolerance(risk_tolerance)
+            ]
+            expected *= profile["safety_threshold_multiplier"]
 
-        if 0.5 <= current <= 2.0:
-            return {"status": "OPTIMAL", "color": "green", "note": "Generic moving-water window looks fishable."}
-        return {"status": "POOR", "color": "yellow", "note": "Generic threshold suggests waiting for better movement."}
+        op = condition["op"]
+        if op == ">":
+            return actual > expected
+        if op == ">=":
+            return actual >= expected
+        if op == "<":
+            return actual < expected
+        if op == "<=":
+            return actual <= expected
+        if op == "==":
+            return actual == expected
+        raise ValueError(f"Unsupported threshold operator: {op}")

@@ -184,6 +184,21 @@ class WebAppTests(unittest.TestCase):
         self.assertTrue(all(window["zone_id"] in returned_ids for window in payload["windows"]))
         self.assertTrue(all(set(item["zones"]).issubset(returned_ids) for item in payload["timeline"]))
 
+    def test_api_state_applies_risk_tolerance(self):
+        telemetry = live_telemetry()
+        telemetry["wind_knots"] = 18.0
+        self._use_cache(lambda: StubClient(telemetry, live_forecast()))
+
+        standard = asyncio.run(web_app.api_state(region=DEFAULT_REGION_ID, limit=10, risk="standard"))
+        conservative = asyncio.run(web_app.api_state(region=DEFAULT_REGION_ID, limit=10, risk="conservative"))
+
+        standard_harbor = next(zone for zone in standard["zones"] if zone["id"] == "gig_harbor")
+        conservative_harbor = next(zone for zone in conservative["zones"] if zone["id"] == "gig_harbor")
+        self.assertEqual(standard["config"]["risk_tolerance"]["id"], "standard")
+        self.assertEqual(conservative["config"]["risk_tolerance"]["id"], "conservative")
+        self.assertEqual(standard_harbor["kayak"]["status"], "SAFE")
+        self.assertEqual(conservative_harbor["kayak"]["status"], "CAUTION")
+
     def test_api_state_uses_region_scoped_cache_and_provider_context(self):
         cache = self._use_cache(lambda: StubClient(live_telemetry(), live_forecast()))
         web_app.region_state_caches["port_orchard"] = cache

@@ -679,6 +679,8 @@ def _regional_spot(
         "wind_multiplier": wind_multiplier,
         "wind_exposure_bearing": exposure_bearing,
         "wind_exposure_basis": "spot" if wind_exposure_bearing is not None else "shoreline_family",
+        "kayak_rule_profile": "generic",
+        "fish_rule_profile": "generic",
         "active_by_default": active_by_default,
         "activity_tags": activity_tags,
         "access_note": access_note,

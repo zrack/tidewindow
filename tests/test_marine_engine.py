@@ -135,6 +135,36 @@ class MarineSafetyEngineTests(unittest.TestCase):
         self.assertEqual(harbor_optimal["status"], "OPTIMAL")
         self.assertEqual(fox_wait["status"], "CAUTION")
 
+    def test_standard_threshold_config_preserves_legacy_boundary_results(self):
+        cases = (
+            ("kayak", "purdy_bridge", {"current": 2.1, "wind": 4.0}, "DANGER"),
+            ("kayak", "gig_harbor", {"current": 0.1, "wind": 16.0}, "CAUTION"),
+            ("kayak", "fox_island", {"current": 1.1, "wind": 6.0}, "CAUTION"),
+            ("kayak", "kopachuck", {"current": 0.4, "wind": 5.0}, "SAFE"),
+            ("fish", "purdy_bridge", {"current": 1.2, "tide": 5.0}, "OPTIMAL"),
+            ("fish", "gig_harbor", {"current": 0.1, "tide": 8.1}, "OPTIMAL"),
+            ("fish", "narrows_park", {"current": 2.6, "tide": 6.0}, "DANGER"),
+            ("fish", "kopachuck", {"current": 0.5, "tide": 8.4}, "OPTIMAL"),
+        )
+
+        for activity, zone, values, status in cases:
+            with self.subTest(activity=activity, zone=zone):
+                if activity == "kayak":
+                    result = self.engine.evaluate_kayaking(
+                        zone,
+                        values["current"],
+                        values["wind"],
+                        risk_tolerance="standard",
+                    )
+                else:
+                    result = self.engine.evaluate_fly_fishing(
+                        zone,
+                        values["current"],
+                        values["tide"],
+                        risk_tolerance="standard",
+                    )
+                self.assertEqual(result["status"], status)
+
     def test_unknown_configured_zone_gets_generic_thresholds(self):
         kayak = self.engine.evaluate_kayaking(
             zone="new_zone",
@@ -149,6 +179,30 @@ class MarineSafetyEngineTests(unittest.TestCase):
 
         self.assertEqual(kayak["status"], "SAFE")
         self.assertEqual(fish["status"], "OPTIMAL")
+
+    def test_risk_tolerance_adjusts_configured_safety_thresholds(self):
+        standard = self.engine.evaluate_kayaking(
+            zone="gig_harbor",
+            current=0.1,
+            wind=14.0,
+            risk_tolerance="standard",
+        )
+        conservative = self.engine.evaluate_kayaking(
+            zone="gig_harbor",
+            current=0.1,
+            wind=14.0,
+            risk_tolerance="conservative",
+        )
+        aggressive = self.engine.evaluate_kayaking(
+            zone="fox_island",
+            current=0.5,
+            wind=13.0,
+            risk_tolerance="aggressive",
+        )
+
+        self.assertEqual(standard["status"], "SAFE")
+        self.assertEqual(conservative["status"], "CAUTION")
+        self.assertEqual(aggressive["status"], "CAUTION")
 
     def test_forecast_windows_include_kayak_and_fish_recommendations(self):
         start = datetime(2026, 5, 30, 6)

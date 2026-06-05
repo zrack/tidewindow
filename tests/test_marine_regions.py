@@ -45,6 +45,12 @@ class MarineRegionTests(unittest.TestCase):
                 self.assertGreaterEqual(spot["wind_exposure_bearing"], 0)
                 self.assertLess(spot["wind_exposure_bearing"], 360)
 
+    def test_regional_spots_use_generic_configurable_rule_profiles(self):
+        for spot_id, spot in REGIONAL_SPOTS.items():
+            with self.subTest(spot=spot_id):
+                self.assertEqual(spot["kayak_rule_profile"], "generic")
+                self.assertEqual(spot["fish_rule_profile"], "generic")
+
     def test_regional_zone_configs_preserve_wind_exposure_for_scoring(self):
         zones_config = zone_configs_for_region("south_hood_canal", limit=10)
         spot = zones_config["union_hood_canal"]

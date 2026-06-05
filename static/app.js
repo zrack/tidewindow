@@ -2,6 +2,7 @@ const storageKeys = {
   filter: "tidewindow.filter",
   region: "tidewindow.region",
   spotLimit: "tidewindow.spotLimit",
+  riskTolerance: "tidewindow.riskTolerance",
 };
 
 const state = {
@@ -10,6 +11,7 @@ const state = {
   regionId: localStorage.getItem(storageKeys.region) || "gig_harbor",
   spotLimit: Number(localStorage.getItem(storageKeys.spotLimit) || 10),
   filter: localStorage.getItem(storageKeys.filter) || "All",
+  riskTolerance: localStorage.getItem(storageKeys.riskTolerance) || "standard",
   autoRefreshMs: 5 * 60 * 1000,
   nextRefreshAt: null,
   refreshTimer: null,
@@ -111,6 +113,7 @@ const elements = {
   eventsNote: document.querySelector("#events-note"),
   alerts: document.querySelector("#alerts"),
   regionSelect: document.querySelector("#region-select"),
+  riskSelect: document.querySelector("#risk-select"),
   spotFewer: document.querySelector("#spot-fewer"),
   spotLimit: document.querySelector("#spot-limit"),
   spotMore: document.querySelector("#spot-more"),
@@ -128,6 +131,7 @@ elements.zoneDialog.addEventListener("click", (event) => {
 elements.locationAdd.addEventListener("click", addSelectedLocation);
 elements.locationReset.addEventListener("click", restoreDefaultLocations);
 elements.regionSelect.addEventListener("change", () => setRegion(elements.regionSelect.value));
+elements.riskSelect.addEventListener("change", () => setRiskTolerance(elements.riskSelect.value));
 elements.spotFewer.addEventListener("click", () => changeSpotLimit(-5));
 elements.spotMore.addEventListener("click", () => changeSpotLimit(5));
 elements.filterButtons.forEach((button) => {
@@ -429,6 +433,7 @@ function clampSpotLimit(value) {
 function saveRegionSelection() {
   localStorage.setItem(storageKeys.region, state.regionId);
   localStorage.setItem(storageKeys.spotLimit, String(state.spotLimit));
+  localStorage.setItem(storageKeys.riskTolerance, state.riskTolerance);
 }
 
 function setRegion(regionId) {
@@ -437,6 +442,14 @@ function setRegion(regionId) {
   state.spotLimit = clampSpotLimit(selectedRegion()?.default_spot_limit || 10);
   saveRegionSelection();
   renderRegionControls();
+  loadState();
+}
+
+function setRiskTolerance(riskTolerance) {
+  state.riskTolerance = ["conservative", "standard", "aggressive"].includes(riskTolerance)
+    ? riskTolerance
+    : "standard";
+  saveRegionSelection();
   loadState();
 }
 
@@ -473,6 +486,7 @@ function renderRegionControls() {
   elements.regionSelect.innerHTML = state.regions.map((item) => `
     <option value="${escapeHtml(item.id)}" ${item.id === state.regionId ? "selected" : ""}>${escapeHtml(item.name)}</option>
   `).join("");
+  elements.riskSelect.value = state.data?.config?.risk_tolerance?.id || state.riskTolerance;
 
   const total = Number(region.spot_count || state.spotLimit);
   const options = spotLimitOptions();
@@ -486,6 +500,7 @@ function stateUrl() {
   const params = new URLSearchParams({
     region: state.regionId,
     limit: String(state.spotLimit),
+    risk: state.riskTolerance,
   });
   return `/api/state?${params.toString()}`;
 }

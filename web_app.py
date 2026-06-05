@@ -8,10 +8,12 @@ from fastapi.staticfiles import StaticFiles
 
 from marine_config import (
     ALL_ZONES,
+    DEFAULT_RISK_TOLERANCE,
     FORECAST_HOURS,
     NOAA_CURRENT_STATION,
     NOAA_TIDE_STATION,
     OPTIONAL_ZONES,
+    RISK_TOLERANCE_PROFILES,
     WEATHER_LAT,
     WEATHER_LON,
     WEB_APP_NAME,
@@ -35,7 +37,7 @@ from sun_times import sun_events
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-APP_VERSION = "0.4.2"
+APP_VERSION = "0.4.3"
 
 app = FastAPI(title=WEB_APP_NAME, version=APP_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -126,8 +128,12 @@ async def api_regions():
 
 
 @app.get("/api/state")
-async def api_state(region: str = DEFAULT_REGION_ID, limit: int | None = None):
-    engine = MarineSafetyEngine()
+async def api_state(
+    region: str = DEFAULT_REGION_ID,
+    limit: int | None = None,
+    risk: str = DEFAULT_RISK_TOLERANCE,
+):
+    engine = MarineSafetyEngine(risk)
     try:
         telemetry, forecast, cache_meta = await get_state_cache(region).get()
     except ValueError as exc:
@@ -166,11 +172,13 @@ def build_state_payload(
             zone_id,
             zone_data["current"],
             zone_data["wind"],
+            risk_tolerance=engine.risk_tolerance,
         )
         fish = engine.evaluate_fly_fishing(
             zone_id,
             zone_data["current"],
             zone_data["tide"],
+            risk_tolerance=engine.risk_tolerance,
         )
         zone_cards.append(
             {
@@ -223,6 +231,14 @@ def build_state_payload(
             "app": WEB_APP_NAME,
             "refresh_seconds": WEB_REFRESH_INTERVAL_SECONDS,
             "forecast_hours": FORECAST_HOURS,
+            "risk_tolerance": {
+                "id": engine.risk_tolerance,
+                **RISK_TOLERANCE_PROFILES[engine.risk_tolerance],
+                "options": [
+                    {"id": key, **value}
+                    for key, value in RISK_TOLERANCE_PROFILES.items()
+                ],
+            },
             "region": {
                 "id": region["id"],
                 "name": region["name"],
