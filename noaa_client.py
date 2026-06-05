@@ -37,10 +37,48 @@ class NoaaMarineClient:
         self.current_station = provider_context.get("current_station", NOAA_CURRENT_STATION)
         self.current_bin = provider_context.get("current_bin")
         self.current_bin_depth_ft = provider_context.get("current_bin_depth_ft")
+        self.tide_candidates = self._build_tide_candidates(provider_context)
+        self.current_candidates = self._build_current_candidates(provider_context)
         self.nws_zone = provider_context.get("nws_zone", NWS_MARINE_ZONE)
         self.lat = provider_context.get("weather_lat", WEATHER_LAT)
         self.lon = provider_context.get("weather_lon", WEATHER_LON)
         self.owm_api_key = os.getenv("OPENWEATHER_API_KEY")
+
+    def _build_tide_candidates(self, provider_context: dict) -> tuple[dict, ...]:
+        stations = [
+            ("Primary tide", provider_context.get("tide_station", NOAA_TIDE_STATION)),
+            *[
+                ("Backup tide", station)
+                for station in provider_context.get("backup_tide_stations", ())
+            ],
+        ]
+        return tuple(
+            {"label": label, "station": station}
+            for label, station in stations
+            if station
+        )
+
+    def _build_current_candidates(self, provider_context: dict) -> tuple[dict, ...]:
+        primary = {
+            "label": "Primary current",
+            "station": provider_context.get("current_station", NOAA_CURRENT_STATION),
+            "bin": provider_context.get("current_bin"),
+            "depth_ft": provider_context.get("current_bin_depth_ft"),
+        }
+        backups = [
+            {
+                "label": "Backup current",
+                "station": item.get("current_station"),
+                "bin": item.get("current_bin"),
+                "depth_ft": item.get("current_bin_depth_ft"),
+            }
+            for item in provider_context.get("backup_current_stations", ())
+        ]
+        return tuple(
+            candidate
+            for candidate in (primary, *backups)
+            if candidate.get("station")
+        )
 
     def get_seed_data(self, wind_override=None, reason="live telemetry unavailable") -> dict:
         """Provides local cache data if network calls drop entirely."""
@@ -56,6 +94,7 @@ class NoaaMarineClient:
                 "current": "seed",
                 "wind": "fallback" if wind_override is not None else "seed",
             },
+            "provider_sources": {"tide": None, "current": None},
             "fallback_reason": reason,
             "updated_at": self._timestamp(),
         }
@@ -65,10 +104,11 @@ class NoaaMarineClient:
         timeout = aiohttp.ClientTimeout(total=4.0)
         
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            # Set up concurrent tasks
+            # Set up concurrent tasks. Tide/current helpers try provider
+            # candidates in priority order before the payload degrades.
             tasks = [
-                session.get(self.NOAA_URL, params=self._build_noaa_params(self.tide_station, "water_level")),
-                session.get(self.NOAA_URL, params=self._build_noaa_params(self.current_station, "currents"))
+                self._fetch_tide_observation(session),
+                self._fetch_current_observation(session),
             ]
             
             # Only append OpenWeather task if an API key exists
@@ -89,8 +129,8 @@ class NoaaMarineClient:
                 # (e.g. a 400 from the real-time currents product on a
                 # prediction-only station) degrades just that source instead of
                 # seeding the entire payload.
-                tide_json = await self._safe_json(responses[0])
-                current_json = await self._safe_json(responses[1])
+                tide_json, tide_provider_source = responses[0]
+                current_json, current_provider_source = responses[1]
 
                 # Parse wind if live endpoint was hit
                 live_wind = None
@@ -108,8 +148,12 @@ class NoaaMarineClient:
                 # product can come back empty. Fall back to NOAA current
                 # predictions before resorting to seed data.
                 current_predictions = []
+                current_prediction_provider_source = None
                 if not (isinstance(current_json, dict) and current_json.get("data")):
-                    current_predictions = await self._fetch_current_predictions(session)
+                    (
+                        current_predictions,
+                        current_prediction_provider_source,
+                    ) = await self._fetch_current_predictions_with_source(session)
 
                 return self._parse_payload(
                     tide_json,
@@ -117,6 +161,9 @@ class NoaaMarineClient:
                     live_wind,
                     current_predictions,
                     live_wind_direction=live_wind_direction,
+                    tide_provider_source=tide_provider_source,
+                    current_provider_source=current_provider_source,
+                    current_prediction_provider_source=current_prediction_provider_source,
                 )
 
             except Exception as e:
@@ -131,50 +178,95 @@ class NoaaMarineClient:
         except Exception:  # noqa: BLE001 - network/body parsing is best-effort
             return {}
 
+    async def _fetch_tide_observation(self, session) -> tuple[dict, dict | None]:
+        """Fetches live tide observations using the first usable tide station."""
+        for candidate in self.tide_candidates:
+            try:
+                response = await session.get(
+                    self.NOAA_URL,
+                    params=self._build_noaa_params(candidate["station"], "water_level"),
+                )
+                payload = await self._safe_json(response)
+                if isinstance(payload, dict) and payload.get("data"):
+                    return payload, candidate
+            except Exception as e:
+                logging.warning("Tide observation fetch failed for %s: %s", candidate["station"], e)
+        return {}, None
+
+    async def _fetch_current_observation(self, session) -> tuple[dict, dict | None]:
+        """Fetches live current observations using the first usable current station."""
+        for candidate in self.current_candidates:
+            try:
+                response = await session.get(
+                    self.NOAA_URL,
+                    params=self._build_noaa_params(
+                        candidate["station"],
+                        "currents",
+                        current_bin=candidate.get("bin"),
+                    ),
+                )
+                payload = await self._safe_json(response)
+                if isinstance(payload, dict) and payload.get("data"):
+                    return payload, candidate
+            except Exception as e:
+                logging.warning("Current observation fetch failed for %s: %s", candidate["station"], e)
+        return {}, None
+
     async def _fetch_current_predictions(self, session) -> list:
         """Fetches NOAA harmonic current predictions for the current station."""
-        params = {
-            "date": "today",
-            "station": self.current_station,
-            "product": "currents_predictions",
-            "time_zone": "lst_ldt",
-            "interval": "30",
-            "units": "english",
-            "vel_type": "speed_dir",
-            "format": "json",
-        }
-        try:
-            response = await session.get(self.NOAA_URL, params=params)
-            payload = await self._safe_json(response)
-            return self._parse_current_predictions(payload)
-        except Exception as e:
-            logging.warning("Current prediction fetch failed: %s", e)
-            return []
+        predictions, _source = await self._fetch_current_predictions_with_source(session)
+        return predictions
+
+    async def _fetch_current_predictions_with_source(
+        self,
+        session,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        interval: str = "30",
+    ) -> tuple[list, dict | None]:
+        """Fetches current predictions using current candidates in priority order."""
+        for candidate in self.current_candidates:
+            params = {
+                "station": candidate["station"],
+                "product": "currents_predictions",
+                "time_zone": "lst_ldt",
+                "interval": interval,
+                "units": "english",
+                "format": "json",
+            }
+            if start and end:
+                params["begin_date"] = start.strftime("%Y%m%d %H:%M")
+                params["end_date"] = end.strftime("%Y%m%d %H:%M")
+            else:
+                params["date"] = "today"
+            if interval != "MAX_SLACK":
+                params["vel_type"] = "speed_dir"
+            self._apply_current_bin(params, current_bin=candidate.get("bin"))
+            try:
+                response = await session.get(self.NOAA_URL, params=params)
+                payload = await self._safe_json(response)
+                points = self._parse_current_predictions(payload)
+                if start and end:
+                    points = [point for point in points if start <= point["time"] <= end]
+                if points:
+                    return points, candidate
+            except Exception as e:
+                logging.warning("Current prediction fetch failed for %s: %s", candidate["station"], e)
+        return [], None
 
     async def _fetch_forecast_current_predictions(self, session, start: datetime, end: datetime) -> list:
         """Fetches NOAA current predictions across the forecast planning window."""
-        params = {
-            "begin_date": start.strftime("%Y%m%d %H:%M"),
-            "end_date": end.strftime("%Y%m%d %H:%M"),
-            "station": self.current_station,
-            "product": "currents_predictions",
-            "time_zone": "lst_ldt",
-            "interval": "30",
-            "units": "english",
-            "vel_type": "speed_dir",
-            "format": "json",
-        }
-        self._apply_current_bin(params)
-        try:
-            response = await session.get(self.NOAA_URL, params=params)
-            payload = await self._safe_json(response)
-            return [
-                point for point in self._parse_current_predictions(payload)
-                if start <= point["time"] <= end
-            ]
-        except Exception as e:
-            logging.warning("Forecast current prediction fetch failed: %s", e)
-            return []
+        predictions, _source = await self._fetch_forecast_current_predictions_with_source(session, start, end)
+        return predictions
+
+    async def _fetch_forecast_current_predictions_with_source(
+        self,
+        session,
+        start: datetime,
+        end: datetime,
+    ) -> tuple[list, dict | None]:
+        """Fetches forecast current predictions with provider fallback."""
+        return await self._fetch_current_predictions_with_source(session, start, end, interval="30")
 
     @staticmethod
     def _parse_current_predictions(payload: dict | None) -> list:
@@ -225,7 +317,7 @@ class NoaaMarineClient:
 
         try:
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                tide_task = session.get(self.NOAA_URL, params=tide_params)
+                tide_task = self._fetch_forecast_tide_predictions(session, tide_params)
                 wind_task = None
                 if self.owm_api_key:
                     wind_task = session.get(
@@ -244,10 +336,11 @@ class NoaaMarineClient:
                 else:
                     responses = [await tide_task]
 
-                tide_json = await self._safe_json(responses[0])
+                tide_json, tide_source = responses[0]
                 wind_json = await self._safe_json(responses[1]) if wind_task else None
 
                 forecast = self._parse_forecast_payload(tide_json, now, end)
+                forecast["provider_sources"]["tide"] = tide_source
                 wind_forecast = self._parse_wind_forecast_payload(wind_json, now, end)
                 forecast["wind_predictions"] = wind_forecast["predictions"]
                 forecast["sources"]["wind"] = wind_forecast["source"]
@@ -258,16 +351,22 @@ class NoaaMarineClient:
                 # together so one slow upstream product doesn't serially delay
                 # the dashboard.
                 (
-                    forecast["tide_events"],
-                    forecast["slack_events"],
+                    tide_events_result,
+                    slack_events_result,
                     forecast["alerts"],
-                    forecast["current_predictions"],
+                    current_predictions_result,
                 ) = await asyncio.gather(
-                    self._fetch_tide_events(session, now, end),
-                    self._fetch_slack_events(session, now, end),
+                    self._fetch_tide_events_with_source(session, now, end),
+                    self._fetch_slack_events_with_source(session, now, end),
                     self._fetch_marine_alerts(session),
-                    self._fetch_forecast_current_predictions(session, now, end),
+                    self._fetch_forecast_current_predictions_with_source(session, now, end),
                 )
+                forecast["tide_events"], tide_events_source = tide_events_result
+                forecast["slack_events"], slack_events_source = slack_events_result
+                forecast["current_predictions"], current_predictions_source = current_predictions_result
+                forecast["provider_sources"]["tide_events"] = tide_events_source
+                forecast["provider_sources"]["slack_events"] = slack_events_source
+                forecast["provider_sources"]["current"] = current_predictions_source
                 if forecast["current_predictions"]:
                     forecast["sources"]["current"] = "predicted"
             return forecast
@@ -277,10 +376,14 @@ class NoaaMarineClient:
 
     async def _fetch_tide_events(self, session, start: datetime, end: datetime) -> list:
         """Fetches NOAA high/low tide predictions for the planning window."""
+        events, _source = await self._fetch_tide_events_with_source(session, start, end)
+        return events
+
+    async def _fetch_tide_events_with_source(self, session, start: datetime, end: datetime) -> tuple[list, dict | None]:
+        """Fetches high/low tide events using tide station fallback."""
         params = {
             "begin_date": start.strftime("%Y%m%d %H:%M"),
             "end_date": end.strftime("%Y%m%d %H:%M"),
-            "station": self.tide_station,
             "product": "predictions",
             "datum": "MLLW",
             "interval": "hilo",
@@ -288,35 +391,45 @@ class NoaaMarineClient:
             "units": "english",
             "format": "json",
         }
-        self._apply_current_bin(params)
-        try:
-            response = await session.get(self.NOAA_URL, params=params)
-            payload = await self._safe_json(response)
-            return self._parse_tide_events(payload, start, end)
-        except Exception as e:
-            logging.warning("Tide event fetch failed: %s", e)
-            return []
+        for candidate in self.tide_candidates:
+            try:
+                response = await session.get(self.NOAA_URL, params={**params, "station": candidate["station"]})
+                payload = await self._safe_json(response)
+                events = self._parse_tide_events(payload, start, end)
+                if events:
+                    return events, candidate
+            except Exception as e:
+                logging.warning("Tide event fetch failed for %s: %s", candidate["station"], e)
+        return [], None
 
     async def _fetch_slack_events(self, session, start: datetime, end: datetime) -> list:
         """Fetches NOAA slack and max-current events for the planning window."""
-        params = {
-            "begin_date": start.strftime("%Y%m%d %H:%M"),
-            "end_date": end.strftime("%Y%m%d %H:%M"),
-            "station": self.current_station,
-            "product": "currents_predictions",
-            "time_zone": "lst_ldt",
-            "interval": "MAX_SLACK",
-            "units": "english",
-            "format": "json",
-        }
-        self._apply_current_bin(params)
-        try:
-            response = await session.get(self.NOAA_URL, params=params)
-            payload = await self._safe_json(response)
-            return self._parse_slack_events(payload, start, end)
-        except Exception as e:
-            logging.warning("Slack event fetch failed: %s", e)
-            return []
+        events, _source = await self._fetch_slack_events_with_source(session, start, end)
+        return events
+
+    async def _fetch_slack_events_with_source(self, session, start: datetime, end: datetime) -> tuple[list, dict | None]:
+        """Fetches NOAA slack/max-current events using current station fallback."""
+        for candidate in self.current_candidates:
+            params = {
+                "begin_date": start.strftime("%Y%m%d %H:%M"),
+                "end_date": end.strftime("%Y%m%d %H:%M"),
+                "station": candidate["station"],
+                "product": "currents_predictions",
+                "time_zone": "lst_ldt",
+                "interval": "MAX_SLACK",
+                "units": "english",
+                "format": "json",
+            }
+            self._apply_current_bin(params, current_bin=candidate.get("bin"))
+            try:
+                response = await session.get(self.NOAA_URL, params=params)
+                payload = await self._safe_json(response)
+                events = self._parse_slack_events(payload, start, end)
+                if events:
+                    return events, candidate
+            except Exception as e:
+                logging.warning("Slack event fetch failed for %s: %s", candidate["station"], e)
+        return [], None
 
     async def _fetch_marine_alerts(self, session) -> list:
         """Fetches active NWS marine advisories/warnings for the configured zone."""
@@ -437,12 +550,28 @@ class NoaaMarineClient:
             "slack_events": [],
             "alerts": [],
             "sources": {"tide": "seed", "current": "derived", "wind": "fallback"},
+            "provider_sources": {"tide": None, "current": None},
             "fallback_reason": reason,
             "wind_fallback_reason": "using current/fallback wind for all windows",
             "updated_at": self._timestamp(),
         }
 
-    def _build_noaa_params(self, station: str, product: str) -> dict:
+    async def _fetch_forecast_tide_predictions(self, session, base_params: dict) -> tuple[dict, dict | None]:
+        """Fetches tide predictions using tide station candidates in priority order."""
+        for candidate in self.tide_candidates:
+            try:
+                response = await session.get(
+                    self.NOAA_URL,
+                    params={**base_params, "station": candidate["station"]},
+                )
+                payload = await self._safe_json(response)
+                if isinstance(payload, dict) and len(payload.get("predictions", [])) >= 2:
+                    return payload, candidate
+            except Exception as e:
+                logging.warning("Forecast tide fetch failed for %s: %s", candidate["station"], e)
+        return {}, None
+
+    def _build_noaa_params(self, station: str, product: str, current_bin=None) -> dict:
         params = {
             "range": "4",           
             "station": station,
@@ -453,12 +582,13 @@ class NoaaMarineClient:
             "format": "json"
         }
         if product == "currents":
-            self._apply_current_bin(params)
+            self._apply_current_bin(params, current_bin=current_bin)
         return params
 
-    def _apply_current_bin(self, params: dict) -> None:
-        if self.current_bin is not None:
-            params["bin"] = str(self.current_bin)
+    def _apply_current_bin(self, params: dict, current_bin=None) -> None:
+        bin_value = self.current_bin if current_bin is None else current_bin
+        if bin_value is not None:
+            params["bin"] = str(bin_value)
 
     def _parse_payload(
         self,
@@ -467,6 +597,9 @@ class NoaaMarineClient:
         live_wind: float = None,
         current_predictions: list | None = None,
         live_wind_direction: float | None = None,
+        tide_provider_source: dict | None = None,
+        current_provider_source: dict | None = None,
+        current_prediction_provider_source: dict | None = None,
     ) -> dict:
         # Default wind if the live fetch didn't return a value.
         final_wind = live_wind if live_wind is not None else DEFAULT_WIND_KNOTS
@@ -509,6 +642,7 @@ class NoaaMarineClient:
                 current_speed = nearest["speed"]
                 current_dir = nearest["dir"]
                 current_source = "predicted"
+                current_provider_source = current_prediction_provider_source
             if current_speed is None:
                 current_speed = SEEDED_CURRENT_KNOTS
                 current_dir = SEEDED_CURRENT_DIRECTION
@@ -540,6 +674,10 @@ class NoaaMarineClient:
                     "tide": tide_source,
                     "current": current_source,
                     "wind": wind_source,
+                },
+                "provider_sources": {
+                    "tide": tide_provider_source if tide_source == "live" else None,
+                    "current": current_provider_source if current_source in {"live", "predicted"} else None,
                 },
                 "fallback_reason": fallback_reason,
                 "updated_at": self._timestamp(),
@@ -574,6 +712,7 @@ class NoaaMarineClient:
                 "predictions": predictions,
                 "wind_predictions": [],
                 "sources": {"tide": "live", "current": "derived", "wind": "fallback"},
+                "provider_sources": {"tide": None, "current": None},
                 "fallback_reason": None,
                 "wind_fallback_reason": "using current wind for all windows",
                 "updated_at": self._timestamp(),

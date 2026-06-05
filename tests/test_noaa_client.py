@@ -114,6 +114,22 @@ class NoaaMarineClientForecastTests(unittest.TestCase):
 
 
 class NoaaMarineClientTelemetryTests(unittest.TestCase):
+    def test_parse_payload_records_active_provider_sources(self):
+        client = NoaaMarineClient()
+        tide_source = {"label": "Backup tide", "station": "9445441"}
+        current_source = {"label": "Backup current", "station": "PUG1602", "bin": 42}
+        result = client._parse_payload(
+            tide_json={"data": [{"v": "6.2"}]},
+            current_json={"data": []},
+            live_wind=5.0,
+            current_predictions=[{"time": datetime.now(), "speed": 1.3, "dir": 150.0}],
+            tide_provider_source=tide_source,
+            current_prediction_provider_source=current_source,
+        )
+
+        self.assertEqual(result["provider_sources"]["tide"], tide_source)
+        self.assertEqual(result["provider_sources"]["current"], current_source)
+
     def test_live_tide_with_predicted_current_does_not_seed_tide(self):
         client = NoaaMarineClient()
         result = client._parse_payload(
@@ -189,6 +205,83 @@ class NoaaMarineClientTelemetryTests(unittest.TestCase):
     def test_parse_current_predictions_handles_empty_payload(self):
         self.assertEqual(NoaaMarineClient._parse_current_predictions(None), [])
         self.assertEqual(NoaaMarineClient._parse_current_predictions({}), [])
+
+    def test_current_predictions_try_backup_station_before_derived_fallback(self):
+        class StubResponse:
+            def __init__(self, payload):
+                self.payload = payload
+
+            async def json(self, content_type=None):
+                return self.payload
+
+        class StubSession:
+            def __init__(self):
+                self.stations = []
+
+            async def get(self, url, params=None):
+                self.stations.append((params["station"], params.get("bin")))
+                if params["station"] == "PUG1601":
+                    return StubResponse({"current_predictions": {"cp": []}})
+                return StubResponse({
+                    "current_predictions": {
+                        "cp": [
+                            {"Time": "2026-06-03 14:30", "Speed": "1.5", "Direction": "140"},
+                        ]
+                    }
+                })
+
+        client = NoaaMarineClient({
+            "current_station": "PUG1601",
+            "current_bin": 21,
+            "backup_current_stations": (
+                {"current_station": "PUG1602", "current_bin": 42},
+            ),
+        })
+        session = StubSession()
+
+        points, source = asyncio.run(client._fetch_current_predictions_with_source(session))
+
+        self.assertEqual(session.stations, [("PUG1601", "21"), ("PUG1602", "42")])
+        self.assertEqual(points[0]["speed"], 1.5)
+        self.assertEqual(source["station"], "PUG1602")
+
+    def test_forecast_tide_predictions_try_backup_station(self):
+        class StubResponse:
+            def __init__(self, payload):
+                self.payload = payload
+
+            async def json(self, content_type=None):
+                return self.payload
+
+        class StubSession:
+            def __init__(self):
+                self.stations = []
+
+            async def get(self, url, params=None):
+                self.stations.append(params["station"])
+                if params["station"] == "9445478":
+                    return StubResponse({"predictions": []})
+                return StubResponse({
+                    "predictions": [
+                        {"t": "2026-06-03 14:00", "v": "6.0"},
+                        {"t": "2026-06-03 15:00", "v": "6.4"},
+                    ]
+                })
+
+        client = NoaaMarineClient({
+            "tide_station": "9445478",
+            "backup_tide_stations": ("9445441",),
+        })
+        session = StubSession()
+
+        payload, source = asyncio.run(client._fetch_forecast_tide_predictions(
+            session,
+            {"product": "predictions"},
+        ))
+
+        self.assertEqual(session.stations, ["9445478", "9445441"])
+        self.assertEqual(len(payload["predictions"]), 2)
+        self.assertEqual(source["station"], "9445441")
 
 
 class NoaaMarineClientEventTests(unittest.TestCase):

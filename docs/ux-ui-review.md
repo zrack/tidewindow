@@ -4,11 +4,11 @@ A review of the web dashboard (`static/index.html`, `styles.css`, `app.js`), foc
 
 ## Overall read
 
-The dashboard is well-structured and information-dense in a good way: confidence, data sources, a tide curve, a map, an hourly timeline, best windows, and zone cards form a logical top-to-bottom flow. The bones are solid. What holds it back from looking "pretty" is almost entirely surface treatment — flat panels, a single corner radius, hairline borders doing all the visual separation, status communicated by text color alone, and a type scale that competes with itself. These are exactly the things a CSS-only pass can fix.
+The dashboard is well-structured and information-dense in a good way: confidence, data sources, a tide curve, a map, a daily heatmap, best windows, and zone cards form a logical top-to-bottom flow. The bones are solid. What holds it back from looking "pretty" is almost entirely surface treatment — flat panels, a single corner radius, hairline borders doing all the visual separation, status communicated by text color alone, and a type scale that competes with itself. These are exactly the things a CSS-only pass can fix.
 
 ## What's working
 
-The reading order is sound — you scan from "should I go out at all" (confidence/sources) down to "where and when specifically" (windows/zones). The status color vocabulary (green/yellow/red) is consistent across map, timeline, pills, and cards. The layout is genuinely responsive with sensible breakpoints. And the data-source honesty (live / derived / seed / fallback labels) is a thoughtful UX touch that builds trust.
+The reading order is sound — you scan from "should I go out at all" (confidence/sources) down to "where and when specifically" (windows/zones). The status color vocabulary (green/yellow/red) is consistent across map, heatmap, pills, and cards. The layout is genuinely responsive with sensible breakpoints. And the data-source honesty (live / derived / seed / fallback labels) is a thoughtful UX touch that builds trust.
 
 ## Priority issues
 

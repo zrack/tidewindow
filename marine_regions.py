@@ -45,6 +45,8 @@ CURRENT_STATION_METADATA = {
     "PUG1532": {"name": "Steilacoom, 0.8 miles North of", "type": "H"},
     "PUG1540": {"name": "Budd Inlet Entrance", "type": "H"},
     "PUG1601": {"name": "Hazel Point, Hood Canal", "type": "H"},
+    "PUG1602": {"name": "South Point, Hood Canal", "type": "H"},
+    "PCT1596": {"name": "Chinom Point, Hood Canal", "type": "S"},
     "ACT8496": {"name": "Grays Harbor Entrance", "type": "S"},
 }
 
@@ -285,6 +287,10 @@ SOUTH_HOOD_CANAL_PROVIDER_CONTEXT = {
     "weather_lon": "-123.0983",
     "provider_profile": "sparse_current",
     "backup_tide_stations": ("9445441", "9445388"),
+    "backup_current_stations": (
+        {"current_station": "PUG1602", "current_bin": 42, "current_bin_depth_ft": 43},
+        {"current_station": "PCT1596", "current_bin": 1, "current_bin_depth_ft": None},
+    ),
     "provider_warnings": (
         "Hazel Point current predictions are useful canal context, but not equally local to Union, Lynch Cove, and Belfair.",
         "Use derived-current fallback and wind exposure conservatively in shallow head-of-canal spots.",
@@ -691,6 +697,37 @@ def _regional_spot(
     else:
         spot["current_multiplier"] = current_multiplier
     return spot
+
+
+REVIEWED_SPOT_EXPOSURE_BEARINGS = {
+    "port_orchard_waterfront": 45,
+    "annapolis_foot_ferry": 20,
+    "rich_passage_south_shore": 5,
+    "bremerton_marina": 120,
+    "manette_bridge": 90,
+    "silverdale_waterfront_park": 185,
+    "clear_creek_estuary": 180,
+    "tacoma_narrows_bridge": 210,
+    "titlow_beach": 250,
+    "case_inlet_north": 175,
+    "anderson_island_ferry": 95,
+    "steilacoom_ferry": 280,
+    "olympia_port_plaza": 350,
+    "union_hood_canal": 190,
+    "lynch_cove": 120,
+    "aberdeen_waterfront": 240,
+    "westport_marina": 270,
+}
+
+
+def _apply_reviewed_spot_exposure_bearings(spots: dict) -> dict:
+    """Marks selected regional spots with reviewed fetch bearings."""
+    for spot_id, bearing in REVIEWED_SPOT_EXPOSURE_BEARINGS.items():
+        if spot_id not in spots:
+            continue
+        spots[spot_id]["wind_exposure_bearing"] = bearing
+        spots[spot_id]["wind_exposure_basis"] = "spot_reviewed"
+    return spots
 
 
 REGIONAL_SPOTS = {
@@ -1820,6 +1857,7 @@ REGIONAL_SPOTS = {
         shoreline="Grays Harbor entrance",
     ),
 }
+REGIONAL_SPOTS = _apply_reviewed_spot_exposure_bearings(REGIONAL_SPOTS)
 
 
 def _build_spots() -> dict:

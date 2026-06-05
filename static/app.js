@@ -15,6 +15,7 @@ const state = {
   autoRefreshMs: 5 * 60 * 1000,
   nextRefreshAt: null,
   refreshTimer: null,
+  selectedTimelineStart: null,
   leafletMap: null,
   leafletMarkers: [],
 };
@@ -171,7 +172,7 @@ async function loadRegions() {
 async function loadState() {
   elements.refresh.disabled = true;
   elements.windowsGrid.innerHTML = `<div class="loading">Loading forecast windows...</div>`;
-  elements.timelineStrip.innerHTML = `<div class="loading">Loading hourly timeline...</div>`;
+  elements.timelineStrip.innerHTML = `<div class="loading">Loading heatmap...</div>`;
   if (elements.tideEvents) elements.tideEvents.innerHTML = `<div class="loading">Loading tide events...</div>`;
   if (elements.slackEvents) elements.slackEvents.innerHTML = `<div class="loading">Loading current events...</div>`;
   if (!state.leafletMap) {
@@ -295,6 +296,7 @@ function renderProviderPanel() {
   const currentFallback = (strategy.current_priority || [])
     .find((item) => item.mode === "derived");
   const warnings = strategy.warnings || [];
+  const activeSources = activeProviderSources();
 
   elements.providerLine.textContent = confidence.label || `${confidence.level || "Unknown"} station fit`;
   elements.providerLine.className = `status-${confidence.color || "yellow"}`;
@@ -303,12 +305,32 @@ function renderProviderPanel() {
     ${providerRow("Profile", strategy.headline || "Station-backed")}
     ${providerRow("Tide", `${provider.tide_station || "unknown"} · ${provider.tide_station_name || "station"} · ${stationTypeLabel(provider.tide_station_type)}`)}
     ${providerRow("Current", `${provider.current_station || "unknown"} · ${provider.current_station_name || "station"} · ${currentBin} · ${stationTypeLabel(provider.current_station_type)}`)}
+    ${activeSources.tide ? providerRow("Active tide", providerSourceLabel(activeSources.tide)) : ""}
+    ${activeSources.current ? providerRow("Active current", providerSourceLabel(activeSources.current)) : ""}
     ${providerRow("Fallback", currentFallback ? currentFallback.name : "Derived current when predictions are unavailable")}
     ${providerRow("Weather", `${provider.weather_lat || "?"}, ${provider.weather_lon || "?"}`)}
     ${providerRow("NWS", provider.nws_zone || "unknown")}
     ${confidence.note ? `<p class="provider-note">${escapeHtml(confidence.note)}</p>` : ""}
     ${warnings.length ? `<ul class="provider-warnings">${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join("")}</ul>` : ""}
   `;
+}
+
+function activeProviderSources() {
+  const telemetry = state.data?.telemetry?.provider_sources || {};
+  const forecast = state.data?.forecast?.provider_sources || {};
+  return {
+    tide: telemetry.tide || forecast.tide || forecast.tide_events,
+    current: telemetry.current || forecast.current || forecast.slack_events,
+  };
+}
+
+function providerSourceLabel(source) {
+  const bits = [
+    source.station,
+    source.label,
+    source.bin ? `bin ${source.bin}${source.depth_ft ? ` @ ${source.depth_ft} ft` : ""}` : "",
+  ].filter(Boolean);
+  return bits.join(" · ") || "unknown";
 }
 
 function providerRow(label, value) {
@@ -575,8 +597,12 @@ function renderTimeline() {
   elements.timelineCount.textContent = `${items.length} hours${daylightCaption()}`;
 
   if (!items.length) {
-    elements.timelineStrip.innerHTML = `<div class="empty">No hourly tide timeline available.</div>`;
+    elements.timelineStrip.innerHTML = `<div class="empty">No timeline data available.</div>`;
     return;
+  }
+
+  if (!items.some((item) => item.start === state.selectedTimelineStart)) {
+    state.selectedTimelineStart = items[0].start;
   }
 
   const order = [];
@@ -590,32 +616,139 @@ function renderTimeline() {
     byDay.get(key).push(item);
   });
 
-  elements.timelineStrip.innerHTML = order.map((key) => {
-    const cards = byDay.get(key).map((item) => timelineCard(item, visible)).join("");
-    return `
-      <div class="timeline-day">
-        <p class="timeline-day-head">${escapeHtml(dayLabel(key))}</p>
-        <div class="timeline-track">${cards}</div>
-      </div>
-    `;
-  }).join("");
+  const selectedItem = items.find((item) => item.start === state.selectedTimelineStart) || items[0];
+  elements.timelineStrip.innerHTML = `
+    ${timelineDetail(selectedItem, visible)}
+    <div class="heatmap-legend" aria-label="Heatmap legend">
+      <span><i class="legend-dot status-fill-green"></i>Good</span>
+      <span><i class="legend-dot status-fill-yellow"></i>Caution</span>
+      <span><i class="legend-dot status-fill-red"></i>Risky</span>
+      <span><i class="legend-dot light-night"></i>Night</span>
+    </div>
+    ${order.map((key) => {
+      const cells = byDay.get(key).map((item) => timelineCell(item, visible)).join("");
+      const dayItems = byDay.get(key);
+      const caption = `${formatTime(dayItems[0].start)}-${formatTime(dayItems[dayItems.length - 1].start)}`;
+      const columnCount = Math.max(dayItems.length, 1);
+      return `
+        <div class="timeline-day">
+          <div class="timeline-day-head">
+            <p>${escapeHtml(dayLabel(key))}</p>
+            <span>${escapeHtml(caption)}</span>
+          </div>
+          <div class="timeline-track" style="--hour-count: ${columnCount}">${cells}</div>
+        </div>
+      `;
+    }).join("")}
+  `;
+
+  elements.timelineStrip.querySelectorAll(".timeline-cell").forEach((cell) => {
+    cell.addEventListener("click", () => {
+      state.selectedTimelineStart = cell.dataset.start;
+      renderTimeline();
+    });
+  });
 }
 
-function timelineCard(item, visible) {
+function timelineCell(item, visible) {
+  const summary = timelineSummary(item, visible);
+  const selected = item.start === state.selectedTimelineStart ? " selected" : "";
+  const light = daylightPhase(item.start);
+  const kayakStatus = summary.kayak?.evaluation.status || "No kayak zone";
+  const fishStatus = summary.fish?.evaluation.status || "No fish zone";
+  const statusLabel = state.filter === "Kayak"
+    ? `Kayak ${kayakStatus}`
+    : state.filter === "Fish"
+      ? `Fish ${fishStatus}`
+      : `Kayak ${kayakStatus}, Fish ${fishStatus}`;
+  const label = `${formatTime(item.start)} ${statusLabel}, ${item.tide.toFixed(1)} ft, ${item.wind.toFixed(0)} kt, ${item.phase}`;
+  return `
+    <button class="timeline-cell timeline-cell-${state.filter.toLowerCase()} status-fill-${summary.color} light-${light}${selected}" type="button" data-start="${escapeHtml(item.start)}" aria-label="${escapeHtml(label)}">
+      <span class="timeline-cell-time">${shortHour(item.start)}</span>
+      <span class="timeline-cell-bars" aria-hidden="true">
+        ${timelineCellBars(summary)}
+      </span>
+    </button>
+  `;
+}
+
+function timelineCellBars(summary) {
+  if (state.filter === "Kayak") return timelineCellBar("Kayak", summary.kayak);
+  if (state.filter === "Fish") return timelineCellBar("Fish", summary.fish);
+  return `
+    ${timelineCellBar("Kayak", summary.kayak)}
+    ${timelineCellBar("Fish", summary.fish)}
+  `;
+}
+
+function timelineCellBar(label, item) {
+  const color = item?.evaluation.color || "yellow";
+  return `<i class="cell-bar status-fill-${color}" title="${escapeHtml(label)}"></i>`;
+}
+
+function timelineSummary(item, visible) {
   const kayak = bestTimelineZone(item, "Kayak", visible);
   const fish = bestTimelineZone(item, "Fish", visible);
   const main = state.filter === "Fish" ? fish : kayak;
-  const color = main?.evaluation.color || "yellow";
-  const light = daylightPhase(item.start);
+  const combined = [kayak, fish].filter(Boolean).sort((a, b) => b.score - a.score)[0];
+  const selected = state.filter === "All" ? combined : main;
+  return {
+    kayak,
+    fish,
+    selected,
+    color: selected?.evaluation.color || "yellow",
+    status: selected?.evaluation.status || "No scored zone",
+  };
+}
 
+function timelineDetail(item, visible) {
+  const summary = timelineSummary(item, visible);
+  const light = daylightPhase(item.start);
   return `
-    <article class="timeline-hour status-border-${color} light-${light}">
-      <p class="timeline-time"><span class="hour-glyph" aria-hidden="true">${light === "night" ? "☾" : "☀"}</span>${formatTime(item.start)}</p>
-      <p class="timeline-metric">${item.tide.toFixed(1)} ft | ${item.wind.toFixed(0)} kt</p>
-      <p class="timeline-phase">${escapeHtml(item.phase)}</p>
-      ${state.filter === "All" ? timelinePair(kayak, fish) : timelineSingle(main, state.filter)}
+    <article class="timeline-detail status-border-${summary.color} light-${light}" aria-live="polite">
+      <div>
+        <p class="timeline-detail-kicker">Selected hour</p>
+        <h3>${escapeHtml(formatTime(item.start))} <span>${escapeHtml(dayLabel(String(item.start).slice(0, 10)))}</span></h3>
+        <p class="timeline-detail-meta">${item.tide.toFixed(1)} ft tide | ${item.wind.toFixed(0)} kt wind | ${escapeHtml(item.phase)} | ${escapeHtml(riskProfileName())} risk</p>
+      </div>
+      <div class="timeline-detail-results">
+        ${timelineDetailResults(summary)}
+      </div>
     </article>
   `;
+}
+
+function timelineDetailResults(summary) {
+  if (state.filter === "Kayak") return timelineDetailResult("Kayak", summary.kayak);
+  if (state.filter === "Fish") return timelineDetailResult("Fish", summary.fish);
+  return `
+    ${timelineDetailResult("Kayak", summary.kayak)}
+    ${timelineDetailResult("Fish", summary.fish)}
+  `;
+}
+
+function timelineDetailResult(label, item) {
+  if (!item) {
+    return `
+      <div class="timeline-result">
+        <span>${escapeHtml(label)}</span>
+        <strong>No scored spot</strong>
+      </div>
+    `;
+  }
+  return `
+    <div class="timeline-result">
+      <span>${escapeHtml(label)}</span>
+      <strong class="status-${item.evaluation.color}">${escapeHtml(item.evaluation.status)}</strong>
+      <em>${escapeHtml(shortZoneTitle(item.title))}</em>
+    </div>
+  `;
+}
+
+function shortHour(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString([], { hour: "numeric" }).replace(" ", "");
 }
 
 function dayLabel(isoDate) {
@@ -673,30 +806,6 @@ function bestTimelineZone(item, activity, visible) {
   return best;
 }
 
-function timelinePair(kayak, fish) {
-  return `
-    <div class="timeline-pair">
-      ${timelineBadge("Kayak", kayak)}
-      ${timelineBadge("Fish", fish)}
-    </div>
-  `;
-}
-
-function timelineSingle(item, activity) {
-  if (!item) return `<p class="notice">No ${activity.toLowerCase()} zone in this region.</p>`;
-  return `
-    <div class="timeline-focus">
-      <strong class="status-${item.evaluation.color}">${escapeHtml(item.evaluation.status)}</strong>
-      <span>${escapeHtml(shortZoneTitle(item.title))}</span>
-    </div>
-  `;
-}
-
-function timelineBadge(label, item) {
-  if (!item) return `<span>${escapeHtml(label)} none</span>`;
-  return `<span class="status-${item.evaluation.color}">${escapeHtml(label)} ${escapeHtml(item.evaluation.status)}</span>`;
-}
-
 function renderWindows() {
   if (!state.data) return;
 
@@ -742,6 +851,7 @@ function openZoneDetails(zoneId) {
       ${metric("Wind", `${zone.wind.toFixed(1)} kt`)}
       ${metric("Tide", `${zone.tide.toFixed(1)} ft`)}
     </div>
+    ${riskNote()}
     <p class="detail-note">${escapeHtml(details.local)}</p>
     ${detailRule("Kayak", zone.kayak, details.kayak)}
     ${detailRule("Fish", zone.fish, details.fish)}
@@ -766,6 +876,7 @@ function zonePopup(zone) {
         ${metric("Tide", `${zone.tide.toFixed(1)} ft`)}
       </div>
       <p class="detail-note">${escapeHtml(details.local)}</p>
+      ${riskNote()}
       <div class="activity-grid">
         ${activity("Kayak", zone.kayak)}
         ${activity("Fish", zone.fish)}
@@ -807,6 +918,39 @@ function detailRule(label, evaluation, rule) {
       <p class="notice">${escapeHtml(rule)}</p>
     </section>
   `;
+}
+
+function riskNote() {
+  return `
+    <p class="risk-note">
+      <strong>${escapeHtml(riskProfileName())} risk profile</strong>
+      ${escapeHtml(riskProfileSummary())}
+    </p>
+  `;
+}
+
+function riskProfile() {
+  return state.data?.config?.risk_tolerance || { id: state.riskTolerance };
+}
+
+function riskProfileName() {
+  const profile = riskProfile();
+  if (profile.label) return profile.label;
+  return titleCase(profile.id || "standard");
+}
+
+function riskProfileSummary() {
+  const profile = riskProfile();
+  const multiplier = Number(profile.safety_threshold_multiplier || 1);
+  if (multiplier < 1) return "Flags wind and current risk earlier than standard thresholds.";
+  if (multiplier > 1) return "Allows a wider wind and current envelope for experienced users.";
+  return "Uses the baseline TideWindow safety thresholds.";
+}
+
+function titleCase(value) {
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function drawTideChart() {

@@ -5,6 +5,7 @@ from marine_engine import MarineSafetyEngine
 from marine_regions import (
     BREMERTON_TIDE_STATION,
     DEFAULT_REGION_ID,
+    REVIEWED_SPOT_EXPOSURE_BEARINGS,
     REGIONAL_SPOTS,
     REGIONS,
     SPOTS,
@@ -44,6 +45,14 @@ class MarineRegionTests(unittest.TestCase):
                 self.assertIn("wind_exposure_basis", spot)
                 self.assertGreaterEqual(spot["wind_exposure_bearing"], 0)
                 self.assertLess(spot["wind_exposure_bearing"], 360)
+
+    def test_reviewed_spot_exposure_bearings_override_shoreline_family(self):
+        for spot_id, bearing in REVIEWED_SPOT_EXPOSURE_BEARINGS.items():
+            with self.subTest(spot=spot_id):
+                self.assertEqual(REGIONAL_SPOTS[spot_id]["wind_exposure_bearing"], bearing)
+                self.assertEqual(REGIONAL_SPOTS[spot_id]["wind_exposure_basis"], "spot_reviewed")
+
+        self.assertEqual(REGIONAL_SPOTS["waterman_pier"]["wind_exposure_basis"], "shoreline_family")
 
     def test_regional_spots_use_generic_configurable_rule_profiles(self):
         for spot_id, spot in REGIONAL_SPOTS.items():
@@ -184,6 +193,7 @@ class MarineRegionTests(unittest.TestCase):
         self.assertEqual(context["provider_strategy"]["tide_priority"][0]["station"], "9445478")
         self.assertEqual(context["provider_strategy"]["tide_priority"][1]["station"], "9445441")
         self.assertEqual(context["provider_strategy"]["current_priority"][0]["station"], "PUG1601")
+        self.assertEqual(context["provider_strategy"]["current_priority"][1]["station"], "PUG1602")
         self.assertEqual(context["provider_strategy"]["current_priority"][-1]["mode"], "derived")
         self.assertTrue(context["provider_strategy"]["warnings"])
 

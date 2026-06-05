@@ -2,7 +2,7 @@
 
 TideWindow is a terminal and web marine-conditions dashboard for Puget Sound, South Hood Canal, and Aberdeen-area marine planning. It combines NOAA tide/current observations and predictions with optional OpenWeather wind data, then scores local spots for kayaking and fly fishing. It also highlights the best kayak and fishing windows across a 72-hour planning window.
 
-The web dashboard adds a Leaflet/OpenStreetMap area map, region-aware spot controls, provider diagnostics, risk tolerance, a mobile-friendly hourly timeline, and remembered region/activity preferences. You can choose Gig Harbor, Port Orchard, Bremerton, Silverdale, Tacoma Narrows, Carr Inlet, Case Inlet, Anderson Island, Steilacoom & Nisqually, Olympia & Budd Inlet, South Hood Canal, or Aberdeen, see the full spot catalog for that region on the map, then show fewer spots when the map feels crowded.
+The web dashboard adds a Leaflet/OpenStreetMap area map, region-aware spot controls, provider diagnostics, risk tolerance, a mobile-friendly daily heatmap, and remembered region/activity preferences. You can choose Gig Harbor, Port Orchard, Bremerton, Silverdale, Tacoma Narrows, Carr Inlet, Case Inlet, Anderson Island, Steilacoom & Nisqually, Olympia & Budd Inlet, South Hood Canal, or Aberdeen, see the full spot catalog for that region on the map, then show fewer spots when the map feels crowded.
 
 ## Visuals
 
@@ -78,17 +78,17 @@ Press `a` for all forecast windows, `k` for kayak windows, and `f` for fishing w
 
 The terminal dashboard still focuses on the original Gig Harbor/Narrows planning set: Purdy Bridge, Inside Gig Harbor, Fox Island/Hale Passage, Sunrise Beach Park, Narrows Park, Fox Island Fishing Pier, Purdy Sand Spit, and Kopachuck State Park.
 
-The web dashboard starts with all spots for the selected region and lets you step down or back up with the Fewer/More controls. The selected region, risk tolerance, chosen visible spot count, and activity mode are stored in the browser. On phones, the dashboard uses a compact sticky header, stacked summary cards, larger map tap targets, and a vertical hourly timeline.
+The web dashboard starts with all spots for the selected region and lets you step down or back up with the Fewer/More controls. The selected region, risk tolerance, chosen visible spot count, and activity mode are stored in the browser. On phones, the dashboard uses a compact sticky header, stacked summary cards, larger map tap targets, and a scrollable daily heatmap with a selected-hour detail panel.
 
 ## Forecast Windows
 
-The forecast panel uses official NOAA tide predictions and NOAA current predictions when available. Tide forecast data is labeled as `live`; current forecast data is labeled as `predicted` when NOAA current predictions are available and `derived` only when TideWindow falls back to estimating current strength from the tide slope.
+The forecast panel uses official NOAA tide predictions and NOAA current predictions when available. Tide forecast data is labeled as `live`; current forecast data is labeled as `predicted` when NOAA current predictions are available and `derived` only when TideWindow falls back to estimating current strength from the tide slope. Region provider context can include backup tide/current stations; the fetcher tries those candidates in priority order and the provider panel labels the active station source.
 
-When `OPENWEATHER_API_KEY` has access to OpenWeather One Call 3.0, TideWindow also uses hourly wind forecast points for each window. Forecast wind is labeled as `live`, `fallback`, or `missing`; if hourly wind is unavailable, the app falls back to the current wind value for scoring and says so in the panel. When wind direction is available, spot scoring adjusts wind exposure against each modeled shoreline's fetch, including the broader regional spot catalog.
+When `OPENWEATHER_API_KEY` has access to OpenWeather One Call 3.0, TideWindow also uses hourly wind forecast points for each window. Forecast wind is labeled as `live`, `fallback`, or `missing`; if hourly wind is unavailable, the app falls back to the current wind value for scoring and says so in the panel. When wind direction is available, spot scoring adjusts wind exposure against each modeled shoreline's fetch, including reviewed spot-specific bearings for high-use regional spots and shoreline-family bearings for the rest.
 
 The app also displays confidence labels. The source confidence summarizes live/predicted/derived/fallback data health, while the provider panel labels station fit with more specific categories such as high station fit, subordinate station fit, sparse current coverage, or river/bar influenced. The provider panel also shows the tide/current priority context, the derived-current fallback, and region-specific caveats.
 
-The web dashboard includes a risk tolerance setting: conservative, standard, or aggressive. Standard preserves the default TideWindow thresholds; conservative flags wind/current risk earlier, while aggressive gives experienced users a wider planning envelope. Spot map popups include current, wind, tide, kayak/fish status, and the local rule copy that used to live in the separate area-details section.
+The web dashboard includes a risk tolerance setting: conservative, standard, or aggressive. Standard preserves the default TideWindow thresholds; conservative flags wind/current risk earlier, while aggressive gives experienced users a wider planning envelope. The heatmap, spot map popups, and full spot details show the active risk profile so the threshold lens stays visible across the app. Spot map popups include current, wind, tide, kayak/fish status, and the local rule copy that used to live in the separate area-details section.
 
 ## Configuration
 

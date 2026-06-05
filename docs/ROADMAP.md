@@ -6,9 +6,9 @@ Focus: **accuracy, personalization, and reach** — the reliability and everyday
 
 ## Where the project stands today
 
-TideWindow aggregates NOAA tide and current data plus optional OpenWeather wind, scores selectable regional spot catalogs for kayaking and fishing, and presents it through a terminal UI and a web dashboard (Leaflet map, mobile-friendly hourly timeline, best windows, tides/currents table, provider diagnostics, and risk tolerance). The data-source honesty — labeling tide/current/wind as live, predicted, derived, fallback, seed, or missing, and rolling that into confidence and provider-fit labels — remains a core strength.
+TideWindow aggregates NOAA tide and current data plus optional OpenWeather wind, scores selectable regional spot catalogs for kayaking and fishing, and presents it through a terminal UI and a web dashboard (Leaflet map, mobile-friendly daily heatmap, best windows, tides/currents table, provider diagnostics, and risk tolerance). The data-source honesty — labeling tide/current/wind as live, predicted, derived, fallback, seed, or missing, and rolling that into confidence and provider-fit labels — remains a core strength.
 
-The reliability foundation, safety banner, offline shell, multi-day planning view, regional selector, and mobile-first dashboard pass are now in place. What's left is deeper provider fallback execution, spot-level tuning, and broader regional reach.
+The reliability foundation, safety banner, offline shell, multi-day planning view, regional selector, provider fallback execution, and mobile-first dashboard pass are now in place. What's left is better region discovery, broader regional reach, and deeper spot review.
 
 ## Shipped
 
@@ -20,9 +20,9 @@ The full reliability phase and the first polish/safety/accuracy features are don
 - **Current-station fix** — `PCT1601` was an invalid station, so current was always seed. Switched to `PUG1527` (The Narrows, 0.3 mi N of bridge); telemetry now degrades tide and current independently, tries real-time → `currents_predictions` → seed, and labels the source honestly. Added `scripts/check_current_station.py` and `scripts/find_current_station.py`. _(5e3c708)_
 - **Web/API + cache tests** — `/api/state` serialization, cache TTL hit, and the last-good degraded path. _(c7f368a)_
 - **High/low tide + slack table** — a "Tides & Currents" panel showing upcoming highs/lows and slack/max flood-ebb from NOAA `hilo` and `MAX_SLACK`. _(d8faf16)_
-- **Daylight shading** — `sun_times.py` computes sunrise/sunset locally (no API key); the timeline shades night and golden-hour cells with a sun/moon glyph and a sunrise–sunset caption. _(3a79dad)_
+- **Daylight shading** — `sun_times.py` computes sunrise/sunset locally (no API key); the planning timeline shades night and golden-hour cells with a sunrise–sunset caption. _(3a79dad)_
 - **NWS marine advisories** — active Puget Sound marine alerts from the NWS API appear above the dashboard summary. _(df35a54)_
-- **Multi-day planning view** — `FORECAST_HOURS` is 72, best-window counts are expanded, and the timeline groups hours by day. _(df35a54)_
+- **Multi-day planning view** — `FORECAST_HOURS` is 72, best-window counts are expanded, and the planning heatmap groups hours by day. _(df35a54)_
 - **Installable PWA with offline last-state** — manifest + service worker cache the app shell and last `/api/state`. _(df35a54)_
 - **NOAA predicted current in forecast windows** — best-window and timeline scoring now prefer NOAA `currents_predictions`; tide-slope-derived current remains the fallback. _(be93ef8)_
 - **Confidence downgrade for stale last-good data** — source age still shows the detail, and the confidence note now reflects last-good staleness. _(be93ef8)_
@@ -32,18 +32,20 @@ The full reliability phase and the first polish/safety/accuracy features are don
 - **Provider fallback strategies** — each region now carries tide/current priority lists, a derived-current fallback, more specific confidence labels, and special sparse-current / river-bar warnings for South Hood Canal and Aberdeen. _(64fd49a)_
 - **Regional wind-exposure metadata** — newer regional spots now carry shoreline-family `wind_exposure_bearing` metadata, so wind-direction-aware scoring applies beyond the original Gig Harbor zones. _(367a864)_
 - **Config-driven thresholds + risk tolerance** — kayaking/fishing thresholds now live in structured config with standard parity tests, generic regional profiles, and conservative/standard/aggressive risk tolerance selection in the web app. _(8075778)_
-- **Mobile dashboard polish** — the mobile web app now uses a compact sticky header, tighter summary cards, a clearer fewer/count/more control row, a vertical hourly timeline, and larger map marker tap targets. _(8979cfd)_
+- **Mobile dashboard polish** — the mobile web app now uses a compact sticky header, tighter summary cards, a clearer fewer/count/more control row, a scrollable daily heatmap, and larger map marker tap targets. _(8979cfd)_
+- **Daily heatmap planning view** — the hourly card wall has been replaced by a compact day-by-day heatmap with selected-hour detail, and the All/Kayak/Fish filter now drives the heatmap marks and color coding consistently with the map and windows.
+- **Provider fallback execution** — NOAA tide/current fetches now try configured station candidates in priority order, record the active station source, and keep derived current as the final fallback.
+- **Reviewed spot exposure bearings** — high-use regional spots now carry reviewed spot-specific wind-exposure bearings while the rest continue to use shoreline-family defaults.
+- **Risk/threshold detail polish** — the active conservative/standard/aggressive risk profile is now shown in heatmap details, map popups, and full spot details.
 
 Earlier: the refined marine-dark UI redesign _(131c7dc)_ and this roadmap.
 
 ## Next — accuracy, personalization, and everyday usefulness
 
-1. **Provider fallback execution (M-L).** The metadata model exists; next, let regions define multiple usable station candidates that the fetcher can try in order before using derived current.
-2. **Spot-level exposure refinement (M).** Replace shoreline-family bearings with spot-reviewed bearings where local knowledge says the default fetch direction is too broad.
-3. **Threshold tuning UI/details (M).** Surface rule profile details per spot and add clearer copy showing how conservative/standard/aggressive shifts safety thresholds.
-4. **Regional search/autocomplete (M-L).** Region choices are predefined today; next, let users search towns/launches and map those choices to the nearest supported region or future dynamic spot cluster.
-5. **Daily best-window digest (M).** A "tomorrow's best window" summary on a schedule — turns the app from pull-only into something that tells you when to go.
-6. **PWA install/offline QA (S-M).** The PWA exists; the next pass should verify install prompts, iOS icon behavior, service-worker upgrades, and offline map/data behavior on a phone.
+1. **Regional search/autocomplete (M-L).** Region choices are predefined today; next, let users search towns/launches and map those choices to the nearest supported region or future dynamic spot cluster.
+2. **Daily best-window digest (M).** A "tomorrow's best window" summary on a schedule — turns the app from pull-only into something that tells you when to go.
+3. **PWA install/offline QA (S-M).** The PWA exists; the next pass should verify install prompts, iOS icon behavior, service-worker upgrades, and offline map/data behavior on a phone.
+4. **Continue spot-level exposure review (M).** Expand the reviewed bearing table as local knowledge improves, especially for exposed launches and bar/river-influenced areas.
 
 ## Later — accuracy and reach
 
@@ -56,4 +58,4 @@ Earlier: the refined marine-dark UI redesign _(131c7dc)_ and this roadmap.
 
 ## Suggested next step
 
-**#1 (provider fallback execution)** is still the biggest accuracy gain. The metadata model can describe fallback priority; the fetcher should now use that priority before falling back to derived current.
+**#1 (regional search/autocomplete)** is now the best next usability gain. The supported region catalog is broad enough that users should be able to search by town, launch, or marine area instead of scanning a fixed dropdown.

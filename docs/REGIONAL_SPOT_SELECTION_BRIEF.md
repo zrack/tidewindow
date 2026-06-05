@@ -111,9 +111,10 @@ Phase 4: Accuracy upgrades — started
 
 - Added wind-direction-aware exposure scoring for modeled spots.
 - Added shoreline-family wind-exposure bearings across the newer regional spot catalogs.
-- Refine individual spot bearings where local review says the shoreline-family default is too broad.
+- Added reviewed spot-specific bearings for high-use regional spots where the shoreline-family default is too broad.
 - Moved kayak/fish thresholds into configuration and added conservative/standard/aggressive risk tolerance selection.
-- Execute per-region alternate station fallback in the fetcher, using the priority metadata now present in provider context.
+- Added risk-profile copy to heatmap details, map popups, and full spot details.
+- Executed per-region alternate station fallback in the fetcher, using the priority metadata now present in provider context.
 
 ## Open Questions
 
@@ -125,4 +126,4 @@ Phase 4: Accuracy upgrades — started
 
 ## Recommended Next Step
 
-Execute provider fallback priority next. The app now describes station priority and fallback assumptions, so the fetcher should try those configured candidates before derived-current fallback.
+Build regional search/autocomplete next. The app now supports enough regions that users should be able to search by town, launch, or marine area instead of scanning a fixed dropdown.
