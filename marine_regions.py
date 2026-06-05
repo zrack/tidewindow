@@ -312,7 +312,7 @@ REGIONS = {
         "type": "city",
         "center": {"lat": 47.32, "lon": -122.61},
         "default_zoom": 11,
-        "default_spot_limit": 10,
+        "default_spot_limit": 13,
         "spot_ids": tuple(ALL_ZONES.keys()),
         "provider_context": {
             "tide_station": NOAA_TIDE_STATION,
@@ -330,7 +330,7 @@ REGIONS = {
         "type": "city",
         "center": {"lat": 47.5404, "lon": -122.6362},
         "default_zoom": 12,
-        "default_spot_limit": 10,
+        "default_spot_limit": 12,
         "spot_ids": (
             "port_orchard_waterfront",
             "port_orchard_marina",
@@ -353,7 +353,7 @@ REGIONS = {
         "type": "city",
         "center": {"lat": 47.5650, "lon": -122.6269},
         "default_zoom": 12,
-        "default_spot_limit": 10,
+        "default_spot_limit": 12,
         "spot_ids": (
             "bremerton_marina",
             "bremerton_ferry_terminal",
@@ -376,7 +376,7 @@ REGIONS = {
         "type": "city",
         "center": {"lat": 47.6445, "lon": -122.6949},
         "default_zoom": 12,
-        "default_spot_limit": 10,
+        "default_spot_limit": 12,
         "spot_ids": (
             "silverdale_waterfront_park",
             "old_town_silverdale",
@@ -399,7 +399,7 @@ REGIONS = {
         "type": "subregion",
         "center": {"lat": 47.2743, "lon": -122.5453},
         "default_zoom": 12,
-        "default_spot_limit": 10,
+        "default_spot_limit": 12,
         "spot_ids": (
             "narrows_park",
             "tacoma_narrows_bridge",
@@ -422,7 +422,7 @@ REGIONS = {
         "type": "subregion",
         "center": {"lat": 47.3783, "lon": -122.6340},
         "default_zoom": 11,
-        "default_spot_limit": 10,
+        "default_spot_limit": 12,
         "spot_ids": (
             "purdy_bridge",
             "purdy_sand_spit",
@@ -445,7 +445,7 @@ REGIONS = {
         "type": "subregion",
         "center": {"lat": 47.3833, "lon": -122.8230},
         "default_zoom": 11,
-        "default_spot_limit": 10,
+        "default_spot_limit": 12,
         "spot_ids": (
             "allyn_waterfront",
             "case_inlet_north",
@@ -468,7 +468,7 @@ REGIONS = {
         "type": "subregion",
         "center": {"lat": 47.1800, "lon": -122.6751},
         "default_zoom": 11,
-        "default_spot_limit": 10,
+        "default_spot_limit": 11,
         "spot_ids": (
             "anderson_island_ferry",
             "yoman_point",
@@ -490,7 +490,7 @@ REGIONS = {
         "type": "subregion",
         "center": {"lat": 47.1450, "lon": -122.6500},
         "default_zoom": 11,
-        "default_spot_limit": 10,
+        "default_spot_limit": 11,
         "spot_ids": (
             "steilacoom_ferry",
             "steilacoom_cormorant_passage",
@@ -512,7 +512,7 @@ REGIONS = {
         "type": "city",
         "center": {"lat": 47.0983, "lon": -122.8950},
         "default_zoom": 11,
-        "default_spot_limit": 10,
+        "default_spot_limit": 11,
         "spot_ids": (
             "budd_inlet_entrance",
             "boston_harbor",
@@ -534,7 +534,7 @@ REGIONS = {
         "type": "subregion",
         "center": {"lat": 47.4183, "lon": -123.0200},
         "default_zoom": 10,
-        "default_spot_limit": 10,
+        "default_spot_limit": 12,
         "spot_ids": (
             "union_hood_canal",
             "lynch_cove",
@@ -557,7 +557,7 @@ REGIONS = {
         "type": "city",
         "center": {"lat": 46.9754, "lon": -123.8157},
         "default_zoom": 11,
-        "default_spot_limit": 10,
+        "default_spot_limit": 12,
         "spot_ids": (
             "aberdeen_waterfront",
             "chehalis_river_mouth",
@@ -1847,6 +1847,7 @@ def get_region(region_id: str = DEFAULT_REGION_ID) -> dict:
     """Returns a copy of a configured region."""
     try:
         region = deepcopy(REGIONS[region_id])
+        region["default_spot_limit"] = len(region["spot_ids"])
         region["provider_context"] = describe_provider_context(region["provider_context"])
         return region
     except KeyError as exc:
@@ -1863,7 +1864,7 @@ def ranked_spots_for_region(region_id: str = DEFAULT_REGION_ID) -> list[dict]:
         spot["priority"] = spot.get("priority", index)
         default_active = spot.get("active_by_default", True)
         if region_id != DEFAULT_REGION_ID:
-            default_active = default_active and index <= region["default_spot_limit"]
+            default_active = default_active and index <= len(region["spot_ids"])
         spot["active_by_default"] = default_active
         spots.append(spot)
     return sorted(spots, key=lambda spot: spot.get("priority", 9999))
@@ -1872,12 +1873,12 @@ def ranked_spots_for_region(region_id: str = DEFAULT_REGION_ID) -> list[dict]:
 def visible_spots_for_region(region_id: str = DEFAULT_REGION_ID, limit: int | None = None) -> list[dict]:
     """Returns the visible ranked spots for a region.
 
-    ``limit`` supports the future "show fewer / show more" control. If omitted,
-    it uses the region's default spot limit.
+    ``limit`` supports the "show fewer / show more" control. If omitted,
+    all ranked spots for the selected region are visible.
     """
     region = get_region(region_id)
     max_spots = len(region["spot_ids"])
-    spot_limit = region["default_spot_limit"] if limit is None else max(0, int(limit))
+    spot_limit = max_spots if limit is None else max(0, int(limit))
     spot_limit = min(spot_limit, max_spots)
     return ranked_spots_for_region(region_id)[:spot_limit]
 

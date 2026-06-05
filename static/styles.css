@@ -261,8 +261,7 @@ h2 {
 .summary-panel,
 .zone-card,
 .window-card,
-.timeline-hour,
-.location-tools {
+.timeline-hour {
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background:
@@ -844,13 +843,6 @@ h2 {
   min-width: 56px;
 }
 
-.location-tools {
-  display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto auto;
-  gap: 10px;
-  padding: 14px;
-}
-
 .location-select,
 .tool-button {
   min-height: 42px;
@@ -1064,12 +1056,11 @@ h2 {
 
 .card-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 
-.details-button,
-.hide-button {
+.details-button {
   width: 100%;
   min-height: 38px;
   margin-top: 14px;
@@ -1089,24 +1080,9 @@ h2 {
   color: var(--text);
 }
 
-.hide-button {
-  color: var(--muted);
-}
-
-.hide-button:hover {
-  background: var(--panel-hover);
-  color: var(--text);
-}
-
-.hide-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
 /* ---- Focus + hover affordances ---------------------------------------- */
 
 .details-button:focus-visible,
-.hide-button:focus-visible,
 .refresh-button:focus-visible,
 .tool-button:focus-visible,
 .filter-button:focus-visible,
@@ -1424,10 +1400,6 @@ h2 {
 
   .timeline-pair {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .location-tools {
-    grid-template-columns: 1fr;
   }
 
   .detail-metrics {

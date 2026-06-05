@@ -1,7 +1,7 @@
 const storageKeys = {
   filter: "tidewindow.filter",
   region: "tidewindow.region",
-  spotLimit: "tidewindow.spotLimit",
+  spotLimit: "tidewindow.spotLimit.v2",
   riskTolerance: "tidewindow.riskTolerance",
 };
 
@@ -9,13 +9,12 @@ const state = {
   data: null,
   regions: [],
   regionId: localStorage.getItem(storageKeys.region) || "gig_harbor",
-  spotLimit: Number(localStorage.getItem(storageKeys.spotLimit) || 10),
+  spotLimit: Number(localStorage.getItem(storageKeys.spotLimit) || 0),
   filter: localStorage.getItem(storageKeys.filter) || "All",
   riskTolerance: localStorage.getItem(storageKeys.riskTolerance) || "standard",
   autoRefreshMs: 5 * 60 * 1000,
   nextRefreshAt: null,
   refreshTimer: null,
-  visibleZoneIds: [],
   leafletMap: null,
   leafletMarkers: [],
 };
@@ -118,10 +117,6 @@ const elements = {
   spotFewer: document.querySelector("#spot-fewer"),
   spotLimit: document.querySelector("#spot-limit"),
   spotMore: document.querySelector("#spot-more"),
-  locationCount: document.querySelector("#location-count"),
-  locationSelect: document.querySelector("#location-select"),
-  locationAdd: document.querySelector("#location-add"),
-  locationReset: document.querySelector("#location-reset"),
 };
 
 elements.refresh.addEventListener("click", loadState);
@@ -129,8 +124,6 @@ elements.zoneDialogClose.addEventListener("click", () => elements.zoneDialog.clo
 elements.zoneDialog.addEventListener("click", (event) => {
   if (event.target === elements.zoneDialog) elements.zoneDialog.close();
 });
-elements.locationAdd.addEventListener("click", addSelectedLocation);
-elements.locationReset.addEventListener("click", restoreDefaultLocations);
 elements.regionSelect.addEventListener("change", () => setRegion(elements.regionSelect.value));
 elements.riskSelect.addEventListener("change", () => setRiskTolerance(elements.riskSelect.value));
 elements.spotFewer.addEventListener("click", () => changeSpotLimit(-5));
@@ -159,7 +152,7 @@ async function loadRegions() {
     }
     const region = selectedRegion();
     if (!state.spotLimit || state.spotLimit < 1) {
-      state.spotLimit = region?.default_spot_limit || 10;
+      state.spotLimit = defaultSpotLimit(region);
     }
     state.spotLimit = clampSpotLimit(state.spotLimit);
     saveRegionSelection();
@@ -190,7 +183,6 @@ async function loadState() {
     if (!response.ok) throw new Error(`API returned ${response.status}`);
     state.data = await response.json();
     state.autoRefreshMs = Math.max(30, Number(state.data.config?.refresh_seconds || 300)) * 1000;
-    initializeVisibleLocations();
     renderDashboard();
     scheduleAutoRefresh();
   } catch (error) {
@@ -208,7 +200,6 @@ function renderDashboard() {
   renderAppContextLabel();
   renderAlerts();
   renderSummary();
-  renderLocationControls();
   renderMap();
   renderEvents();
   renderTimeline();
@@ -268,69 +259,8 @@ function setFilter(filter, options = {}) {
   }
 }
 
-function initializeVisibleLocations() {
-  const allIds = state.data.zones.map((zone) => zone.id);
-  let stored = [];
-
-  try {
-    stored = JSON.parse(localStorage.getItem(visibleZonesKey()) || "[]");
-  } catch {
-    stored = [];
-  }
-
-  const validStored = stored.filter((id) => allIds.includes(id));
-  state.visibleZoneIds = validStored.length ? validStored : defaultVisibleZoneIds();
-  saveVisibleLocations();
-}
-
-function defaultVisibleZoneIds() {
-  return state.data.zones.map((zone) => zone.id);
-}
-
-function visibleZonesKey() {
-  return `tidewindow.visibleZones.${state.regionId}.${state.spotLimit}`;
-}
-
-function saveVisibleLocations() {
-  localStorage.setItem(visibleZonesKey(), JSON.stringify(state.visibleZoneIds));
-}
-
 function visibleZones() {
-  const visible = new Set(state.visibleZoneIds);
-  return state.data.zones.filter((zone) => visible.has(zone.id));
-}
-
-function availableZones() {
-  const visible = new Set(state.visibleZoneIds);
-  return state.data.zones.filter((zone) => !visible.has(zone.id));
-}
-
-function addSelectedLocation() {
-  const zoneId = elements.locationSelect.value;
-  if (!zoneId || state.visibleZoneIds.includes(zoneId)) return;
-  state.visibleZoneIds.push(zoneId);
-  saveVisibleLocations();
-  renderLocationDrivenViews();
-}
-
-function hideLocation(zoneId) {
-  if (state.visibleZoneIds.length <= 1) return;
-  state.visibleZoneIds = state.visibleZoneIds.filter((id) => id !== zoneId);
-  saveVisibleLocations();
-  renderLocationDrivenViews();
-}
-
-function restoreDefaultLocations() {
-  state.visibleZoneIds = defaultVisibleZoneIds();
-  saveVisibleLocations();
-  renderLocationDrivenViews();
-}
-
-function renderLocationDrivenViews() {
-  renderLocationControls();
-  renderMap();
-  renderTimeline();
-  renderWindows();
+  return state.data?.zones || [];
 }
 
 function renderSummary() {
@@ -410,17 +340,6 @@ function updateRefreshLine(generatedAt = state.data?.generated_at) {
   elements.updatedAt.textContent = `Updated ${formatDateTime(generatedAt)}${nextRefresh}`;
 }
 
-function renderLocationControls() {
-  const visible = visibleZones();
-  const available = availableZones();
-  elements.locationCount.textContent = `${visible.length} visible | ${available.length} hidden`;
-  elements.locationSelect.innerHTML = available.length
-    ? available.map((zone) => `<option value="${escapeHtml(zone.id)}">${escapeHtml(zone.title)}</option>`).join("")
-    : `<option value="">All region spots are visible</option>`;
-  elements.locationAdd.disabled = !available.length;
-  renderRegionControls();
-}
-
 function selectedRegion() {
   return state.regions.find((region) => region.id === state.regionId) || state.regions[0] || null;
 }
@@ -439,8 +358,12 @@ function renderAppContextLabel() {
 function clampSpotLimit(value) {
   const region = selectedRegion();
   const total = Number(region?.spot_count || value || 10);
-  const limit = Math.max(1, Number(value) || Number(region?.default_spot_limit || 10));
+  const limit = Math.max(1, Number(value) || defaultSpotLimit(region));
   return Math.min(limit, total);
+}
+
+function defaultSpotLimit(region = selectedRegion()) {
+  return Number(region?.spot_count || region?.default_spot_limit || 10);
 }
 
 function saveRegionSelection() {
@@ -452,7 +375,7 @@ function saveRegionSelection() {
 function setRegion(regionId) {
   if (!state.regions.some((region) => region.id === regionId)) return;
   state.regionId = regionId;
-  state.spotLimit = clampSpotLimit(selectedRegion()?.default_spot_limit || 10);
+  state.spotLimit = clampSpotLimit(defaultSpotLimit(selectedRegion()));
   saveRegionSelection();
   renderRegionControls();
   loadState();
@@ -525,7 +448,7 @@ function renderMap() {
   elements.mapMode.textContent = `${mode} status | ${zones.length} visible`;
 
   if (!zones.length) {
-    elements.zoneMap.innerHTML = `<div class="empty">No visible locations.</div>`;
+    elements.zoneMap.innerHTML = `<div class="empty">No region spots available.</div>`;
     return;
   }
 
@@ -557,7 +480,7 @@ function renderMap() {
       direction: "top",
       offset: [0, -12],
     });
-    marker.bindPopup(zonePopup(zone, zones.length), {
+    marker.bindPopup(zonePopup(zone), {
       className: "zone-map-popup",
       closeButton: true,
       maxWidth: 360,
@@ -647,7 +570,7 @@ function relativeTime(value) {
 }
 
 function renderTimeline() {
-  const visible = new Set(state.visibleZoneIds);
+  const visible = new Set(visibleZones().map((zone) => zone.id));
   const items = state.data.timeline || [];
   elements.timelineCount.textContent = `${items.length} hours${daylightCaption()}`;
 
@@ -760,7 +683,7 @@ function timelinePair(kayak, fish) {
 }
 
 function timelineSingle(item, activity) {
-  if (!item) return `<p class="notice">No visible ${activity.toLowerCase()} zone.</p>`;
+  if (!item) return `<p class="notice">No ${activity.toLowerCase()} zone in this region.</p>`;
   return `
     <div class="timeline-focus">
       <strong class="status-${item.evaluation.color}">${escapeHtml(item.evaluation.status)}</strong>
@@ -777,7 +700,7 @@ function timelineBadge(label, item) {
 function renderWindows() {
   if (!state.data) return;
 
-  const visible = new Set(state.visibleZoneIds);
+  const visible = new Set(visibleZones().map((zone) => zone.id));
   const windows = state.data.windows.filter((window) => {
     const activityMatch = state.filter === "All" || window.activity === state.filter;
     return activityMatch && visible.has(window.zone_id);
@@ -785,7 +708,7 @@ function renderWindows() {
   elements.windowCount.textContent = `${windows.length} shown`;
 
   if (!windows.length) {
-    elements.windowsGrid.innerHTML = `<div class="empty">No ${state.filter.toLowerCase()} windows available for visible locations.</div>`;
+    elements.windowsGrid.innerHTML = `<div class="empty">No ${state.filter.toLowerCase()} windows available for this region.</div>`;
     return;
   }
 
@@ -826,7 +749,7 @@ function openZoneDetails(zoneId) {
   elements.zoneDialog.showModal();
 }
 
-function zonePopup(zone, visibleCount) {
+function zonePopup(zone) {
   const details = zoneDetailCopy(zone.id);
   return `
     <article class="map-spot-card">
@@ -853,7 +776,6 @@ function zonePopup(zone, visibleCount) {
       </div>
       <div class="card-actions">
         <button class="details-button" type="button" data-zone-id="${escapeHtml(zone.id)}">Details</button>
-        <button class="hide-button" type="button" data-zone-id="${escapeHtml(zone.id)}" ${visibleCount <= 1 ? "disabled" : ""}>Hide</button>
       </div>
     </article>
   `;
@@ -862,10 +784,8 @@ function zonePopup(zone, visibleCount) {
 function wireZonePopup(popupElement, zoneId) {
   if (!popupElement) return;
   const detailsButton = popupElement.querySelector(".details-button");
-  const hideButton = popupElement.querySelector(".hide-button");
 
   detailsButton?.addEventListener("click", () => openZoneDetails(zoneId));
-  hideButton?.addEventListener("click", () => hideLocation(zoneId));
 }
 
 function zoneDetailCopy(zoneId) {

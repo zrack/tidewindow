@@ -12,9 +12,9 @@ The primary workflow:
 
 1. User opens TideWindow and selects a place/region, such as Gig Harbor, Port Orchard, Aberdeen, Tacoma Narrows, Hood Canal, Central Sound, South Sound, or San Juan Islands.
 2. The map moves to that region's default center and zoom.
-3. The app automatically displays the top 10 nearby spots for that region.
-4. If more spots are available, the user can show more. If the map feels too crowded, the user can show fewer.
-5. Location controls list the region's spots in relevance order, with visible spots at the top and additional nearby spots available below.
+3. The app automatically displays all ranked nearby spots for that region.
+4. If the map feels too crowded, the user can show fewer spots, then show more again when they want the full regional view.
+5. The map and spot details become the primary regional surface; lower-page location controls should not duplicate the region selector.
 6. Best windows, timeline recommendations, map markers, and spot details all update to match the selected region and visible spot set.
 
 The default should feel decisive: pick a region, immediately see the most useful nearby spots. The controls should be there for tuning, not required setup.
@@ -26,9 +26,9 @@ The default should feel decisive: pick a region, immediately see the most useful
 - Define region records with name, type (`city`, `subregion`, `marine_area`, etc.), map center, default zoom, relevant NOAA tide/current stations, NWS marine zone, weather coordinate, and default search radius.
 - Define spot records independently from regions. Each spot should include title, coordinates, activity tags, shoreline/exposure metadata, current/tide/wind multipliers or thresholds, and optional launch/access notes.
 - Rank spots for a selected region by distance plus relevance. Relevance can initially be manual priority, then later include popularity, activity match, safety confidence, or data quality.
-- Show the top 10 ranked spots by default.
+- Show all ranked spots in the selected region by default.
 - Provide "show fewer" and "show more" controls, probably stepping through 5, 10, 15, 20, and "all in region."
-- Keep user choices persistent per region: selected activity, visible count, hidden spots, and optionally favorite spots.
+- Keep user choices persistent per region: selected activity, visible count, and optionally favorite spots.
 - Fit the map bounds to the currently visible spots, not to the entire Puget Sound catalog.
 - If a region has fewer than 10 spots, show all and avoid empty-feeling controls.
 - If the selected region has no station-quality confidence, clearly label derived/fallback assumptions.
@@ -39,7 +39,7 @@ Recommended new concepts:
 
 - `Region`: stable id, display name, type, map center, zoom, bounds/radius, tide station, current station, NWS zone, weather lat/lon.
 - `Spot`: stable id, title, lat/lon, region hints, activity tags, priority, local notes, access notes, scoring metadata.
-- `SpotSelection`: selected region id, visible count, hidden spot ids, pinned/favorite spot ids.
+- `SpotSelection`: selected region id, visible count, pinned/favorite spot ids.
 - `ProviderContext`: station and weather configuration resolved from the selected region.
 
 The current `ZONES`, `OPTIONAL_ZONES`, and `ALL_ZONES` dictionaries should become a starter spot catalog. Gig Harbor would become the first region backed by that catalog.
@@ -61,7 +61,7 @@ Short term, the frontend can pass the region query parameter. Longer term, the b
 
 - Add a compact region/place selector that supports city-style choices as well as broader marine areas.
 - Replace "Locations" with region-aware spot controls.
-- Add show fewer/show more controls for visible spot count.
+- Add show fewer/show more controls for visible spot count, with all region spots visible by default.
 - Keep the map large and fit it to the currently visible spot set.
 - Keep marker popups as the detailed spot surface.
 - Make empty and degraded states region-specific, such as "No scored spots near Port Orchard yet" or "Using derived current for Hood Canal."
@@ -118,7 +118,7 @@ Phase 4: Accuracy upgrades — started
 ## Open Questions
 
 - What is the first place list: cities/towns, broad marine forecast zones, named Puget Sound subregions, or a combined selector?
-- Should "top 10" mean closest to the region center, best-scored right now, manually prioritized, or a blend?
+- Should ranking mean closest to the region center, best-scored right now, manually prioritized, or a blend?
 - Should users be able to search by town/launch instead of choosing from predefined regions?
 - Do fishing and kayaking share the same spot catalog, or should each activity rank spots differently?
 - How should privately accessed or sensitive fishing spots be handled?

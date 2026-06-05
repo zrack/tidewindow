@@ -27,7 +27,7 @@ class MarineRegionTests(unittest.TestCase):
         self.assertEqual(region["type"], "city")
         self.assertEqual(region["provider_context"]["tide_station"], NOAA_TIDE_STATION)
         self.assertEqual(region["provider_context"]["current_station"], NOAA_CURRENT_STATION)
-        self.assertEqual(region["default_spot_limit"], 10)
+        self.assertEqual(region["default_spot_limit"], len(ALL_ZONES))
         self.assertIn(DEFAULT_REGION_ID, REGIONS)
 
     def test_spot_catalog_preserves_legacy_zone_configs(self):
@@ -87,10 +87,13 @@ class MarineRegionTests(unittest.TestCase):
     def test_visible_spots_returns_top_ranked_region_spots(self):
         ranked = ranked_spots_for_region(DEFAULT_REGION_ID)
         visible = visible_spots_for_region(DEFAULT_REGION_ID, limit=10)
+        default_visible = visible_spots_for_region(DEFAULT_REGION_ID)
 
         self.assertEqual(len(visible), 10)
         self.assertEqual([spot["id"] for spot in visible], [spot["id"] for spot in ranked[:10]])
         self.assertTrue(all(DEFAULT_REGION_ID in spot["region_ids"] for spot in visible))
+        self.assertEqual(len(default_visible), len(ranked))
+        self.assertEqual([spot["id"] for spot in default_visible], [spot["id"] for spot in ranked])
 
     def test_visible_spots_clamps_to_region_size(self):
         visible = visible_spots_for_region(DEFAULT_REGION_ID, limit=999)
@@ -103,7 +106,7 @@ class MarineRegionTests(unittest.TestCase):
 
         self.assertEqual(gig_harbor["id"], DEFAULT_REGION_ID)
         self.assertEqual(gig_harbor["name"], "Gig Harbor")
-        self.assertEqual(gig_harbor["default_spot_limit"], 10)
+        self.assertEqual(gig_harbor["default_spot_limit"], len(ALL_ZONES))
         self.assertEqual(gig_harbor["spot_count"], len(ALL_ZONES))
         self.assertNotIn("provider_context", gig_harbor)
 
@@ -131,6 +134,8 @@ class MarineRegionTests(unittest.TestCase):
                 self.assertIn(region["type"], {"city", "subregion"})
                 self.assertGreaterEqual(len(region["spot_ids"]), 10)
                 self.assertEqual(summaries[region_id]["spot_count"], len(region["spot_ids"]))
+                self.assertEqual(summaries[region_id]["default_spot_limit"], len(region["spot_ids"]))
+                self.assertEqual(len(visible_spots_for_region(region_id)), len(region["spot_ids"]))
                 self.assertEqual(len(visible_spots_for_region(region_id, limit=10)), 10)
 
     def test_regions_carry_station_and_current_bin_context(self):

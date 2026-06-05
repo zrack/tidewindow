@@ -148,7 +148,7 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(payload["default_region"], DEFAULT_REGION_ID)
         self.assertEqual(payload["regions"][0]["id"], DEFAULT_REGION_ID)
         self.assertEqual(payload["regions"][0]["name"], "Gig Harbor")
-        self.assertEqual(payload["regions"][0]["default_spot_limit"], 10)
+        self.assertEqual(payload["regions"][0]["default_spot_limit"], len(ALL_ZONES))
         self.assertEqual(payload["regions"][0]["spot_count"], len(ALL_ZONES))
         self.assertEqual(len(payload["regions"]), len(REGIONS))
         self.assertIn("port_orchard", {region["id"] for region in payload["regions"]})
@@ -183,6 +183,17 @@ class WebAppTests(unittest.TestCase):
         returned_ids = {zone["id"] for zone in payload["zones"]}
         self.assertTrue(all(window["zone_id"] in returned_ids for window in payload["windows"]))
         self.assertTrue(all(set(item["zones"]).issubset(returned_ids) for item in payload["timeline"]))
+
+    def test_api_state_defaults_to_all_region_spots(self):
+        self._use_cache(lambda: StubClient(live_telemetry(), live_forecast()))
+        payload = asyncio.run(web_app.api_state(region=DEFAULT_REGION_ID))
+
+        self.assertEqual(len(payload["zones"]), len(ALL_ZONES))
+        self.assertEqual(payload["config"]["region"]["visible_spot_limit"], len(ALL_ZONES))
+        self.assertEqual(
+            [zone["id"] for zone in payload["zones"]],
+            list(zone_configs_for_region(DEFAULT_REGION_ID).keys()),
+        )
 
     def test_api_state_applies_risk_tolerance(self):
         telemetry = live_telemetry()
