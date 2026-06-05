@@ -86,7 +86,7 @@ The forecast panel uses official NOAA tide predictions and NOAA current predicti
 
 When `OPENWEATHER_API_KEY` has access to OpenWeather One Call 3.0, TideWindow also uses hourly wind forecast points for each window. Forecast wind is labeled as `live`, `fallback`, or `missing`; if hourly wind is unavailable, the app falls back to the current wind value for scoring and says so in the panel. When wind direction is available, spot scoring adjusts wind exposure against each modeled shoreline's fetch.
 
-The app also displays a confidence label. `High` means live or official predicted marine data with light wind. `Medium` means live tide forecast with derived current guidance. `Low` means seed or missing forecast data is involved.
+The app also displays confidence labels. The source confidence summarizes live/predicted/derived/fallback data health, while the provider panel labels station fit with more specific categories such as high station fit, subordinate station fit, sparse current coverage, or river/bar influenced. The provider panel also shows the tide/current priority context, the derived-current fallback, and region-specific caveats.
 
 ## Configuration
 
@@ -126,7 +126,7 @@ uvicorn web_app:app --host 0.0.0.0 --port 8000
 
 Set `OPENWEATHER_API_KEY` in the host's environment settings if you want live OpenWeather wind observations and One Call 3.0 hourly wind forecasts. Set `TIDEWINDOW_WEB_REFRESH_SECONDS` to control how often the browser refreshes the dashboard data; the default is `300` seconds.
 
-Use `/health` for uptime checks. It returns app status, version, timestamp, zone count, forecast length, refresh interval, configured NOAA stations, and whether an OpenWeather key is present. It does not call external providers, so uptime checks stay fast and do not consume API quota.
+Use `/health` for uptime checks. It returns app status, version, timestamp, zone count, forecast length, refresh interval, configured NOAA stations, provider confidence/profile metadata, and whether an OpenWeather key is present. It does not call external providers, so uptime checks stay fast and do not consume API quota.
 
 ## Test
 

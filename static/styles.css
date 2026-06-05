@@ -384,6 +384,22 @@ h2 {
   color: var(--muted);
 }
 
+.provider-warnings {
+  display: grid;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding: 8px 10px 8px 24px;
+  border-radius: var(--r-sm);
+  background: rgba(244, 180, 0, 0.08);
+  color: var(--ink);
+}
+
+.provider-warnings li {
+  padding-left: 2px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .tide-visual {
   padding-bottom: 14px;
 }

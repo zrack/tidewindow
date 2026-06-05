@@ -122,6 +122,20 @@ class MarineRegionTests(unittest.TestCase):
         self.assertEqual(context["tide_station_type"], "S")
         self.assertEqual(context["current_station_type"], "H")
         self.assertEqual(context["provider_confidence"]["level"], "Medium")
+        self.assertEqual(context["provider_confidence"]["label"], "Subordinate station fit")
+
+    def test_south_hood_canal_uses_sparse_current_strategy(self):
+        context = provider_context_for_region("south_hood_canal")
+
+        self.assertEqual(context["provider_strategy"]["profile"], "sparse_current")
+        self.assertEqual(context["provider_strategy"]["headline"], "Sparse current coverage")
+        self.assertEqual(context["provider_confidence"]["level"], "Medium")
+        self.assertEqual(context["provider_confidence"]["label"], "Sparse current coverage")
+        self.assertEqual(context["provider_strategy"]["tide_priority"][0]["station"], "9445478")
+        self.assertEqual(context["provider_strategy"]["tide_priority"][1]["station"], "9445441")
+        self.assertEqual(context["provider_strategy"]["current_priority"][0]["station"], "PUG1601")
+        self.assertEqual(context["provider_strategy"]["current_priority"][-1]["mode"], "derived")
+        self.assertTrue(context["provider_strategy"]["warnings"])
 
     def test_aberdeen_uses_coastal_provider_context(self):
         context = provider_context_for_region("aberdeen")
@@ -131,6 +145,10 @@ class MarineRegionTests(unittest.TestCase):
         self.assertEqual(context["current_station_name"], "Grays Harbor Entrance")
         self.assertEqual(context["current_station_type"], "S")
         self.assertEqual(context["provider_confidence"]["level"], "Medium")
+        self.assertEqual(context["provider_confidence"]["label"], "River/bar influenced")
+        self.assertEqual(context["provider_strategy"]["profile"], "river_bar_influenced")
+        self.assertEqual(context["provider_strategy"]["current_priority"][-1]["mode"], "derived")
+        self.assertTrue(any("bar" in warning for warning in context["provider_strategy"]["warnings"]))
 
     def test_places_without_station_context_are_not_selectable_regions(self):
         for region_id in ("chico", "gorst"):

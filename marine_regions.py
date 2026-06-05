@@ -30,6 +30,9 @@ TIDE_STATION_METADATA = {
     "9446714": {"name": "Steilacoom, Cormorant Passage", "type": "S"},
     "9446807": {"name": "Budd Inlet, Olympia Shoal", "type": "R"},
     "9445478": {"name": "Union, Hood Canal", "type": "R"},
+    "9445441": {"name": "Lynch Cove Dock", "type": "S"},
+    "9445388": {"name": "Ayock Point", "type": "S"},
+    "9445326": {"name": "Triton Head", "type": "S"},
     "9441187": {"name": "Aberdeen", "type": "R"},
 }
 CURRENT_STATION_METADATA = {
@@ -55,36 +58,138 @@ def describe_provider_context(provider_context: dict) -> dict:
     context["tide_station_type"] = tide_meta.get("type", "unknown")
     context["current_station_name"] = current_meta.get("name", context.get("current_station"))
     context["current_station_type"] = current_meta.get("type", "unknown")
+    context["provider_strategy"] = provider_strategy(context)
     context["provider_confidence"] = provider_confidence(context)
     return context
+
+
+def provider_strategy(provider_context: dict) -> dict:
+    """Builds a displayable provider priority/fallback plan for a region."""
+    profile = provider_context.get("provider_profile", "station_backed")
+    tide_priority = [
+        _tide_priority_item(provider_context, "Primary tide"),
+        *[
+            _tide_priority_item({**provider_context, "tide_station": station}, "Backup tide")
+            for station in provider_context.get("backup_tide_stations", ())
+        ],
+    ]
+    current_priority = [
+        _current_priority_item(provider_context, "Primary current"),
+        *[
+            _current_priority_item({**provider_context, **station}, "Backup current")
+            for station in provider_context.get("backup_current_stations", ())
+        ],
+        {
+            "label": "Fallback current",
+            "mode": "derived",
+            "name": "Derived from tide slope",
+            "type": "derived",
+            "note": "Used when current predictions are unavailable or outside the forecast window.",
+        },
+    ]
+
+    profile_labels = {
+        "station_backed": "Station-backed",
+        "subordinate_station": "Subordinate station",
+        "sparse_current": "Sparse current coverage",
+        "river_bar_influenced": "River/bar influenced",
+        "derived_current_only": "Derived-current fallback",
+    }
+    return {
+        "profile": profile,
+        "headline": profile_labels.get(profile, "Station strategy"),
+        "tide_priority": tide_priority,
+        "current_priority": current_priority,
+        "warnings": tuple(provider_context.get("provider_warnings", ())),
+    }
+
+
+def _tide_priority_item(provider_context: dict, label: str) -> dict:
+    station = provider_context.get("tide_station")
+    meta = TIDE_STATION_METADATA.get(station, {})
+    return {
+        "label": label,
+        "station": station,
+        "name": meta.get("name", station),
+        "type": meta.get("type", "unknown"),
+    }
+
+
+def _current_priority_item(provider_context: dict, label: str) -> dict:
+    station = provider_context.get("current_station")
+    meta = CURRENT_STATION_METADATA.get(station, {})
+    return {
+        "label": label,
+        "station": station,
+        "name": meta.get("name", station),
+        "type": meta.get("type", "unknown"),
+        "bin": provider_context.get("current_bin"),
+        "depth_ft": provider_context.get("current_bin_depth_ft"),
+    }
 
 
 def provider_confidence(provider_context: dict) -> dict:
     """Rates provider fit using NOAA tide/current station type metadata."""
     tide_type = provider_context.get("tide_station_type", "unknown")
     current_type = provider_context.get("current_station_type", "unknown")
+    profile = provider_context.get("provider_strategy", {}).get(
+        "profile",
+        provider_context.get("provider_profile", "station_backed"),
+    )
+    if profile == "derived_current_only":
+        return {
+            "level": "Low",
+            "color": "red",
+            "label": "Derived current only",
+            "note": "No station-quality current prediction is configured; current scoring is derived from tide movement.",
+            "reasons": ("Derived current only",),
+        }
+    if profile == "river_bar_influenced":
+        return {
+            "level": "Medium",
+            "color": "yellow",
+            "label": "River/bar influenced",
+            "note": "Tide and current stations are usable, but river flow, swell, and bar conditions can override simple scoring.",
+            "reasons": ("River flow can shift timing", "Bar and swell require separate checks"),
+        }
+    if profile == "sparse_current":
+        return {
+            "level": "Medium",
+            "color": "yellow",
+            "label": "Sparse current coverage",
+            "note": "Uses harmonic current predictions, but coverage is sparse; confidence varies by spot distance from the station.",
+            "reasons": ("Harmonic current station is not local to every spot",),
+        }
     if current_type == "W":
         return {
             "level": "Low",
             "color": "red",
+            "label": "Weak current station",
             "note": "Current station is weak/variable; treat current scoring as approximate.",
+            "reasons": ("Weak/variable current station",),
         }
     if "unknown" in {tide_type, current_type}:
         return {
             "level": "Low",
             "color": "red",
+            "label": "Incomplete station metadata",
             "note": "Station type metadata is incomplete for this region.",
+            "reasons": ("Station metadata incomplete",),
         }
     if tide_type == "S" or current_type == "S":
         return {
             "level": "Medium",
             "color": "yellow",
+            "label": "Subordinate station fit",
             "note": "Uses a subordinate NOAA station for part of the provider context.",
+            "reasons": ("Subordinate NOAA station",),
         }
     return {
         "level": "High",
         "color": "green",
+        "label": "High station fit",
         "note": "Uses station-backed tide data and harmonic NOAA current predictions.",
+        "reasons": ("Reference tide station", "Harmonic current prediction"),
     }
 
 
@@ -178,6 +283,12 @@ SOUTH_HOOD_CANAL_PROVIDER_CONTEXT = {
     "nws_zone": NWS_MARINE_ZONE,
     "weather_lat": "47.3583",
     "weather_lon": "-123.0983",
+    "provider_profile": "sparse_current",
+    "backup_tide_stations": ("9445441", "9445388"),
+    "provider_warnings": (
+        "Hazel Point current predictions are useful canal context, but not equally local to Union, Lynch Cove, and Belfair.",
+        "Use derived-current fallback and wind exposure conservatively in shallow head-of-canal spots.",
+    ),
 }
 ABERDEEN_PROVIDER_CONTEXT = {
     "tide_station": "9441187",
@@ -187,6 +298,11 @@ ABERDEEN_PROVIDER_CONTEXT = {
     "nws_zone": "PZZ110",
     "weather_lat": "46.9754",
     "weather_lon": "-123.8157",
+    "provider_profile": "river_bar_influenced",
+    "provider_warnings": (
+        "Chehalis and Wishkah river flow can shift timing and current strength away from tide predictions.",
+        "Grays Harbor bar, swell, and coastal wind require separate official checks before ocean-adjacent trips.",
+    ),
 }
 
 REGIONS = {

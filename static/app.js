@@ -352,19 +352,26 @@ function renderProviderPanel() {
   const region = state.data.config?.region || {};
   const provider = region.provider_context || {};
   const confidence = provider.provider_confidence || {};
+  const strategy = provider.provider_strategy || {};
   const currentBin = provider.current_bin
     ? `bin ${provider.current_bin}${provider.current_bin_depth_ft ? ` @ ${provider.current_bin_depth_ft} ft` : ""}`
     : "default bin";
+  const currentFallback = (strategy.current_priority || [])
+    .find((item) => item.mode === "derived");
+  const warnings = strategy.warnings || [];
 
-  elements.providerLine.textContent = `${confidence.level || "Unknown"} station fit`;
+  elements.providerLine.textContent = confidence.label || `${confidence.level || "Unknown"} station fit`;
   elements.providerLine.className = `status-${confidence.color || "yellow"}`;
   elements.providerDetails.innerHTML = `
     ${providerRow("Region", region.name || region.id || "Unknown")}
+    ${providerRow("Profile", strategy.headline || "Station-backed")}
     ${providerRow("Tide", `${provider.tide_station || "unknown"} · ${provider.tide_station_name || "station"} · ${stationTypeLabel(provider.tide_station_type)}`)}
     ${providerRow("Current", `${provider.current_station || "unknown"} · ${provider.current_station_name || "station"} · ${currentBin} · ${stationTypeLabel(provider.current_station_type)}`)}
+    ${providerRow("Fallback", currentFallback ? currentFallback.name : "Derived current when predictions are unavailable")}
     ${providerRow("Weather", `${provider.weather_lat || "?"}, ${provider.weather_lon || "?"}`)}
     ${providerRow("NWS", provider.nws_zone || "unknown")}
     ${confidence.note ? `<p class="provider-note">${escapeHtml(confidence.note)}</p>` : ""}
+    ${warnings.length ? `<ul class="provider-warnings">${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join("")}</ul>` : ""}
   `;
 }
 

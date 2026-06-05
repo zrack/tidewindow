@@ -102,6 +102,7 @@ Phase 3: Puget Sound catalog expansion — expanded
 - Added South Hood Canal with Union tide predictions (`9445478`) and Hazel Point Hood Canal current predictions (`PUG1601`, bin 21).
 - Added Aberdeen with Aberdeen tide predictions (`9441187`), Grays Harbor entrance current predictions (`ACT8496`, bin 1), and Grays Harbor Bar marine alerts (`PZZ110`).
 - Added provider diagnostics and station-confidence labels so region-specific station choices are visible.
+- Added provider priority/fallback metadata, derived-current fallback labeling, and special warnings for sparse Hood Canal current coverage and river/bar-influenced Aberdeen conditions.
 - Started with manually curated Kitsap spots and priorities.
 - Wired each region to tide/current/weather provider context so station choices can vary by place.
 - Continue with broader Puget Sound marine areas.
@@ -111,7 +112,7 @@ Phase 4: Accuracy upgrades — started
 - Added wind-direction-aware exposure scoring for modeled spots.
 - Expand reviewed wind-exposure metadata across the newer regional spot catalogs.
 - Move thresholds into configuration.
-- Support per-region station fallback strategies, especially for sparse Hood Canal current coverage and river/bar-influenced Grays Harbor spots.
+- Execute per-region alternate station fallback in the fetcher, using the priority metadata now present in provider context.
 
 ## Open Questions
 
@@ -123,4 +124,4 @@ Phase 4: Accuracy upgrades — started
 
 ## Recommended Next Step
 
-Build provider fallback strategies next. The region picker is now useful enough that the app needs more nuanced source handling for places where the closest tide station, current station, river flow, and bar forecast do not all describe the same water.
+Expand spot-level exposure metadata next. The app now says more clearly which provider context it trusts, so the next accuracy gain is making the regional spot catalogs as locally expressive as the original Gig Harbor zones.

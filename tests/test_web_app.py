@@ -196,6 +196,8 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(payload["config"]["region"]["provider_context"]["current_bin"], 8)
         self.assertEqual(payload["config"]["region"]["provider_context"]["current_station_type"], "H")
         self.assertEqual(payload["config"]["region"]["provider_context"]["provider_confidence"]["level"], "High")
+        self.assertEqual(payload["config"]["region"]["provider_context"]["provider_confidence"]["label"], "High station fit")
+        self.assertEqual(payload["config"]["region"]["provider_context"]["provider_strategy"]["profile"], "station_backed")
         self.assertEqual(len(payload["zones"]), 10)
         self.assertEqual(
             [zone["id"] for zone in payload["zones"]],
@@ -285,11 +287,17 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(providers["south_hood_canal"]["tide_station"], "9445478")
         self.assertEqual(providers["south_hood_canal"]["current_station"], "PUG1601")
         self.assertEqual(providers["south_hood_canal"]["current_bin"], 21)
-        self.assertEqual(providers["south_hood_canal"]["provider_confidence"], "High")
+        self.assertEqual(providers["south_hood_canal"]["provider_confidence"], "Medium")
+        self.assertEqual(providers["south_hood_canal"]["provider_confidence_label"], "Sparse current coverage")
+        self.assertEqual(providers["south_hood_canal"]["provider_profile"], "sparse_current")
+        self.assertTrue(providers["south_hood_canal"]["provider_warnings"])
         self.assertEqual(providers["aberdeen"]["tide_station"], "9441187")
         self.assertEqual(providers["aberdeen"]["current_station"], "ACT8496")
         self.assertEqual(providers["aberdeen"]["current_bin"], 1)
         self.assertEqual(providers["aberdeen"]["provider_confidence"], "Medium")
+        self.assertEqual(providers["aberdeen"]["provider_confidence_label"], "River/bar influenced")
+        self.assertEqual(providers["aberdeen"]["provider_profile"], "river_bar_influenced")
+        self.assertTrue(providers["aberdeen"]["provider_warnings"])
 
 
 if __name__ == "__main__":
