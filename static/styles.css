@@ -422,6 +422,24 @@ h2 {
   min-width: 0;
 }
 
+.place-search-control {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.region-search-note {
+  margin: 0;
+  color: var(--yellow);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.region-search-note[hidden] {
+  display: none;
+}
+
 .density-control {
   display: inline-grid;
   grid-template-columns: repeat(3, minmax(74px, 1fr));
@@ -1028,6 +1046,10 @@ h2 {
   padding: 0 12px;
 }
 
+.place-search-input {
+  width: 100%;
+}
+
 .tool-button {
   min-width: 86px;
   padding: 0 16px;
@@ -1280,6 +1302,18 @@ h2 {
 .location-select:hover,
 .location-select:focus-visible {
   border-color: var(--cyan);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ---- Dialog ------------------------------------------------------------ */
@@ -1581,6 +1615,7 @@ h2 {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .place-search-control,
   .region-tools .location-select,
   .density-control,
   .spot-limit {

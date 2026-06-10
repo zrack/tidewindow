@@ -164,6 +164,12 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("aberdeen", {region["id"] for region in payload["regions"]})
         self.assertNotIn("chico", {region["id"] for region in payload["regions"]})
         self.assertNotIn("gorst", {region["id"] for region in payload["regions"]})
+        aliases = {entry["normalized"]: entry for entry in payload["search_aliases"]}
+        self.assertEqual(aliases["port orchard"]["region_id"], "port_orchard")
+        self.assertEqual(aliases["aberdeen"]["region_id"], "aberdeen")
+        self.assertEqual(aliases["belfair"]["region_id"], "south_hood_canal")
+        self.assertEqual(aliases["chico"]["region_id"], "silverdale")
+        self.assertIn("Using South Hood Canal", aliases["belfair"]["note"])
 
     def test_api_state_can_limit_region_spots(self):
         self._use_cache(lambda: StubClient(live_telemetry(), live_forecast()))

@@ -15,7 +15,9 @@ from marine_regions import (
     optional_spot_ids_for_region,
     provider_context_for_region,
     ranked_spots_for_region,
+    region_search_aliases,
     region_summaries,
+    resolve_region_query,
     visible_spots_for_region,
     zone_configs_for_region,
 )
@@ -118,6 +120,25 @@ class MarineRegionTests(unittest.TestCase):
         self.assertEqual(gig_harbor["default_spot_limit"], len(ALL_ZONES))
         self.assertEqual(gig_harbor["spot_count"], len(ALL_ZONES))
         self.assertNotIn("provider_context", gig_harbor)
+
+    def test_region_search_aliases_resolve_regions_and_nearby_places(self):
+        aliases = {entry["normalized"]: entry for entry in region_search_aliases()}
+
+        self.assertEqual(aliases["port orchard"]["region_id"], "port_orchard")
+        self.assertEqual(aliases["aberdeen"]["region_id"], "aberdeen")
+        self.assertEqual(aliases["tacoma narrows"]["region_id"], "tacoma_narrows")
+        self.assertEqual(aliases["union"]["region_id"], "south_hood_canal")
+        self.assertEqual(aliases["belfair"]["region_id"], "south_hood_canal")
+        self.assertEqual(aliases["chico"]["region_id"], "silverdale")
+        self.assertEqual(aliases["gorst"]["region_id"], "bremerton")
+        self.assertIn("Using South Hood Canal", aliases["belfair"]["note"])
+        self.assertIn("Using Silverdale", aliases["chico"]["note"])
+
+    def test_resolve_region_query_normalizes_common_place_text(self):
+        self.assertEqual(resolve_region_query(" Port Orchard ")["region_id"], "port_orchard")
+        self.assertEqual(resolve_region_query("Budd-Inlet")["region_id"], "olympia_budd_inlet")
+        self.assertEqual(resolve_region_query("Gorst")["region_id"], "bremerton")
+        self.assertIsNone(resolve_region_query(""))
 
     def test_requested_city_regions_are_selectable(self):
         requested = {

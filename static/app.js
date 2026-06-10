@@ -14,7 +14,10 @@ const densityPresets = {
 const state = {
   data: null,
   regions: [],
+  regionAliases: [],
   regionId: localStorage.getItem(storageKeys.region) || "gig_harbor",
+  placeSearchLabel: "",
+  regionSearchNote: "",
   spotDensity: localStorage.getItem(storageKeys.spotDensity) || "full",
   filter: localStorage.getItem(storageKeys.filter) || "All",
   riskTolerance: localStorage.getItem(storageKeys.riskTolerance) || "standard",
@@ -119,6 +122,9 @@ const elements = {
   slackEvents: document.querySelector("#slack-events"),
   eventsNote: document.querySelector("#events-note"),
   alerts: document.querySelector("#alerts"),
+  placeSearch: document.querySelector("#place-search"),
+  regionSearchOptions: document.querySelector("#region-search-options"),
+  regionSearchNote: document.querySelector("#region-search-note"),
   regionSelect: document.querySelector("#region-select"),
   riskSelect: document.querySelector("#risk-select"),
   densityButtons: document.querySelectorAll(".density-button"),
@@ -131,6 +137,12 @@ elements.zoneDialog.addEventListener("click", (event) => {
   if (event.target === elements.zoneDialog) elements.zoneDialog.close();
 });
 elements.regionSelect.addEventListener("change", () => setRegion(elements.regionSelect.value));
+elements.placeSearch.addEventListener("change", () => applyPlaceSearch(elements.placeSearch.value));
+elements.placeSearch.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  applyPlaceSearch(elements.placeSearch.value);
+});
 elements.riskSelect.addEventListener("change", () => setRiskTolerance(elements.riskSelect.value));
 elements.densityButtons.forEach((button) => {
   button.addEventListener("click", () => setSpotDensity(button.dataset.density));
@@ -153,6 +165,7 @@ async function loadRegions() {
     if (!response.ok) throw new Error(`API returned ${response.status}`);
     const payload = await response.json();
     state.regions = payload.regions || [];
+    state.regionAliases = payload.search_aliases || fallbackRegionAliases(state.regions);
     const defaultRegion = payload.default_region || "gig_harbor";
     if (!state.regions.some((region) => region.id === state.regionId)) {
       state.regionId = defaultRegion;
@@ -167,6 +180,7 @@ async function loadRegions() {
       default_spot_limit: 10,
       spot_count: 10,
     }];
+    state.regionAliases = fallbackRegionAliases(state.regions);
     renderRegionControls();
   }
 }
@@ -374,6 +388,16 @@ function selectedRegionName() {
   return selectedRegion()?.name || "Puget Sound";
 }
 
+function selectedRegionAlias() {
+  const region = selectedRegion();
+  if (!region) return "";
+  return state.regionAliases.find((alias) => (
+    alias.region_id === region.id
+    && alias.match_type === "region"
+    && alias.normalized === normalizeSearchText(region.name)
+  ))?.term || region.name;
+}
+
 function renderAppContextLabel() {
   if (!elements.appContextLabel) return;
   elements.appContextLabel.textContent = `${selectedRegionName()} Marine Windows`;
@@ -404,12 +428,29 @@ function saveRegionSelection() {
   localStorage.setItem(storageKeys.riskTolerance, state.riskTolerance);
 }
 
-function setRegion(regionId) {
+function setRegion(regionId, options = {}) {
   if (!state.regions.some((region) => region.id === regionId)) return;
   state.regionId = regionId;
+  state.placeSearchLabel = options.searchLabel || "";
+  state.regionSearchNote = options.note || "";
   saveRegionSelection();
   renderRegionControls();
   loadState();
+}
+
+function applyPlaceSearch(value) {
+  const entry = resolvePlaceSearch(value);
+  if (!entry) {
+    state.regionSearchNote = value.trim()
+      ? "No supported region match yet."
+      : "";
+    renderRegionControls();
+    return;
+  }
+  setRegion(entry.region_id, {
+    searchLabel: entry.term,
+    note: entry.note || "",
+  });
 }
 
 function setRiskTolerance(riskTolerance) {
@@ -434,9 +475,21 @@ function renderRegionControls() {
   if (!region) return;
   renderAppContextLabel();
 
+  elements.regionSearchOptions.innerHTML = state.regionAliases.map((item) => {
+    const label = item.note
+      ? `${item.region_name} - ${item.note}`
+      : item.region_name;
+    return `<option value="${escapeHtml(item.term)}" label="${escapeHtml(label)}"></option>`;
+  }).join("");
   elements.regionSelect.innerHTML = state.regions.map((item) => `
     <option value="${escapeHtml(item.id)}" ${item.id === state.regionId ? "selected" : ""}>${escapeHtml(item.name)}</option>
   `).join("");
+  elements.regionSelect.value = state.regionId;
+  if (document.activeElement !== elements.placeSearch) {
+    elements.placeSearch.value = state.placeSearchLabel || selectedRegionAlias();
+  }
+  elements.regionSearchNote.textContent = state.regionSearchNote;
+  elements.regionSearchNote.hidden = !state.regionSearchNote;
   elements.riskSelect.value = state.data?.config?.risk_tolerance?.id || state.riskTolerance;
 
   state.spotDensity = normalizeSpotDensity(state.spotDensity);
@@ -448,6 +501,27 @@ function renderRegionControls() {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
   });
+}
+
+function normalizeSearchText(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function resolvePlaceSearch(value) {
+  const normalized = normalizeSearchText(value);
+  if (!normalized) return null;
+  return state.regionAliases.find((item) => item.normalized === normalized) || null;
+}
+
+function fallbackRegionAliases(regions) {
+  return regions.map((region) => ({
+    term: region.name,
+    normalized: normalizeSearchText(region.name),
+    region_id: region.id,
+    region_name: region.name,
+    match_type: "region",
+    note: "",
+  }));
 }
 
 function stateUrl() {

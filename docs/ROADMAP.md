@@ -1,6 +1,6 @@
 # TideWindow Roadmap
 
-_Last updated: 2026-06-05._
+_Last updated: 2026-06-10._
 
 Focus: **accuracy, personalization, and reach** — the reliability and everyday-usefulness foundation is now in place, so the next gains should make the recommendations more locally accurate and easier to tune. Effort is sized roughly as S (a few hours), M (a day or two), L (multi-day).
 
@@ -8,7 +8,7 @@ Focus: **accuracy, personalization, and reach** — the reliability and everyday
 
 TideWindow aggregates NOAA tide and current data plus optional OpenWeather wind, scores selectable regional spot catalogs for kayaking and fishing, and presents it through a terminal UI and a web dashboard (Leaflet map, mobile-friendly daily heatmap, best windows, tides/currents table, provider diagnostics, and risk tolerance). The data-source honesty — labeling tide/current/wind as live, predicted, derived, fallback, seed, or missing, and rolling that into confidence and provider-fit labels — remains a core strength.
 
-The reliability foundation, safety banner, offline shell, multi-day planning view, regional selector, provider fallback execution, and mobile-first dashboard pass are now in place. What's left is better region discovery, broader regional reach, and deeper spot review.
+The reliability foundation, safety banner, offline shell, multi-day planning view, regional selector/search, provider fallback execution, and mobile-first dashboard pass are now in place. What's left is proactive planning help, broader regional reach, and deeper spot review.
 
 ## Shipped
 
@@ -38,20 +38,16 @@ The full reliability phase and the first polish/safety/accuracy features are don
 - **Reviewed spot exposure bearings** — high-use regional spots now carry reviewed spot-specific wind-exposure bearings while the rest continue to use shoreline-family defaults.
 - **Risk/threshold detail polish** — the active conservative/standard/aggressive risk profile is now shown in heatmap details, map popups, and full spot details.
 - **Proportional map density controls** — region maps default to Full, with Compact and Standard presets showing about 50% and 75% of the regional spot catalog instead of fixed Fewer/More count steps.
+- **Regional search/autocomplete** — the fixed region dropdown has been replaced by a place search backed by region aliases, city names, common launch names, and marine-area terms. Nearby recognized places such as Belfair, Union, Chico, and Gorst resolve to the closest supported region with a visible note.
 
 Earlier: the refined marine-dark UI redesign _(131c7dc)_ and this roadmap.
 
 ## Next — accuracy, personalization, and everyday usefulness
 
-1. **Regional search/autocomplete (M-L).** Region choices are predefined today; next, let users search towns/launches and map those choices to the nearest supported region or future dynamic spot cluster.
-   - Build a searchable region alias index covering supported region names, nearby cities, common launch names, and marine-area terms.
-   - Replace or augment the fixed dropdown with an autocomplete control that works well on mobile.
-   - Resolve exact matches directly, such as Port Orchard, Aberdeen, Bremerton, Silverdale, Union, Belfair, and Tacoma Narrows.
-   - For recognized but unsupported places, show the nearest supported region and a clear note such as "Using South Hood Canal for Belfair."
-   - Keep map movement, spot population, provider context, activity filter, and visible spot count consistent after search selection.
-2. **Daily best-window digest (M).** A "tomorrow's best window" summary on a schedule — turns the app from pull-only into something that tells you when to go.
-3. **PWA install/offline QA (S-M).** The PWA exists; the next pass should verify install prompts, iOS icon behavior, service-worker upgrades, and offline map/data behavior on a phone.
-4. **Continue spot-level exposure review (M).** Expand the reviewed bearing table as local knowledge improves, especially for exposed launches and bar/river-influenced areas.
+1. **Daily best-window digest (M).** A "tomorrow's best window" summary on a schedule — turns the app from pull-only into something that tells you when to go.
+2. **PWA install/offline QA (S-M).** The PWA exists; the next pass should verify install prompts, iOS icon behavior, service-worker upgrades, and offline map/data behavior on a phone.
+3. **Continue spot-level exposure review (M).** Expand the reviewed bearing table as local knowledge improves, especially for exposed launches and bar/river-influenced areas.
+4. **Search ranking refinements (S-M).** The alias search is exact-match first; later, add typo tolerance, partial-match ranking, and richer unsupported-place routing when the catalog grows.
 
 ## Later — accuracy and reach
 
@@ -64,4 +60,4 @@ Earlier: the refined marine-dark UI redesign _(131c7dc)_ and this roadmap.
 
 ## Suggested next step
 
-**#1 (regional search/autocomplete)** is now the best next usability gain. The supported region catalog is broad enough that users should be able to search by town, launch, or marine area instead of scanning a fixed dropdown.
+**#1 (daily best-window digest)** is now the best next usefulness gain. The app can already answer "where and when should I go"; the next step is letting it proactively surface tomorrow's best windows.

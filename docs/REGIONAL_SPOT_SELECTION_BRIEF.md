@@ -89,9 +89,11 @@ Phase 1: Data model and Gig Harbor parity — shipped
 
 Phase 2: Region picker and spot density controls — shipped
 
-- Add the region selector and proportional density controls.
+- Add the region selector/search surface and proportional density controls.
 - Make the map fit visible spots.
 - Persist selected region and density preset in local storage.
+- Add a searchable alias index for supported regions, city-style place names, common launches, and marine-area terms.
+- Route recognized nearby places such as Belfair, Union, Chico, and Gorst to their closest supported region with a visible note.
 
 Phase 3: Puget Sound catalog expansion — expanded
 

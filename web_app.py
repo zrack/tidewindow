@@ -28,6 +28,7 @@ from marine_regions import (
     default_spot_ids_for_region,
     provider_context_for_region,
     region_count,
+    region_search_aliases,
     region_summaries,
     zone_configs_for_region,
 )
@@ -37,7 +38,7 @@ from sun_times import sun_events
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-APP_VERSION = "0.4.3"
+APP_VERSION = "0.4.4"
 
 app = FastAPI(title=WEB_APP_NAME, version=APP_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -124,6 +125,7 @@ async def api_regions():
     return {
         "default_region": DEFAULT_REGION_ID,
         "regions": region_summaries(),
+        "search_aliases": region_search_aliases(),
     }
 
 

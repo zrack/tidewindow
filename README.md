@@ -2,7 +2,7 @@
 
 TideWindow is a terminal and web marine-conditions dashboard for Puget Sound, South Hood Canal, and Aberdeen-area marine planning. It combines NOAA tide/current observations and predictions with optional OpenWeather wind data, then scores local spots for kayaking and fly fishing. It also highlights the best kayak and fishing windows across a 72-hour planning window.
 
-The web dashboard adds a Leaflet/OpenStreetMap area map, region-aware spot controls, provider diagnostics, risk tolerance, a mobile-friendly daily heatmap, and remembered region/activity preferences. You can choose Gig Harbor, Port Orchard, Bremerton, Silverdale, Tacoma Narrows, Carr Inlet, Case Inlet, Anderson Island, Steilacoom & Nisqually, Olympia & Budd Inlet, South Hood Canal, or Aberdeen, see the full spot catalog for that region on the map, then switch to Compact or Standard density when the map feels crowded.
+The web dashboard adds a Leaflet/OpenStreetMap area map, place search, region-aware spot controls, provider diagnostics, risk tolerance, a mobile-friendly daily heatmap, and remembered region/activity preferences. You can search for supported regions or nearby places such as Port Orchard, Aberdeen, Belfair, Union, Chico, or Gorst, see the full spot catalog for the resolved region on the map, then switch to Compact or Standard density when the map feels crowded.
 
 ## Visuals
 
@@ -78,7 +78,7 @@ Press `a` for all forecast windows, `k` for kayak windows, and `f` for fishing w
 
 The terminal dashboard still focuses on the original Gig Harbor/Narrows planning set: Purdy Bridge, Inside Gig Harbor, Fox Island/Hale Passage, Sunrise Beach Park, Narrows Park, Fox Island Fishing Pier, Purdy Sand Spit, and Kopachuck State Park.
 
-The web dashboard starts with all spots for the selected region and uses Compact, Standard, and Full density presets for proportional map marker visibility. The selected region, risk tolerance, density preset, and activity mode are stored in the browser. On phones, the dashboard uses a compact sticky header, stacked summary cards, larger map tap targets, and a scrollable daily heatmap with a selected-hour detail panel.
+The web dashboard starts with all spots for the selected region and uses Compact, Standard, and Full density presets for proportional map marker visibility. The place search accepts supported regions, city-style aliases, common launches, and marine-area names; recognized nearby places route to the closest supported region with a note, such as using South Hood Canal for Belfair. The selected region, risk tolerance, density preset, and activity mode are stored in the browser. On phones, the dashboard uses a compact sticky header, stacked summary cards, larger map tap targets, and a scrollable daily heatmap with a selected-hour detail panel.
 
 ## Forecast Windows
 

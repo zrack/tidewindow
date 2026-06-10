@@ -5,6 +5,7 @@ current Gig Harbor dashboard behavior intact while introducing data structures
 that can later support places such as Port Orchard or Aberdeen.
 """
 
+import re
 from copy import deepcopy
 
 from marine_config import (
@@ -579,6 +580,149 @@ REGIONS = {
             "grays_harbor_south_jetty",
         ),
         "provider_context": ABERDEEN_PROVIDER_CONTEXT,
+    },
+}
+
+REGION_SEARCH_ALIASES = {
+    DEFAULT_REGION_ID: (
+        "Gig Harbor",
+        "Purdy",
+        "Purdy Bridge",
+        "Henderson Bay",
+        "Wollochet Bay",
+        "Fox Island",
+        "Hale Passage",
+        "Kopachuck",
+        "Narrows Park",
+    ),
+    "port_orchard": (
+        "Port Orchard",
+        "Annapolis",
+        "Manchester",
+        "Southworth",
+        "Rich Passage",
+        "Sinclair Inlet",
+        "Waterman",
+    ),
+    "bremerton": (
+        "Bremerton",
+        "Manette",
+        "Port Washington Narrows",
+        "Warren Avenue Bridge",
+        "Illahee",
+        "Tracyton",
+        "Oyster Bay",
+        "Rocky Point",
+    ),
+    "silverdale": (
+        "Silverdale",
+        "Dyes Inlet",
+        "Old Town Silverdale",
+        "Clear Creek",
+        "Barker Creek",
+        "Brownsville",
+    ),
+    "tacoma_narrows": (
+        "Tacoma Narrows",
+        "Titlow",
+        "Salmon Beach",
+        "Day Island",
+        "Point Defiance",
+        "Point Ruston",
+        "Chambers Creek",
+    ),
+    "carr_inlet": (
+        "Carr Inlet",
+        "Wauna",
+        "Horsehead Bay",
+        "Vaughn",
+        "Home Spit",
+        "Lakebay",
+        "Penrose Point",
+    ),
+    "case_inlet": (
+        "Case Inlet",
+        "Allyn",
+        "Grapeview",
+        "Harstine",
+        "Pickering Passage",
+        "Squaxin Passage",
+        "Jarrell Cove",
+    ),
+    "anderson_island": (
+        "Anderson Island",
+        "Ketron Island",
+        "Balch Passage",
+        "Eagle Island",
+        "Longbranch",
+        "Drayton Passage",
+    ),
+    "steilacoom_nisqually": (
+        "Steilacoom",
+        "Nisqually",
+        "Nisqually Reach",
+        "Cormorant Passage",
+        "Sunnyside Beach",
+        "DuPont",
+        "Solo Point",
+        "South Sound",
+    ),
+    "olympia_budd_inlet": (
+        "Olympia",
+        "Budd Inlet",
+        "Boston Harbor",
+        "Swantown",
+        "West Bay",
+        "Eld Inlet",
+        "Henderson Inlet",
+    ),
+    "south_hood_canal": (
+        "South Hood Canal",
+        "Hood Canal",
+        "Lynch Cove",
+        "Twanoh",
+        "Potlatch",
+        "Hama Hama",
+        "Lilliwaup",
+        "Ayock Point",
+        "Triton Head",
+        "Hazel Point",
+        "Seabeck",
+        "Dosewallips",
+    ),
+    "aberdeen": (
+        "Aberdeen",
+        "Grays Harbor",
+        "Hoquiam",
+        "Cosmopolis",
+        "Westport",
+        "Half Moon Bay",
+        "Bowerman Basin",
+        "North Jetty",
+        "South Jetty",
+    ),
+}
+
+PLACE_REGION_ROUTES = {
+    "belfair": {
+        "term": "Belfair",
+        "region_id": "south_hood_canal",
+        "note": "Using South Hood Canal for Belfair.",
+    },
+    "union": {
+        "term": "Union",
+        "region_id": "south_hood_canal",
+        "note": "Using South Hood Canal for Union.",
+    },
+    "chico": {
+        "term": "Chico",
+        "region_id": "silverdale",
+        "note": "Using Silverdale for Chico.",
+    },
+    "gorst": {
+        "term": "Gorst",
+        "region_id": "bremerton",
+        "note": "Using Bremerton for Gorst.",
     },
 }
 
@@ -1938,6 +2082,70 @@ def region_summaries() -> list[dict]:
             }
         )
     return summaries
+
+
+def normalize_region_query(query: str) -> str:
+    """Normalizes a user-entered place name for exact alias matching."""
+    return re.sub(r"[^a-z0-9]+", " ", str(query).lower()).strip()
+
+
+def region_search_aliases() -> list[dict]:
+    """Returns searchable region, city, launch, and marine-area aliases."""
+    entries_by_key = {}
+    for region_id, aliases in REGION_SEARCH_ALIASES.items():
+        region = get_region(region_id)
+        terms = {
+            region["id"].replace("_", " "),
+            region["name"],
+            *aliases,
+        }
+        for term in terms:
+            normalized = normalize_region_query(term)
+            if not normalized:
+                continue
+            entries_by_key.setdefault(
+                normalized,
+                {
+                    "term": term,
+                    "normalized": normalized,
+                    "region_id": region["id"],
+                    "region_name": region["name"],
+                    "match_type": "region" if normalized in {
+                        normalize_region_query(region["id"].replace("_", " ")),
+                        normalize_region_query(region["name"]),
+                    } else "alias",
+                    "note": "",
+                },
+            )
+
+    for route in PLACE_REGION_ROUTES.values():
+        region = get_region(route["region_id"])
+        term = route["term"]
+        normalized = normalize_region_query(term)
+        entries_by_key[normalized] = {
+            "term": term,
+            "normalized": normalized,
+            "region_id": region["id"],
+            "region_name": region["name"],
+            "match_type": "nearby",
+            "note": route["note"],
+        }
+
+    return sorted(
+        entries_by_key.values(),
+        key=lambda item: (item["term"].lower(), item["region_name"].lower()),
+    )
+
+
+def resolve_region_query(query: str) -> dict | None:
+    """Resolves an exact normalized place query to a supported region alias."""
+    normalized = normalize_region_query(query)
+    if not normalized:
+        return None
+    for entry in region_search_aliases():
+        if entry["normalized"] == normalized:
+            return entry
+    return None
 
 
 def provider_context_for_region(region_id: str = DEFAULT_REGION_ID) -> dict:
