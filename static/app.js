@@ -1,15 +1,21 @@
 const storageKeys = {
   filter: "tidewindow.filter",
   region: "tidewindow.region",
-  spotLimit: "tidewindow.spotLimit.v2",
+  spotDensity: "tidewindow.spotDensity.v1",
   riskTolerance: "tidewindow.riskTolerance",
+};
+
+const densityPresets = {
+  compact: { label: "Compact", ratio: 0.5 },
+  standard: { label: "Standard", ratio: 0.75 },
+  full: { label: "Full", ratio: 1 },
 };
 
 const state = {
   data: null,
   regions: [],
   regionId: localStorage.getItem(storageKeys.region) || "gig_harbor",
-  spotLimit: Number(localStorage.getItem(storageKeys.spotLimit) || 0),
+  spotDensity: localStorage.getItem(storageKeys.spotDensity) || "full",
   filter: localStorage.getItem(storageKeys.filter) || "All",
   riskTolerance: localStorage.getItem(storageKeys.riskTolerance) || "standard",
   autoRefreshMs: 5 * 60 * 1000,
@@ -115,9 +121,8 @@ const elements = {
   alerts: document.querySelector("#alerts"),
   regionSelect: document.querySelector("#region-select"),
   riskSelect: document.querySelector("#risk-select"),
-  spotFewer: document.querySelector("#spot-fewer"),
+  densityButtons: document.querySelectorAll(".density-button"),
   spotLimit: document.querySelector("#spot-limit"),
-  spotMore: document.querySelector("#spot-more"),
 };
 
 elements.refresh.addEventListener("click", loadState);
@@ -127,8 +132,9 @@ elements.zoneDialog.addEventListener("click", (event) => {
 });
 elements.regionSelect.addEventListener("change", () => setRegion(elements.regionSelect.value));
 elements.riskSelect.addEventListener("change", () => setRiskTolerance(elements.riskSelect.value));
-elements.spotFewer.addEventListener("click", () => changeSpotLimit(-5));
-elements.spotMore.addEventListener("click", () => changeSpotLimit(5));
+elements.densityButtons.forEach((button) => {
+  button.addEventListener("click", () => setSpotDensity(button.dataset.density));
+});
 elements.filterButtons.forEach((button) => {
   button.addEventListener("click", () => setFilter(button.dataset.filter));
 });
@@ -151,11 +157,7 @@ async function loadRegions() {
     if (!state.regions.some((region) => region.id === state.regionId)) {
       state.regionId = defaultRegion;
     }
-    const region = selectedRegion();
-    if (!state.spotLimit || state.spotLimit < 1) {
-      state.spotLimit = defaultSpotLimit(region);
-    }
-    state.spotLimit = clampSpotLimit(state.spotLimit);
+    state.spotDensity = normalizeSpotDensity(state.spotDensity);
     saveRegionSelection();
     renderRegionControls();
   } catch {
@@ -377,27 +379,34 @@ function renderAppContextLabel() {
   elements.appContextLabel.textContent = `${selectedRegionName()} Marine Windows`;
 }
 
-function clampSpotLimit(value) {
-  const region = selectedRegion();
-  const total = Number(region?.spot_count || value || 10);
-  const limit = Math.max(1, Number(value) || defaultSpotLimit(region));
-  return Math.min(limit, total);
+function regionSpotTotal(region = selectedRegion()) {
+  return Math.max(1, Number(region?.spot_count || region?.default_spot_limit || 10));
 }
 
-function defaultSpotLimit(region = selectedRegion()) {
-  return Number(region?.spot_count || region?.default_spot_limit || 10);
+function normalizeSpotDensity(density) {
+  return densityPresets[density] ? density : "full";
+}
+
+function currentSpotLimit(region = selectedRegion()) {
+  const total = regionSpotTotal(region);
+  const preset = densityPresets[normalizeSpotDensity(state.spotDensity)];
+  return Math.max(1, Math.min(total, Math.ceil(total * preset.ratio)));
+}
+
+function spotLimitLabel(limit, total) {
+  if (limit >= total) return `${total} of ${total} visible`;
+  return `${limit} of ${total} visible`;
 }
 
 function saveRegionSelection() {
   localStorage.setItem(storageKeys.region, state.regionId);
-  localStorage.setItem(storageKeys.spotLimit, String(state.spotLimit));
+  localStorage.setItem(storageKeys.spotDensity, normalizeSpotDensity(state.spotDensity));
   localStorage.setItem(storageKeys.riskTolerance, state.riskTolerance);
 }
 
 function setRegion(regionId) {
   if (!state.regions.some((region) => region.id === regionId)) return;
   state.regionId = regionId;
-  state.spotLimit = clampSpotLimit(defaultSpotLimit(selectedRegion()));
   saveRegionSelection();
   renderRegionControls();
   loadState();
@@ -411,30 +420,13 @@ function setRiskTolerance(riskTolerance) {
   loadState();
 }
 
-function changeSpotLimit(delta) {
-  const options = spotLimitOptions();
-  if (!options.length) return;
-
-  const currentLimit = clampSpotLimit(state.spotLimit);
-  const currentIndex = options.findIndex((option) => option >= currentLimit);
-  const optionIndex = currentIndex === -1 ? options.length - 1 : currentIndex;
-  const nextIndex = delta > 0
-    ? Math.min(options.length - 1, optionIndex + 1)
-    : Math.max(0, optionIndex - 1);
-  const nextLimit = options[nextIndex];
-  if (nextLimit === state.spotLimit) return;
-  state.spotLimit = nextLimit;
+function setSpotDensity(density) {
+  const nextDensity = normalizeSpotDensity(density);
+  if (nextDensity === state.spotDensity) return;
+  state.spotDensity = nextDensity;
   saveRegionSelection();
   renderRegionControls();
   loadState();
-}
-
-function spotLimitOptions() {
-  const region = selectedRegion();
-  const total = Number(region?.spot_count || state.spotLimit || 10);
-  const options = [5, 10, 15, 20, total]
-    .filter((option) => option > 0 && option <= total);
-  return [...new Set(options)].sort((a, b) => a - b);
 }
 
 function renderRegionControls() {
@@ -447,18 +439,21 @@ function renderRegionControls() {
   `).join("");
   elements.riskSelect.value = state.data?.config?.risk_tolerance?.id || state.riskTolerance;
 
-  const total = Number(region.spot_count || state.spotLimit);
-  const options = spotLimitOptions();
-  const visibleLimit = Math.min(state.spotLimit, total);
-  elements.spotLimit.textContent = `${visibleLimit} of ${total} spots`;
-  elements.spotFewer.disabled = visibleLimit <= options[0];
-  elements.spotMore.disabled = visibleLimit >= options[options.length - 1];
+  state.spotDensity = normalizeSpotDensity(state.spotDensity);
+  const total = regionSpotTotal(region);
+  const visibleLimit = currentSpotLimit(region);
+  elements.spotLimit.textContent = spotLimitLabel(visibleLimit, total);
+  elements.densityButtons.forEach((button) => {
+    const active = button.dataset.density === state.spotDensity;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
 }
 
 function stateUrl() {
   const params = new URLSearchParams({
     region: state.regionId,
-    limit: String(state.spotLimit),
+    limit: String(currentSpotLimit()),
     risk: state.riskTolerance,
   });
   return `/api/state?${params.toString()}`;

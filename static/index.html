@@ -11,7 +11,7 @@
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin=""
     >
-    <link rel="stylesheet" href="/static/styles.css?v=fallback-risk-20260604">
+    <link rel="stylesheet" href="/static/styles.css?v=spot-density-20260605">
     <link rel="manifest" href="/static/manifest.webmanifest">
     <meta name="theme-color" content="#0c1418">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -68,9 +68,12 @@
             <option value="standard">Standard</option>
             <option value="aggressive">Aggressive</option>
           </select>
-          <button id="spot-fewer" class="tool-button" type="button">Fewer</button>
+          <div class="density-control" role="group" aria-label="Map spot density">
+            <button class="density-button" type="button" data-density="compact">Compact</button>
+            <button class="density-button" type="button" data-density="standard">Standard</button>
+            <button class="density-button active" type="button" data-density="full">Full</button>
+          </div>
           <span id="spot-limit" class="spot-limit">10 spots</span>
-          <button id="spot-more" class="tool-button" type="button">More</button>
         </div>
         <p id="updated-at" class="updated">Updated when data loads</p>
       </section>
@@ -129,6 +132,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script src="/static/app.js?v=fallback-risk-20260604" defer></script>
+    <script src="/static/app.js?v=spot-density-20260605" defer></script>
   </body>
 </html>

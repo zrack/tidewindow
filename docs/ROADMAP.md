@@ -32,17 +32,23 @@ The full reliability phase and the first polish/safety/accuracy features are don
 - **Provider fallback strategies** — each region now carries tide/current priority lists, a derived-current fallback, more specific confidence labels, and special sparse-current / river-bar warnings for South Hood Canal and Aberdeen. _(64fd49a)_
 - **Regional wind-exposure metadata** — newer regional spots now carry shoreline-family `wind_exposure_bearing` metadata, so wind-direction-aware scoring applies beyond the original Gig Harbor zones. _(367a864)_
 - **Config-driven thresholds + risk tolerance** — kayaking/fishing thresholds now live in structured config with standard parity tests, generic regional profiles, and conservative/standard/aggressive risk tolerance selection in the web app. _(8075778)_
-- **Mobile dashboard polish** — the mobile web app now uses a compact sticky header, tighter summary cards, a clearer fewer/count/more control row, a scrollable daily heatmap, and larger map marker tap targets. _(8979cfd)_
+- **Mobile dashboard polish** — the mobile web app now uses a compact sticky header, tighter summary cards, a clearer map control row, a scrollable daily heatmap, and larger map marker tap targets. _(8979cfd)_
 - **Daily heatmap planning view** — the hourly card wall has been replaced by a compact day-by-day heatmap with selected-hour detail, and the All/Kayak/Fish filter now drives the heatmap marks and color coding consistently with the map and windows.
 - **Provider fallback execution** — NOAA tide/current fetches now try configured station candidates in priority order, record the active station source, and keep derived current as the final fallback.
 - **Reviewed spot exposure bearings** — high-use regional spots now carry reviewed spot-specific wind-exposure bearings while the rest continue to use shoreline-family defaults.
 - **Risk/threshold detail polish** — the active conservative/standard/aggressive risk profile is now shown in heatmap details, map popups, and full spot details.
+- **Proportional map density controls** — region maps default to Full, with Compact and Standard presets showing about 50% and 75% of the regional spot catalog instead of fixed Fewer/More count steps.
 
 Earlier: the refined marine-dark UI redesign _(131c7dc)_ and this roadmap.
 
 ## Next — accuracy, personalization, and everyday usefulness
 
 1. **Regional search/autocomplete (M-L).** Region choices are predefined today; next, let users search towns/launches and map those choices to the nearest supported region or future dynamic spot cluster.
+   - Build a searchable region alias index covering supported region names, nearby cities, common launch names, and marine-area terms.
+   - Replace or augment the fixed dropdown with an autocomplete control that works well on mobile.
+   - Resolve exact matches directly, such as Port Orchard, Aberdeen, Bremerton, Silverdale, Union, Belfair, and Tacoma Narrows.
+   - For recognized but unsupported places, show the nearest supported region and a clear note such as "Using South Hood Canal for Belfair."
+   - Keep map movement, spot population, provider context, activity filter, and visible spot count consistent after search selection.
 2. **Daily best-window digest (M).** A "tomorrow's best window" summary on a schedule — turns the app from pull-only into something that tells you when to go.
 3. **PWA install/offline QA (S-M).** The PWA exists; the next pass should verify install prompts, iOS icon behavior, service-worker upgrades, and offline map/data behavior on a phone.
 4. **Continue spot-level exposure review (M).** Expand the reviewed bearing table as local knowledge improves, especially for exposed launches and bar/river-influenced areas.

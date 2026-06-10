@@ -13,7 +13,7 @@ The primary workflow:
 1. User opens TideWindow and selects a place/region, such as Gig Harbor, Port Orchard, Aberdeen, Tacoma Narrows, Hood Canal, Central Sound, South Sound, or San Juan Islands.
 2. The map moves to that region's default center and zoom.
 3. The app automatically displays all ranked nearby spots for that region.
-4. If the map feels too crowded, the user can show fewer spots, then show more again when they want the full regional view.
+4. If the map feels too crowded, the user can switch to a lower density preset, then return to the full regional view when they want every spot.
 5. The map and spot details become the primary regional surface; lower-page location controls should not duplicate the region selector.
 6. Best windows, timeline recommendations, map markers, and spot details all update to match the selected region and visible spot set.
 
@@ -27,10 +27,10 @@ The default should feel decisive: pick a region, immediately see the most useful
 - Define spot records independently from regions. Each spot should include title, coordinates, activity tags, shoreline/exposure metadata, current/tide/wind multipliers or thresholds, and optional launch/access notes.
 - Rank spots for a selected region by distance plus relevance. Relevance can initially be manual priority, then later include popularity, activity match, safety confidence, or data quality.
 - Show all ranked spots in the selected region by default.
-- Provide "show fewer" and "show more" controls, probably stepping through 5, 10, 15, 20, and "all in region."
-- Keep user choices persistent per region: selected activity, visible count, and optionally favorite spots.
+- Provide proportional density controls: Compact at about half the regional catalog, Standard at about three quarters, and Full for every spot in the selected region.
+- Keep user choices persistent: selected activity, density preset, and optionally favorite spots.
 - Fit the map bounds to the currently visible spots, not to the entire Puget Sound catalog.
-- If a region has fewer than 10 spots, show all and avoid empty-feeling controls.
+- If a region has only a small catalog, Full should remain the default and lower density choices should still keep the map useful.
 - If the selected region has no station-quality confidence, clearly label derived/fallback assumptions.
 
 ## Data Model
@@ -51,8 +51,8 @@ Important naming note: "Region" is a product term, not only a geographic scale. 
 The API should accept or resolve a selected region:
 
 - `GET /api/regions` returns the available regions and defaults.
-- `GET /api/state?region=port_orchard&limit=10` returns region-scoped state, ranked spots, visible spots, provider metadata, map viewport hints, windows, timeline, events, alerts, and confidence.
-- The cache key must include region id and probably spot limit, because provider context and scoring can change by region.
+- `GET /api/state?region=port_orchard&limit=13` returns region-scoped state, ranked spots, visible spots, provider metadata, map viewport hints, windows, timeline, events, alerts, and confidence.
+- The cache key must include region id and visible spot limit, because provider context and scoring can change by region.
 - Health should expose configured region count and provider coverage, not just one hardcoded station pair.
 
 Short term, the frontend can pass the region query parameter. Longer term, the backend can remember no state and let the browser persist region/limit choices.
@@ -61,11 +61,11 @@ Short term, the frontend can pass the region query parameter. Longer term, the b
 
 - Add a compact region/place selector that supports city-style choices as well as broader marine areas.
 - Replace "Locations" with region-aware spot controls.
-- Add show fewer/show more controls for visible spot count, with all region spots visible by default.
+- Add density controls for visible spot count, with all region spots visible by default.
 - Keep the map large and fit it to the currently visible spot set.
 - Keep marker popups as the detailed spot surface.
 - Make empty and degraded states region-specific, such as "No scored spots near Port Orchard yet" or "Using derived current for Hood Canal."
-- Avoid loading every Puget Sound marker at once; visible markers should match the selected spot count.
+- Avoid loading every Puget Sound marker at once; visible markers should match the selected regional density.
 
 ## Scoring Impact
 
@@ -87,11 +87,11 @@ Phase 1: Data model and Gig Harbor parity — shipped
 - Add one `gig_harbor` region that produces the same default spots and map view as today.
 - Update tests around region-scoped API payloads.
 
-Phase 2: Region picker and spot count controls — shipped
+Phase 2: Region picker and spot density controls — shipped
 
-- Add the region selector and visible-count controls.
+- Add the region selector and proportional density controls.
 - Make the map fit visible spots.
-- Persist selected region and visible count in local storage.
+- Persist selected region and density preset in local storage.
 
 Phase 3: Puget Sound catalog expansion — expanded
 
