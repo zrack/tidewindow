@@ -107,6 +107,8 @@ const elements = {
   providerLine: document.querySelector("#provider-line"),
   providerDetails: document.querySelector("#provider-details"),
   updatedAt: document.querySelector("#updated-at"),
+  digestGrid: document.querySelector("#digest-grid"),
+  digestCount: document.querySelector("#digest-count"),
   windowsGrid: document.querySelector("#windows-grid"),
   windowCount: document.querySelector("#window-count"),
   tideChart: document.querySelector("#tide-chart"),
@@ -187,6 +189,7 @@ async function loadRegions() {
 
 async function loadState() {
   elements.refresh.disabled = true;
+  elements.digestGrid.innerHTML = `<div class="loading">Loading tomorrow digest...</div>`;
   elements.windowsGrid.innerHTML = `<div class="loading">Loading forecast windows...</div>`;
   elements.timelineStrip.innerHTML = `<div class="loading">Loading heatmap...</div>`;
   if (elements.tideEvents) elements.tideEvents.innerHTML = `<div class="loading">Loading tide events...</div>`;
@@ -203,6 +206,7 @@ async function loadState() {
     renderDashboard();
     scheduleAutoRefresh();
   } catch (error) {
+    elements.digestGrid.innerHTML = "";
     elements.windowsGrid.innerHTML = `<div class="empty">Unable to load TideWindow data. ${escapeHtml(error.message)}</div>`;
     elements.timelineStrip.innerHTML = "";
     if (!state.leafletMap) {
@@ -217,6 +221,7 @@ function renderDashboard() {
   renderAppContextLabel();
   renderAlerts();
   renderSummary();
+  renderDigest();
   renderMap();
   renderEvents();
   renderTimeline();
@@ -271,6 +276,7 @@ function setFilter(filter, options = {}) {
 
   if (options.render !== false && state.data) {
     renderMap();
+    renderDigest();
     renderTimeline();
     renderWindows();
   }
@@ -875,6 +881,43 @@ function bestTimelineZone(item, activity, visible) {
   return best;
 }
 
+function renderDigest() {
+  if (!state.data || !elements.digestGrid) return;
+
+  const digest = state.data.digest?.tomorrow || {};
+  const items = (digest.items || []).filter((item) => {
+    return state.filter === "All" || item.activity === state.filter;
+  });
+  elements.digestCount.textContent = items.length
+    ? `${items.length} recommendation${items.length === 1 ? "" : "s"}`
+    : digest.date || "";
+
+  if (!items.length) {
+    elements.digestGrid.innerHTML = `<div class="empty">${escapeHtml(digest.summary || "No tomorrow recommendations are available yet.")}</div>`;
+    return;
+  }
+
+  elements.digestGrid.innerHTML = items.map((item) => `
+    <article class="digest-card status-border-${escapeHtml(item.color || "yellow")}">
+      <header>
+        <div>
+          <p class="digest-kicker">${escapeHtml(item.activity)} | ${escapeHtml(formatDigestDate(item.start))}</p>
+          <h3>${escapeHtml(item.zone_title)}</h3>
+        </div>
+        ${statusPill(item.status)}
+      </header>
+      <p class="digest-time">${escapeHtml(formatTime(item.start))}-${escapeHtml(formatTime(item.end))}</p>
+      <div class="digest-metrics">
+        ${metric("Current", `${Number(item.current).toFixed(1)} kt ${sourceLabel(item.current_source)}`)}
+        ${metric("Wind", `${Number(item.wind).toFixed(0)} kt ${sourceLabel(item.wind_source)}`)}
+        ${metric("Tide", `${Number(item.tide).toFixed(1)} ft`)}
+      </div>
+      <p class="digest-why">${escapeHtml(item.why)}</p>
+      <p class="notice">${escapeHtml(item.note)}</p>
+    </article>
+  `).join("");
+}
+
 function renderWindows() {
   if (!state.data) return;
 
@@ -1174,6 +1217,12 @@ function formatTime(value) {
 
 function formatDateTime(value) {
   return new Date(value).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function formatDigestDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Tomorrow";
+  return date.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
 }
 
 if ("serviceWorker" in navigator) {

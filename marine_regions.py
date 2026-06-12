@@ -2094,12 +2094,30 @@ def region_search_aliases() -> list[dict]:
     entries_by_key = {}
     for region_id, aliases in REGION_SEARCH_ALIASES.items():
         region = get_region(region_id)
-        terms = {
-            region["id"].replace("_", " "),
-            region["name"],
-            *aliases,
+        region_normalized = normalize_region_query(region["name"])
+        entries_by_key[region_normalized] = {
+            "term": region["name"],
+            "normalized": region_normalized,
+            "region_id": region["id"],
+            "region_name": region["name"],
+            "match_type": "region",
+            "note": "",
         }
-        for term in terms:
+
+        id_normalized = normalize_region_query(region["id"].replace("_", " "))
+        entries_by_key.setdefault(
+            id_normalized,
+            {
+                "term": region["id"].replace("_", " "),
+                "normalized": id_normalized,
+                "region_id": region["id"],
+                "region_name": region["name"],
+                "match_type": "region",
+                "note": "",
+            },
+        )
+
+        for term in aliases:
             normalized = normalize_region_query(term)
             if not normalized:
                 continue
@@ -2110,10 +2128,7 @@ def region_search_aliases() -> list[dict]:
                     "normalized": normalized,
                     "region_id": region["id"],
                     "region_name": region["name"],
-                    "match_type": "region" if normalized in {
-                        normalize_region_query(region["id"].replace("_", " ")),
-                        normalize_region_query(region["name"]),
-                    } else "alias",
+                    "match_type": "alias",
                     "note": "",
                 },
             )

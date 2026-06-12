@@ -1,6 +1,6 @@
 # TideWindow Roadmap
 
-_Last updated: 2026-06-10._
+_Last updated: 2026-06-12._
 
 Focus: **accuracy, personalization, and reach** — the reliability and everyday-usefulness foundation is now in place, so the next gains should make the recommendations more locally accurate and easier to tune. Effort is sized roughly as S (a few hours), M (a day or two), L (multi-day).
 
@@ -39,13 +39,15 @@ The full reliability phase and the first polish/safety/accuracy features are don
 - **Risk/threshold detail polish** — the active conservative/standard/aggressive risk profile is now shown in heatmap details, map popups, and full spot details.
 - **Proportional map density controls** — region maps default to Full, with Compact and Standard presets showing about 50% and 75% of the regional spot catalog instead of fixed Fewer/More count steps.
 - **Regional search/autocomplete** — the fixed region dropdown has been replaced by a place search backed by region aliases, city names, common launch names, and marine-area terms. Nearby recognized places such as Belfair, Union, Chico, and Gorst resolve to the closest supported region with a visible note.
+- **Tomorrow's Best digest** — the web app now surfaces the best kayak and fish windows for tomorrow with spot, time, status, tide/current/wind, risk profile, and a short explanation.
+- **PWA/offline mobile QA pass** — verified the manifest/app shell, service-worker control, 390px mobile layout, and offline reload behavior in a mobile browser context. Real iOS/Android install-prompt behavior still deserves a physical-device check before launch.
 
 Earlier: the refined marine-dark UI redesign _(131c7dc)_ and this roadmap.
 
 ## Next — accuracy, personalization, and everyday usefulness
 
-1. **Daily best-window digest (M).** A "tomorrow's best window" summary on a schedule — turns the app from pull-only into something that tells you when to go.
-2. **PWA install/offline QA (S-M).** The PWA exists; the next pass should verify install prompts, iOS icon behavior, service-worker upgrades, and offline map/data behavior on a phone.
+1. **Digest delivery options (M).** Add a way to save or receive the Tomorrow's Best digest, such as a daily email, SMS, push notification, or shareable summary link.
+2. **Physical-device PWA install QA (S).** Verify install prompt behavior, home-screen icon rendering, and offline behavior on actual iOS and Android devices.
 3. **Continue spot-level exposure review (M).** Expand the reviewed bearing table as local knowledge improves, especially for exposed launches and bar/river-influenced areas.
 4. **Search ranking refinements (S-M).** The alias search is exact-match first; later, add typo tolerance, partial-match ranking, and richer unsupported-place routing when the catalog grows.
 
@@ -60,4 +62,4 @@ Earlier: the refined marine-dark UI redesign _(131c7dc)_ and this roadmap.
 
 ## Suggested next step
 
-**#1 (daily best-window digest)** is now the best next usefulness gain. The app can already answer "where and when should I go"; the next step is letting it proactively surface tomorrow's best windows.
+**#1 (digest delivery options)** is now the best next usefulness gain. The app can summarize tomorrow's best windows; the next step is letting users receive or share that summary without opening the dashboard first.

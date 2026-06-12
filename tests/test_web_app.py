@@ -54,6 +54,28 @@ def live_forecast():
     }
 
 
+def tomorrow_forecast():
+    start = datetime.now().replace(minute=0, second=0, microsecond=0) + timedelta(days=1, hours=5)
+    predictions = [
+        {"time": start + timedelta(hours=hour), "tide_feet": 4.0 + hour * 0.4}
+        for hour in range(10)
+    ]
+    return {
+        "predictions": predictions,
+        "wind_predictions": [
+            {"time": point["time"], "wind_knots": 5.0, "wind_direction": 190.0}
+            for point in predictions
+        ],
+        "current_predictions": [
+            {"time": point["time"], "speed": 0.8 + index * 0.1, "dir": 150.0}
+            for index, point in enumerate(predictions)
+        ],
+        "sources": {"tide": "live", "current": "predicted", "wind": "live"},
+        "fallback_reason": None,
+        "wind_fallback_reason": None,
+    }
+
+
 def seed_forecast():
     return {
         "predictions": [],
@@ -200,6 +222,26 @@ class WebAppTests(unittest.TestCase):
             [zone["id"] for zone in payload["zones"]],
             list(zone_configs_for_region(DEFAULT_REGION_ID).keys()),
         )
+
+    def test_api_state_includes_tomorrow_best_window_digest(self):
+        self._use_cache(lambda: StubClient(live_telemetry(), tomorrow_forecast()))
+        payload = asyncio.run(web_app.api_state(region=DEFAULT_REGION_ID, limit=10))
+
+        digest = payload["digest"]["tomorrow"]
+        activities = {item["activity"] for item in digest["items"]}
+        self.assertEqual(digest["label"], "Tomorrow")
+        self.assertEqual(activities, {"Kayak", "Fish"})
+        self.assertIn("tomorrow", digest["summary"].lower())
+        for item in digest["items"]:
+            with self.subTest(activity=item["activity"]):
+                self.assertIn(item["zone_id"], zone_configs_for_region(DEFAULT_REGION_ID, limit=10))
+                self.assertIsInstance(item["start"], str)
+                self.assertIsInstance(item["end"], str)
+                self.assertIn("why", item)
+                self.assertIn("standard risk thresholds", item["why"])
+                self.assertIn("current", item)
+                self.assertIn("wind", item)
+                self.assertIn("tide", item)
 
     def test_api_state_applies_risk_tolerance(self):
         telemetry = live_telemetry()

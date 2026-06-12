@@ -11,7 +11,7 @@
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin=""
     >
-    <link rel="stylesheet" href="/static/styles.css?v=region-search-20260610">
+    <link rel="stylesheet" href="/static/styles.css?v=daily-digest-pwa-20260612">
     <link rel="manifest" href="/static/manifest.webmanifest">
     <meta name="theme-color" content="#0c1418">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -93,6 +93,14 @@
 
       <section>
         <div class="section-heading">
+          <h2>Tomorrow&apos;s Best</h2>
+          <span id="digest-count"></span>
+        </div>
+        <div id="digest-grid" class="digest-grid" aria-live="polite"></div>
+      </section>
+
+      <section>
+        <div class="section-heading">
           <h2>Area Map</h2>
           <span id="map-mode">Showing favorite mode</span>
         </div>
@@ -145,6 +153,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script src="/static/app.js?v=region-search-20260610" defer></script>
+    <script src="/static/app.js?v=daily-digest-pwa-20260612" defer></script>
   </body>
 </html>

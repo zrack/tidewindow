@@ -259,6 +259,7 @@ h2 {
 
 .summary-panel,
 .zone-card,
+.digest-card,
 .window-card {
   border: 1px solid var(--line);
   border-radius: var(--r-md);
@@ -1066,13 +1067,70 @@ h2 {
   opacity: 0.5;
 }
 
-/* ---- Windows + zones grids -------------------------------------------- */
+/* ---- Digest, windows + zones grids ------------------------------------ */
+
+.digest-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
 
 .windows-grid,
 .zones-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
+}
+
+.digest-card {
+  min-width: 0;
+  padding: 16px;
+  border-left-width: 4px;
+}
+
+.digest-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.digest-kicker {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.digest-card h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.digest-time {
+  margin: 0 0 12px;
+  color: var(--text);
+  font-size: 1.55rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.digest-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.digest-why {
+  margin: 12px 0 8px;
+  color: var(--text-dim);
+  font-size: 0.92rem;
+  line-height: 1.45;
 }
 
 .window-card,
@@ -1505,10 +1563,19 @@ h2 {
   }
 
   .summary-grid,
+  .digest-grid,
   .windows-grid,
   .zones-grid,
   .events-grid {
     grid-template-columns: 1fr;
+  }
+
+  .digest-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .digest-time {
+    font-size: 1.35rem;
   }
 
   .summary-grid {

@@ -1,7 +1,7 @@
 {
   "name": "TideWindow",
   "short_name": "TideWindow",
-  "description": "Gig Harbor marine conditions for kayaking and fishing.",
+  "description": "Puget Sound marine windows for kayaking and fishing.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

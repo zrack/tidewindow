@@ -38,7 +38,7 @@ from sun_times import sun_events
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-APP_VERSION = "0.4.4"
+APP_VERSION = "0.4.5"
 
 app = FastAPI(title=WEB_APP_NAME, version=APP_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -226,6 +226,11 @@ def build_state_payload(
         forecast,
         telemetry["wind_knots"],
     )
+    digest = build_daily_digest(
+        timeline,
+        zone_configs,
+        risk_tolerance=engine.risk_tolerance,
+    )
 
     return {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
@@ -263,6 +268,7 @@ def build_state_payload(
             "slack_events": _serialize_points(forecast.get("slack_events", [])),
         },
         "zones": zone_cards,
+        "digest": _serialize_digest(digest),
         "windows": [_serialize_window(window) for window in windows],
         "timeline": [_serialize_window(window) for window in timeline],
         "confidence": confidence,
@@ -272,6 +278,86 @@ def build_state_payload(
         ),
         "alerts": forecast.get("alerts", []),
     }
+
+
+def build_daily_digest(timeline: list, zones_config: dict, risk_tolerance: str) -> dict:
+    """Builds a compact tomorrow recommendation digest from scored timeline hours."""
+    target_date = (datetime.now() + timedelta(days=1)).date()
+    tomorrow_items = [
+        item for item in timeline
+        if item["start"].date() == target_date
+    ]
+    picks = [
+        _best_digest_item(tomorrow_items, zones_config, "Kayak", risk_tolerance),
+        _best_digest_item(tomorrow_items, zones_config, "Fish", risk_tolerance),
+    ]
+    picks = [item for item in picks if item]
+
+    return {
+        "tomorrow": {
+            "date": target_date.isoformat(),
+            "label": "Tomorrow",
+            "summary": _digest_summary(picks),
+            "items": picks,
+        }
+    }
+
+
+def _best_digest_item(timeline: list, zones_config: dict, activity: str, risk_tolerance: str) -> dict | None:
+    key = "fish" if activity == "Fish" else "kayak"
+    score_key = f"{key}_score"
+    best = None
+
+    for hour in timeline:
+        for zone_id, zone in hour.get("zones", {}).items():
+            score = zone.get(score_key, 0)
+            if best and score <= best["score"]:
+                continue
+            evaluation = zone.get(key, {})
+            zone_title = zones_config.get(zone_id, {}).get("title", zone_id)
+            best = {
+                "activity": activity,
+                "zone_id": zone_id,
+                "zone_title": zone_title,
+                "start": hour["start"],
+                "end": hour["end"],
+                "status": evaluation.get("status", "UNKNOWN"),
+                "color": evaluation.get("color", "yellow"),
+                "score": score,
+                "phase": hour["phase"],
+                "current": zone["current"],
+                "current_source": hour["current_source"],
+                "wind": zone["wind"],
+                "wind_source": hour["wind_source"],
+                "tide": zone["tide"],
+                "note": evaluation.get("note", ""),
+                "why": _digest_why(activity, zone_title, evaluation, zone, hour, risk_tolerance),
+            }
+
+    return best
+
+
+def _digest_summary(picks: list[dict]) -> str:
+    if not picks:
+        return "No scored tomorrow windows are available yet."
+    return "Best tomorrow picks for kayaking and fishing in the selected region."
+
+
+def _digest_why(
+    activity: str,
+    zone_title: str,
+    evaluation: dict,
+    zone: dict,
+    hour: dict,
+    risk_tolerance: str,
+) -> str:
+    status = str(evaluation.get("status", "scored")).title()
+    return (
+        f"{status} {activity.lower()} read at {zone_title}: "
+        f"{zone['current']:.1f} kt current, {zone['wind']:.0f} kt wind, "
+        f"{zone['tide']:.1f} ft tide, {hour['phase'].lower()}. "
+        f"Uses {risk_tolerance} risk thresholds."
+    )
 
 
 def build_daylight(
@@ -322,4 +408,15 @@ def _serialize_window(window: dict) -> dict:
         **window,
         "start": window["start"].isoformat(timespec="minutes"),
         "end": window["end"].isoformat(timespec="minutes"),
+    }
+
+
+def _serialize_digest(digest: dict) -> dict:
+    tomorrow = digest.get("tomorrow", {})
+    return {
+        **digest,
+        "tomorrow": {
+            **tomorrow,
+            "items": [_serialize_window(item) for item in tomorrow.get("items", [])],
+        },
     }

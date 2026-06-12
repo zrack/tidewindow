@@ -124,6 +124,7 @@ class MarineRegionTests(unittest.TestCase):
     def test_region_search_aliases_resolve_regions_and_nearby_places(self):
         aliases = {entry["normalized"]: entry for entry in region_search_aliases()}
 
+        self.assertEqual(aliases["gig harbor"]["term"], "Gig Harbor")
         self.assertEqual(aliases["port orchard"]["region_id"], "port_orchard")
         self.assertEqual(aliases["aberdeen"]["region_id"], "aberdeen")
         self.assertEqual(aliases["tacoma narrows"]["region_id"], "tacoma_narrows")
