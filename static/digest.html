@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TideWindow Tomorrow's Best</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/static/styles.css?v=digest-share-20260612b">
+    <link rel="manifest" href="/static/manifest.webmanifest">
+    <meta name="theme-color" content="#0c1418">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TideWindow">
+    <link rel="apple-touch-icon" href="/static/icon.svg">
+  </head>
+  <body>
+    <main class="app-shell digest-page-shell">
+      <header class="topbar">
+        <div>
+          <p id="digest-context" class="eyebrow">Tomorrow's Best</p>
+          <h1>TideWindow</h1>
+        </div>
+        <a class="refresh-button" href="/">Dashboard</a>
+      </header>
+
+      <section class="digest-page-header">
+        <p id="digest-meta" class="digest-page-meta">Loading</p>
+        <h2>Tomorrow&apos;s Best</h2>
+        <p id="digest-summary" class="digest-page-summary">Fetching marine windows...</p>
+      </section>
+
+      <section class="digest-actions digest-page-actions" aria-label="Digest actions">
+        <button id="digest-copy" class="digest-action" type="button">Copy</button>
+        <button id="digest-native-share" class="digest-action" type="button">Share</button>
+        <a id="digest-calendar" class="digest-action" href="/api/digest.ics">Calendar</a>
+        <span id="digest-copy-status" class="digest-copy-status" aria-live="polite"></span>
+      </section>
+
+      <section>
+        <div id="digest-content" class="digest-grid digest-page-grid" aria-live="polite">
+          <div class="loading">Loading tomorrow digest...</div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/digest.js?v=digest-share-20260612b" defer></script>
+  </body>
+</html>

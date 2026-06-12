@@ -1,9 +1,9 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from marine_config import (
@@ -38,7 +38,7 @@ from sun_times import sun_events
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-APP_VERSION = "0.4.5"
+APP_VERSION = "0.4.6"
 
 app = FastAPI(title=WEB_APP_NAME, version=APP_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -70,6 +70,11 @@ def get_state_cache(region_id: str) -> MarineStateCache:
 @app.get("/")
 async def index():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/digest")
+async def digest_page():
+    return FileResponse(STATIC_DIR / "digest.html")
 
 
 @app.get("/service-worker.js")
@@ -143,6 +148,47 @@ async def api_state(
     payload = build_state_payload(engine, telemetry, forecast, region_id=region, limit=limit)
     payload["cache"] = cache_meta
     return payload
+
+
+@app.get("/api/digest")
+async def api_digest(
+    region: str = DEFAULT_REGION_ID,
+    limit: int | None = None,
+    risk: str = DEFAULT_RISK_TOLERANCE,
+    activity: str = "All",
+):
+    payload = await api_state(region=region, limit=limit, risk=risk)
+    digest = filter_digest_activity(payload["digest"], activity)
+    response = {
+        "generated_at": payload["generated_at"],
+        "activity": normalize_digest_activity(activity),
+        "config": {
+            "app": payload["config"]["app"],
+            "region": payload["config"]["region"],
+            "risk_tolerance": payload["config"]["risk_tolerance"],
+        },
+        "digest": digest,
+        "confidence": payload["confidence"],
+        "cache": payload["cache"],
+    }
+    response["text"] = build_digest_text(response)
+    return response
+
+
+@app.get("/api/digest.ics")
+async def api_digest_ics(
+    region: str = DEFAULT_REGION_ID,
+    limit: int | None = None,
+    risk: str = DEFAULT_RISK_TOLERANCE,
+    activity: str = "All",
+):
+    payload = await api_digest(region=region, limit=limit, risk=risk, activity=activity)
+    content = build_digest_ics(payload)
+    return Response(
+        content=content,
+        media_type="text/calendar; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="tidewindow-digest.ics"'},
+    )
 
 
 def build_state_payload(
@@ -357,6 +403,126 @@ def _digest_why(
         f"{zone['current']:.1f} kt current, {zone['wind']:.0f} kt wind, "
         f"{zone['tide']:.1f} ft tide, {hour['phase'].lower()}. "
         f"Uses {risk_tolerance} risk thresholds."
+    )
+
+
+def normalize_digest_activity(activity: str) -> str:
+    normalized = str(activity or "All").strip().lower()
+    if normalized == "kayak":
+        return "Kayak"
+    if normalized in {"fish", "fishing"}:
+        return "Fish"
+    return "All"
+
+
+def filter_digest_activity(digest: dict, activity: str) -> dict:
+    selected = normalize_digest_activity(activity)
+    tomorrow = digest.get("tomorrow", {})
+    items = tomorrow.get("items", [])
+    if selected != "All":
+        items = [item for item in items if item.get("activity") == selected]
+
+    if selected == "All":
+        summary = tomorrow.get("summary", "")
+    elif items:
+        summary = f"Best tomorrow {selected.lower()} pick for the selected region."
+    else:
+        summary = f"No tomorrow {selected.lower()} recommendation is available yet."
+
+    return {
+        **digest,
+        "tomorrow": {
+            **tomorrow,
+            "summary": summary,
+            "items": items,
+        },
+    }
+
+
+def build_digest_text(payload: dict) -> str:
+    region = payload["config"]["region"]["name"]
+    risk = payload["config"]["risk_tolerance"]["id"]
+    tomorrow = payload["digest"].get("tomorrow", {})
+    lines = [
+        f"TideWindow Tomorrow's Best - {region}",
+        f"{tomorrow.get('label', 'Tomorrow')} | {risk} risk",
+    ]
+    for item in tomorrow.get("items", []):
+        lines.extend(
+            [
+                "",
+                f"{item['activity']}: {item['zone_title']}",
+                f"{_compact_time(item['start'])}-{_compact_time(item['end'])} | {item['status']} | {item['phase']}",
+                f"{item['current']:.1f} kt current | {item['wind']:.0f} kt wind | {item['tide']:.1f} ft tide",
+                item["why"],
+                item["note"],
+            ]
+        )
+    if not tomorrow.get("items"):
+        lines.append(tomorrow.get("summary", "No tomorrow recommendations are available yet."))
+    return "\n".join(line for line in lines if line is not None)
+
+
+def build_digest_ics(payload: dict) -> str:
+    region_id = payload["config"]["region"]["id"]
+    region_name = payload["config"]["region"]["name"]
+    items = payload["digest"].get("tomorrow", {}).get("items", [])
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//TideWindow//Tomorrow Digest//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+    ]
+    for item in items:
+        start = _as_datetime(item["start"])
+        end = _as_datetime(item["end"])
+        summary = f"TideWindow {item['activity']}: {item['zone_title']}"
+        uid = f"tidewindow-{region_id}-{item['activity'].lower()}-{start.strftime('%Y%m%dT%H%M%S')}@tidewindow"
+        description = "\\n".join(
+            [
+                item["why"],
+                item["note"],
+                f"{item['current']:.1f} kt current, {item['wind']:.0f} kt wind, {item['tide']:.1f} ft tide.",
+            ]
+        )
+        lines.extend(
+            [
+                "BEGIN:VEVENT",
+                f"UID:{_ics_escape(uid)}",
+                f"DTSTAMP:{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}",
+                f"DTSTART:{start.strftime('%Y%m%dT%H%M%S')}",
+                f"DTEND:{end.strftime('%Y%m%dT%H%M%S')}",
+                f"SUMMARY:{_ics_escape(summary)}",
+                f"LOCATION:{_ics_escape(region_name)}",
+                f"DESCRIPTION:{_ics_escape(description)}",
+                "END:VEVENT",
+            ]
+        )
+    lines.append("END:VCALENDAR")
+    return "\r\n".join(lines) + "\r\n"
+
+
+def _compact_time(value: datetime | str) -> str:
+    parsed = _as_datetime(value)
+    hour = parsed.strftime("%I").lstrip("0") or "0"
+    return f"{hour}:{parsed.strftime('%M %p')}"
+
+
+def _as_datetime(value: datetime | str) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    return datetime.fromisoformat(str(value))
+
+
+def _ics_escape(value: str) -> str:
+    return (
+        str(value)
+        .replace("\\", "\\\\")
+        .replace(";", "\\;")
+        .replace(",", "\\,")
+        .replace("\n", "\\n")
+        .replace("\r", "")
     )
 
 

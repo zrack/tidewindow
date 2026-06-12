@@ -2,7 +2,7 @@
 
 TideWindow is a terminal and web marine-conditions dashboard for Puget Sound, South Hood Canal, and Aberdeen-area marine planning. It combines NOAA tide/current observations and predictions with optional OpenWeather wind data, then scores local spots for kayaking and fly fishing. It also highlights the best kayak and fishing windows across a 72-hour planning window.
 
-The web dashboard adds a Tomorrow's Best digest, Leaflet/OpenStreetMap area map, place search, region-aware spot controls, provider diagnostics, risk tolerance, a mobile-friendly daily heatmap, and remembered region/activity preferences. You can search for supported regions or nearby places such as Port Orchard, Aberdeen, Belfair, Union, Chico, or Gorst, see the full spot catalog for the resolved region on the map, then switch to Compact or Standard density when the map feels crowded.
+The web dashboard adds a Tomorrow's Best digest, shareable digest links, calendar export, Leaflet/OpenStreetMap area map, place search, region-aware spot controls, provider diagnostics, risk tolerance, a mobile-friendly daily heatmap, and remembered region/activity preferences. You can search for supported regions or nearby places such as Port Orchard, Aberdeen, Belfair, Union, Chico, or Gorst, see the full spot catalog for the resolved region on the map, then switch to Compact or Standard density when the map feels crowded.
 
 ## Visuals
 
@@ -59,7 +59,7 @@ tidewindow
 To run the web dashboard:
 
 ```bash
-uvicorn web_app:app --reload
+.venv/bin/uvicorn web_app:app --reload
 ```
 
 Then open `http://127.0.0.1:8000`.
@@ -78,7 +78,7 @@ Press `a` for all forecast windows, `k` for kayak windows, and `f` for fishing w
 
 The terminal dashboard still focuses on the original Gig Harbor/Narrows planning set: Purdy Bridge, Inside Gig Harbor, Fox Island/Hale Passage, Sunrise Beach Park, Narrows Park, Fox Island Fishing Pier, Purdy Sand Spit, and Kopachuck State Park.
 
-The web dashboard starts with all spots for the selected region and uses Compact, Standard, and Full density presets for proportional map marker visibility. The place search accepts supported regions, city-style aliases, common launches, and marine-area names; recognized nearby places route to the closest supported region with a note, such as using South Hood Canal for Belfair. Tomorrow's Best summarizes the strongest kayak and fish windows for the next day, including spot, time, status, tide/current/wind, risk profile, and a short reason. The selected region, risk tolerance, density preset, and activity mode are stored in the browser. On phones, the dashboard uses a compact sticky header, stacked summary cards, larger map tap targets, and a scrollable daily heatmap with a selected-hour detail panel.
+The web dashboard starts with all spots for the selected region and uses Compact, Standard, and Full density presets for proportional map marker visibility. The place search accepts supported regions, city-style aliases, common launches, and marine-area names; recognized nearby places route to the closest supported region with a note, such as using South Hood Canal for Belfair. Tomorrow's Best summarizes the strongest kayak and fish windows for the next day, including spot, time, status, tide/current/wind, risk profile, and a short reason. The digest can be opened as a shareable `/digest` page, copied as text, or exported as an `.ics` calendar file; the selected All/Kayak/Fish activity, region, risk tolerance, and spot density carry through those links. The selected region, risk tolerance, density preset, and activity mode are stored in the browser. On phones, the dashboard uses a compact sticky header, stacked summary cards, larger map tap targets, and a scrollable daily heatmap with a selected-hour detail panel.
 
 ## Forecast Windows
 

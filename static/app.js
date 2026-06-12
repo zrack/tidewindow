@@ -539,6 +539,23 @@ function stateUrl() {
   return `/api/state?${params.toString()}`;
 }
 
+function digestParams() {
+  return new URLSearchParams({
+    region: state.regionId,
+    limit: String(currentSpotLimit()),
+    risk: state.riskTolerance,
+    activity: state.filter,
+  });
+}
+
+function digestShareUrl() {
+  return `${window.location.origin}/digest?${digestParams().toString()}`;
+}
+
+function digestCalendarUrl() {
+  return `/api/digest.ics?${digestParams().toString()}`;
+}
+
 function renderMap() {
   const zones = visibleZones();
   const mode = state.filter === "Fish" ? "Fish" : "Kayak";
@@ -897,7 +914,15 @@ function renderDigest() {
     return;
   }
 
-  elements.digestGrid.innerHTML = items.map((item) => `
+  elements.digestGrid.innerHTML = `
+    <div class="digest-actions" aria-label="Digest actions">
+      <a class="digest-action" href="${escapeHtml(digestShareUrl())}">Share link</a>
+      <button id="digest-copy" class="digest-action" type="button">Copy</button>
+      <button id="digest-native-share" class="digest-action" type="button">Share</button>
+      <a class="digest-action" href="${escapeHtml(digestCalendarUrl())}">Calendar</a>
+      <span id="digest-copy-status" class="digest-copy-status" aria-live="polite"></span>
+    </div>
+    ${items.map((item) => `
     <article class="digest-card status-border-${escapeHtml(item.color || "yellow")}">
       <header>
         <div>
@@ -915,7 +940,69 @@ function renderDigest() {
       <p class="digest-why">${escapeHtml(item.why)}</p>
       <p class="notice">${escapeHtml(item.note)}</p>
     </article>
-  `).join("");
+  `).join("")}
+  `;
+  wireDigestActions(items);
+}
+
+function wireDigestActions(items) {
+  const copyButton = document.querySelector("#digest-copy");
+  const shareButton = document.querySelector("#digest-native-share");
+  const status = document.querySelector("#digest-copy-status");
+  copyButton?.addEventListener("click", async () => {
+    await copyText(digestText(items));
+    if (status) status.textContent = "Copied";
+  });
+  shareButton?.addEventListener("click", async () => {
+    const text = digestText(items);
+    const url = digestShareUrl();
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "TideWindow Tomorrow's Best", text, url });
+        return;
+      } catch (error) {
+        if (error.name === "AbortError") return;
+      }
+    }
+    await copyText(`${text}\n\n${url}`);
+    if (status) status.textContent = "Link copied";
+  });
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {}
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
+}
+
+function digestText(items) {
+  const lines = [
+    `TideWindow Tomorrow's Best - ${selectedRegionName()}`,
+    `${state.filter} | ${riskProfileName()} risk`,
+  ];
+  items.forEach((item) => {
+    lines.push(
+      "",
+      `${item.activity}: ${item.zone_title}`,
+      `${formatTime(item.start)}-${formatTime(item.end)} | ${item.status} | ${item.phase}`,
+      `${Number(item.current).toFixed(1)} kt current | ${Number(item.wind).toFixed(0)} kt wind | ${Number(item.tide).toFixed(1)} ft tide`,
+      item.why,
+      item.note
+    );
+  });
+  return lines.join("\n");
 }
 
 function renderWindows() {

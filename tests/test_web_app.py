@@ -243,6 +243,30 @@ class WebAppTests(unittest.TestCase):
                 self.assertIn("wind", item)
                 self.assertIn("tide", item)
 
+    def test_api_digest_filters_activity_and_returns_copy_text(self):
+        self._use_cache(lambda: StubClient(live_telemetry(), tomorrow_forecast()))
+        payload = asyncio.run(web_app.api_digest(region=DEFAULT_REGION_ID, limit=10, activity="Kayak"))
+
+        digest = payload["digest"]["tomorrow"]
+        self.assertEqual(payload["activity"], "Kayak")
+        self.assertEqual({item["activity"] for item in digest["items"]}, {"Kayak"})
+        self.assertIn("Best tomorrow kayak", digest["summary"])
+        self.assertIn("TideWindow Tomorrow's Best", payload["text"])
+        self.assertIn("Kayak:", payload["text"])
+        self.assertNotIn("Fish:", payload["text"])
+
+    def test_api_digest_calendar_exports_filtered_events(self):
+        self._use_cache(lambda: StubClient(live_telemetry(), tomorrow_forecast()))
+        response = asyncio.run(web_app.api_digest_ics(region=DEFAULT_REGION_ID, limit=10, activity="Fish"))
+        body = response.body.decode("utf-8")
+
+        self.assertIn("text/calendar", response.media_type)
+        self.assertIn("BEGIN:VCALENDAR", body)
+        self.assertIn("BEGIN:VEVENT", body)
+        self.assertIn("SUMMARY:TideWindow Fish:", body)
+        self.assertNotIn("SUMMARY:TideWindow Kayak:", body)
+        self.assertIn("END:VCALENDAR", body)
+
     def test_api_state_applies_risk_tolerance(self):
         telemetry = live_telemetry()
         telemetry["wind_knots"] = 18.0

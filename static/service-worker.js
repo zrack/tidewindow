@@ -1,8 +1,10 @@
-const CACHE = "tidewindow-v22";
+const CACHE = "tidewindow-v24";
 const SHELL = [
   "/",
+  "/digest",
   "/static/styles.css",
   "/static/app.js",
+  "/static/digest.js",
   "/static/manifest.webmanifest",
   "/static/icon.svg",
 ];
@@ -32,7 +34,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
 
   // Live data: network-first, fall back to the last cached response offline.
-  if (url.pathname === "/api/state" || url.pathname === "/api/regions") {
+  if (url.pathname === "/api/state" || url.pathname === "/api/regions" || url.pathname === "/api/digest") {
     event.respondWith(
       fetch(request)
         .then((response) => {
@@ -48,7 +50,11 @@ self.addEventListener("fetch", (event) => {
   // Navigations: network-first, fall back to the cached app shell offline.
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request).catch(() => caches.match("/", { ignoreSearch: true }))
+      fetch(request).catch(() => (
+        caches
+          .match(request, { ignoreSearch: true })
+          .then((cached) => cached || caches.match("/", { ignoreSearch: true }))
+      ))
     );
     return;
   }
