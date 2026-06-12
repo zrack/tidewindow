@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tidewindow"
 version = "0.1.0"
-description = "Terminal marine-conditions dashboard for Gig Harbor and the Tacoma Narrows."
+description = "Marine-planning dashboard for Puget Sound kayaking and fly fishing windows."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -23,9 +23,11 @@ tidewindow = "main:main"
 py-modules = [
     "main",
     "marine_config",
+    "marine_cache",
     "marine_engine",
     "marine_regions",
     "marine_terminal",
     "noaa_client",
+    "sun_times",
     "web_app",
 ]

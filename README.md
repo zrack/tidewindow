@@ -1,24 +1,34 @@
 # TideWindow
 
-TideWindow is a terminal and web marine-conditions dashboard for Puget Sound, South Hood Canal, and Aberdeen-area marine planning. It combines NOAA tide/current observations and predictions with optional OpenWeather wind data, then scores local spots for kayaking and fly fishing. It also highlights the best kayak and fishing windows across a 72-hour planning window.
+TideWindow is a marine-planning dashboard for kayaking and fly fishing around Puget Sound, South Hood Canal, and the Aberdeen area. It combines NOAA tide/current data, optional OpenWeather wind data, regional spot catalogs, and local scoring rules to show when conditions look usable, risky, or especially good.
 
-The web dashboard adds a Tomorrow's Best digest, shareable digest links, calendar export, Leaflet/OpenStreetMap area map, place search, region-aware spot controls, provider diagnostics, risk tolerance, a mobile-friendly daily heatmap, and remembered region/activity preferences. You can search for supported regions or nearby places such as Port Orchard, Aberdeen, Belfair, Union, Chico, or Gorst, see the full spot catalog for the resolved region on the map, then switch to Compact or Standard density when the map feels crowded.
+It runs as both a FastAPI web app and a terminal dashboard. The web app is the primary experience: map-first regional planning, Tomorrow's Best digest, daily heatmap, provider diagnostics, risk tolerance, and shareable digest export.
 
-## Visuals
+## Screenshots
 
 ### Web dashboard
 
-![TideWindow desktop web dashboard](docs/web-dashboard-desktop.png)
+![TideWindow desktop web dashboard](docs/assets/web-dashboard-desktop.png)
 
 ### Mobile layout
 
-<img src="docs/web-dashboard-mobile.png" alt="TideWindow mobile web dashboard" width="320">
+<img src="docs/assets/web-dashboard-mobile.png" alt="TideWindow mobile web dashboard" width="320">
 
 ### Terminal dashboard
 
-![TideWindow terminal dashboard](docs/screenshot.svg)
+![TideWindow terminal dashboard](docs/assets/terminal-dashboard.svg)
 
-## Install
+## What It Does
+
+- Select a region or nearby place, then show the relevant fishing and kayak spots on a Leaflet/OpenStreetMap map.
+- Score each spot for kayaking and fly fishing using tide, current, wind, wind exposure, and risk tolerance.
+- Show a compact Daily Heatmap for the next 72 hours instead of a wall of hourly cards.
+- Highlight Tomorrow's Best kayak and fish windows with share, copy, and `.ics` calendar export.
+- Label data honestly as live, predicted, derived, fallback, seed, stale, or missing.
+- Explain provider fit by region, including NOAA tide/current station, bin/depth, active source, fallback path, and caveats.
+- Install as a PWA and keep the last app shell/state available offline.
+
+## Quick Start
 
 Use Python 3.10 or newer.
 
@@ -28,73 +38,32 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-For editable command-line usage:
-
-```bash
-pip install -e .
-```
-
-## Optional Wind Data
-
-TideWindow can run without an OpenWeather API key. If the key is missing, it uses a default wind value and labels the wind source as fallback data.
-
-Create a `.env` file:
-
-```bash
-OPENWEATHER_API_KEY=your_api_key_here
-```
-
-## Run
-
-```bash
-python3 main.py
-```
-
-Or, after `pip install -e .`:
-
-```bash
-tidewindow
-```
-
-To run the web dashboard:
+Run the web dashboard:
 
 ```bash
 .venv/bin/uvicorn web_app:app --reload
 ```
 
-Then open `http://127.0.0.1:8000`.
+Open `http://127.0.0.1:8000`.
 
-The web dashboard serves the JavaScript, CSS, and API from the same FastAPI app, so production deployments do not need a separate frontend host or CORS setup.
-
-Health check:
+Run the terminal dashboard:
 
 ```bash
-curl http://127.0.0.1:8000/health
+python3 main.py
 ```
 
-Press `q` to quit.
-Press `[` and `]` to page through current-condition areas.
-Press `a` for all forecast windows, `k` for kayak windows, and `f` for fishing windows.
+Or install the editable CLI command:
 
-The terminal dashboard still focuses on the original Gig Harbor/Narrows planning set: Purdy Bridge, Inside Gig Harbor, Fox Island/Hale Passage, Sunrise Beach Park, Narrows Park, Fox Island Fishing Pier, Purdy Sand Spit, and Kopachuck State Park.
-
-The web dashboard starts with all spots for the selected region and uses Compact, Standard, and Full density presets for proportional map marker visibility. The place search accepts supported regions, city-style aliases, common launches, and marine-area names; recognized nearby places route to the closest supported region with a note, such as using South Hood Canal for Belfair. Tomorrow's Best summarizes the strongest kayak and fish windows for the next day, including spot, time, status, tide/current/wind, risk profile, and a short reason. The digest can be opened as a shareable `/digest` page, copied as text, or exported as an `.ics` calendar file; the selected All/Kayak/Fish activity, region, risk tolerance, and spot density carry through those links. The selected region, risk tolerance, density preset, and activity mode are stored in the browser. On phones, the dashboard uses a compact sticky header, stacked summary cards, larger map tap targets, and a scrollable daily heatmap with a selected-hour detail panel.
-
-## Forecast Windows
-
-The forecast panel uses official NOAA tide predictions and NOAA current predictions when available. Tide forecast data is labeled as `live`; current forecast data is labeled as `predicted` when NOAA current predictions are available and `derived` only when TideWindow falls back to estimating current strength from the tide slope. Region provider context can include backup tide/current stations; the fetcher tries those candidates in priority order and the provider panel labels the active station source.
-
-When `OPENWEATHER_API_KEY` has access to OpenWeather One Call 3.0, TideWindow also uses hourly wind forecast points for each window. Forecast wind is labeled as `live`, `fallback`, or `missing`; if hourly wind is unavailable, the app falls back to the current wind value for scoring and says so in the panel. When wind direction is available, spot scoring adjusts wind exposure against each modeled shoreline's fetch, including reviewed spot-specific bearings for high-use regional spots and shoreline-family bearings for the rest.
-
-The app also displays confidence labels. The source confidence summarizes live/predicted/derived/fallback data health, while the provider panel labels station fit with more specific categories such as high station fit, subordinate station fit, sparse current coverage, or river/bar influenced. The provider panel also shows the tide/current priority context, the derived-current fallback, and region-specific caveats.
-
-The web dashboard includes a risk tolerance setting: conservative, standard, or aggressive. Standard preserves the default TideWindow thresholds; conservative flags wind/current risk earlier, while aggressive gives experienced users a wider planning envelope. The heatmap, spot map popups, and full spot details show the active risk profile so the threshold lens stays visible across the app. Spot map popups include current, wind, tide, kayak/fish status, and the local rule copy that used to live in the separate area-details section.
+```bash
+pip install -e .
+tidewindow
+```
 
 ## Configuration
 
-Edit `marine_config.py` to change NOAA station IDs, weather coordinates, refresh interval, forecast length, seeded fallback values, or local zone multipliers.
+TideWindow works without an OpenWeather API key. When the key is missing, wind data is marked as fallback or missing and the app continues to run.
 
-Runtime environment variables:
+Optional `.env`:
 
 ```bash
 OPENWEATHER_API_KEY=your_api_key_here
@@ -102,45 +71,85 @@ TIDEWINDOW_WEB_APP_NAME=TideWindow
 TIDEWINDOW_WEB_REFRESH_SECONDS=300
 ```
 
-`OPENWEATHER_API_KEY` is optional. If it is missing or One Call 3.0 is not active yet, TideWindow labels wind data as fallback or missing and continues running.
+Edit `marine_config.py` for core NOAA station defaults, refresh interval, forecast length, seeded fallback values, and local scoring thresholds. Edit `marine_regions.py` for regional catalogs, provider contexts, station candidates, aliases, and spot metadata.
+
+## Web App Notes
+
+The web dashboard starts with all spots for the selected region and offers Compact, Standard, and Full density controls when the map feels crowded. Place search accepts supported regions, city-style aliases, common launches, and marine-area names; nearby places such as Belfair, Union, Chico, and Gorst route to the closest supported region with a visible note.
+
+Tomorrow's Best summarizes the strongest kayak and fish windows for the next day. The digest can be opened as a shareable `/digest` page, copied as text, shared through the browser, or exported as an `.ics` calendar file. Region, activity filter, risk tolerance, and spot density carry through those links.
+
+## Terminal Notes
+
+The terminal dashboard focuses on the original Gig Harbor/Narrows planning set. Press:
+
+- `q` to quit
+- `[` and `]` to page through current-condition areas
+- `a` for all forecast windows
+- `k` for kayak windows
+- `f` for fishing windows
+
+## Project Layout
+
+```text
+.
+├── web_app.py              # FastAPI routes and dashboard API payloads
+├── marine_engine.py        # Scoring, thresholds, windows, and timeline logic
+├── marine_regions.py       # Region catalogs, aliases, provider context
+├── noaa_client.py          # NOAA/OpenWeather fetchers and fallback logic
+├── marine_terminal.py      # Textual terminal dashboard
+├── static/                 # Browser app, digest page, PWA assets
+├── tests/                  # Unit and API regression tests
+├── scripts/                # NOAA station investigation helpers
+├── docs/                   # Planning, reference docs, and screenshot assets
+├── CHANGELOG.md            # Shipped history
+└── docs/ROADMAP.md         # Forward-looking plan
+```
+
+## Documentation
+
+- [Changelog](CHANGELOG.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Regional spot selection brief](docs/planning/REGIONAL_SPOT_SELECTION_BRIEF.md)
+- [PWA/offline QA notes](docs/planning/PWA_OFFLINE_QA.md)
+- [NOAA station candidates](docs/reference/NOAA_STATION_CANDIDATES_SOUTH_PUGET_SOUND_HOOD_CANAL.md)
 
 ## Deployment
 
 TideWindow can run on any Python host that supports ASGI apps, such as Render, Fly.io, Railway, or a small VPS.
 
-Typical build command:
+Build command:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Typical start command:
+Start command:
 
 ```bash
 uvicorn web_app:app --host 0.0.0.0 --port $PORT
 ```
 
-For hosts that do not provide `PORT`, use:
+Health check:
 
 ```bash
-uvicorn web_app:app --host 0.0.0.0 --port 8000
+curl http://127.0.0.1:8000/health
 ```
 
-Set `OPENWEATHER_API_KEY` in the host's environment settings if you want live OpenWeather wind observations and One Call 3.0 hourly wind forecasts. Set `TIDEWINDOW_WEB_REFRESH_SECONDS` to control how often the browser refreshes the dashboard data; the default is `300` seconds.
-
-Use `/health` for uptime checks. It returns app status, version, timestamp, zone count, forecast length, refresh interval, configured NOAA stations, provider confidence/profile metadata, and whether an OpenWeather key is present. It does not call external providers, so uptime checks stay fast and do not consume API quota.
+The `/health` endpoint reports app version, zone/region counts, forecast length, refresh interval, provider metadata, and whether OpenWeather is configured. It does not call external providers.
 
 ## Test
 
 ```bash
-python3 -m unittest discover
+.venv/bin/python -m unittest discover
 ```
 
 ## Data Sources
 
 - NOAA CO-OPS API for tide and current observations
 - NOAA CO-OPS API for tide and current predictions
+- NWS API for marine advisories
 - OpenWeather current weather API for optional wind observations
 - OpenWeather One Call 3.0 API for optional hourly wind forecasts
 
-This is a planning aid, not a substitute for marine forecasts, local knowledge, or personal judgment on the water.
+TideWindow is a planning aid, not a substitute for marine forecasts, local knowledge, or judgment on the water.
