@@ -6,17 +6,17 @@ This roadmap is forward-looking. Shipped history lives in the [changelog](../CHA
 
 ## Product Direction
 
-TideWindow already has the core planning foundation: regional spot catalogs, map-first exploration, 72-hour scoring, provider diagnostics, PWA/offline support, Tomorrow's Best, shareable digest export, and hardened daily digest delivery.
+TideWindow already has the core planning foundation: regional spot catalogs, map-first exploration, 72-hour scoring, provider diagnostics, PWA/offline support, Tomorrow's Best, shareable digest export, hardened daily digest delivery, and digest operations admin.
 
 The next phase should make the app more proactive, more locally accurate, and easier to trust. Effort is sized roughly as S (a few hours), M (a day or two), L (multi-day), XL (larger product bet).
 
 ## Next
 
 1. **Physical-device PWA install QA (S).** Verify install prompt behavior, home-screen icon rendering, and offline behavior on actual iOS and Android devices.
-2. **Production scheduler launch (S-M).** Choose the host scheduler, set production email credentials, set the signing secret, run the deployment checklist, and monitor the first live audit records.
+2. **Production scheduler launch (S-M).** Choose the host scheduler, set production email credentials, set the signing secret, run the deployment checklist, and monitor the first live audit records in `/admin`.
 3. **Continue spot-level exposure review (M).** Expand reviewed wind-exposure bearings for exposed launches, bar/river-influenced areas, and the highest-use regional spots.
 4. **Search ranking refinements (S-M).** Add partial-match ranking, typo tolerance, and richer unsupported-place routing as the catalog grows.
-5. **Digest delivery admin view (M).** Add a small internal audit/preferences screen instead of relying on raw JSON/API responses during production checks.
+5. **Digest admin auth boundary (M).** Add a real operator authentication story before exposing admin controls on a public deployment.
 
 ## Later
 

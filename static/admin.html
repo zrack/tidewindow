@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TideWindow Admin</title>
+    <link rel="stylesheet" href="/static/styles.css?v=digest-admin-20260613b">
+  </head>
+  <body>
+    <main class="app-shell admin-shell">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">Digest Operations</p>
+          <h1>TideWindow Admin</h1>
+        </div>
+        <a class="digest-action" href="/">Dashboard</a>
+      </header>
+
+      <section>
+        <div class="section-heading">
+          <h2>Delivery Health</h2>
+          <span id="admin-health-status">Loading</span>
+        </div>
+        <div id="admin-health" class="admin-health-grid" aria-live="polite"></div>
+      </section>
+
+      <section>
+        <div class="section-heading">
+          <h2>Scheduler Readiness</h2>
+          <span id="admin-readiness-status">Loading</span>
+        </div>
+        <div id="admin-readiness" class="admin-readiness" aria-live="polite"></div>
+      </section>
+
+      <section>
+        <div class="section-heading">
+          <h2>Delivery Audit</h2>
+          <span id="admin-audit-count">Loading</span>
+        </div>
+        <div id="admin-audit" class="admin-table-wrap" aria-live="polite"></div>
+      </section>
+
+      <section>
+        <div class="section-heading">
+          <h2>Digest Preferences</h2>
+          <span id="admin-preference-count">Loading</span>
+        </div>
+        <p id="admin-action-status" class="digest-delivery-status" aria-live="polite"></p>
+        <div id="admin-preferences" class="admin-table-wrap" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <script src="/static/admin.js?v=digest-admin-20260613b" defer></script>
+  </body>
+</html>

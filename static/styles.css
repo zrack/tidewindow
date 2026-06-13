@@ -1179,6 +1179,147 @@ h2 {
   font-weight: 800;
 }
 
+.admin-shell {
+  gap: 28px;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+}
+
+.admin-readiness {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-readiness-grid,
+.admin-health-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-health-card,
+.admin-check {
+  min-height: 92px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.admin-health-card strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+.admin-command-card {
+  grid-column: span 3;
+}
+
+.admin-command-card code {
+  display: block;
+  margin-top: 8px;
+  overflow-x: auto;
+  color: var(--green);
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.admin-checks {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-check span {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-check strong {
+  display: block;
+  color: var(--text);
+}
+
+.admin-check p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.admin-check.ok {
+  border-color: rgba(106, 222, 142, 0.42);
+}
+
+.admin-check.warn {
+  border-color: rgba(246, 207, 87, 0.42);
+}
+
+.admin-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(150, 171, 174, 0.14);
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-table th {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 190px;
+}
+
+.admin-actions .digest-action {
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 900px) {
+  .admin-readiness-grid,
+  .admin-health-grid,
+  .admin-checks {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-command-card {
+    grid-column: auto;
+  }
+}
+
 .windows-grid,
 .zones-grid {
   display: grid;

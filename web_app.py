@@ -15,6 +15,7 @@ from digest_delivery import (
     DigestPreferenceStore,
     DigestScheduler,
     build_digest_params,
+    smtp_configured,
     validate_preferences,
     verify_unsubscribe_token,
 )
@@ -50,7 +51,7 @@ from sun_times import sun_events
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-APP_VERSION = "0.4.8"
+APP_VERSION = "0.4.9"
 
 app = FastAPI(title=WEB_APP_NAME, version=APP_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -76,6 +77,10 @@ class DigestPreferenceRequest(BaseModel):
     activity: str = "All"
     risk: str = DEFAULT_RISK_TOLERANCE
     density: str = "full"
+
+
+class DigestAdminPreferenceRequest(BaseModel):
+    enabled: bool
 
 
 def get_state_cache(region_id: str) -> MarineStateCache:
@@ -104,6 +109,11 @@ async def digest_page():
 @app.get("/unsubscribe")
 async def unsubscribe_page():
     return FileResponse(STATIC_DIR / "unsubscribe.html")
+
+
+@app.get("/admin")
+async def admin_page():
+    return FileResponse(STATIC_DIR / "admin.html")
 
 
 @app.get("/service-worker.js")
@@ -292,6 +302,40 @@ async def api_digest_delivery_audit(limit: int = 50):
     return {"audit": digest_preference_store.audit(limit)}
 
 
+@app.get("/api/digest-admin")
+async def api_digest_admin(limit: int = 50):
+    preferences = digest_admin_preferences()
+    audit = digest_preference_store.audit(limit)
+    return {
+        "preferences": preferences,
+        "audit": audit,
+        "readiness": digest_admin_readiness(),
+        "health": digest_admin_health(preferences, audit),
+    }
+
+
+@app.post("/api/digest-admin/preferences/{client_id}")
+async def api_update_digest_admin_preference(client_id: str, request: DigestAdminPreferenceRequest):
+    preferences = digest_preference_store.get(client_id)
+    if not preferences.email:
+        raise HTTPException(status_code=404, detail="No saved digest preference was found.")
+    if request.enabled and not preferences.email:
+        raise HTTPException(status_code=400, detail="A saved email address is required before enabling delivery.")
+    preferences.enabled = request.enabled
+    digest_preference_store.save(preferences, client_id)
+    digest_preference_store.append_audit({
+        "event": "preference_update",
+        "client_id": client_id,
+        "delivered": False,
+        "mode": "admin",
+        "reason": "enabled" if request.enabled else "disabled",
+        "date": datetime.now().date().isoformat(),
+        "recipient": preferences.email,
+        "run_id": None,
+    })
+    return {"preferences": digest_admin_preferences()}
+
+
 def build_state_payload(
     engine,
     telemetry: dict,
@@ -436,6 +480,86 @@ def digest_preferences_response(client_id: str, preferences: DigestPreferences) 
             "density": ["compact", "standard", "full"],
             "risk": list(RISK_TOLERANCE_PROFILES.keys()),
         },
+    }
+
+
+def digest_admin_preferences() -> list[dict]:
+    return [
+        {
+            "client_id": client_id,
+            **preferences.to_dict(),
+        }
+        for client_id, preferences in sorted(digest_preference_store.all().items())
+    ]
+
+
+def digest_admin_readiness() -> dict:
+    public_url = os.getenv("TIDEWINDOW_PUBLIC_URL", "").strip()
+    signing_secret_set = bool(os.getenv("TIDEWINDOW_DIGEST_SIGNING_SECRET", "").strip())
+    smtp_ready = smtp_configured()
+    base_url = public_url or "http://127.0.0.1:8000"
+    checks = [
+        {
+            "id": "public_url",
+            "label": "Public URL",
+            "ok": bool(public_url),
+            "detail": public_url or "Set TIDEWINDOW_PUBLIC_URL before hosted email delivery.",
+        },
+        {
+            "id": "signing_secret",
+            "label": "Signing secret",
+            "ok": signing_secret_set,
+            "detail": "Configured" if signing_secret_set else "Set TIDEWINDOW_DIGEST_SIGNING_SECRET so unsubscribe links stay stable.",
+        },
+        {
+            "id": "email_provider",
+            "label": "Email provider",
+            "ok": smtp_ready,
+            "detail": "SMTP configured" if smtp_ready else "Using local JSON outbox until SMTP env vars are configured.",
+        },
+        {
+            "id": "preference_store",
+            "label": "Preference store",
+            "ok": path_writable(digest_preference_store.path),
+            "detail": str(digest_preference_store.path),
+        },
+        {
+            "id": "outbox",
+            "label": "Outbox",
+            "ok": path_writable(digest_email_sender.outbox_path),
+            "detail": str(digest_email_sender.outbox_path),
+        },
+    ]
+    return {
+        "ready": all(check["ok"] for check in checks),
+        "delivery_mode": "smtp" if smtp_ready else "local_outbox",
+        "scheduler_command": f'curl -X POST "{base_url.rstrip("/")}/api/digest-deliveries/run?run_id=$(date +%Y%m%d%H%M%S)"',
+        "checks": checks,
+    }
+
+
+def path_writable(path: Path) -> bool:
+    parent = path.parent
+    while not parent.exists() and parent != parent.parent:
+        parent = parent.parent
+    return os.access(parent, os.W_OK)
+
+
+def digest_admin_health(preferences: list[dict], audit: list[dict]) -> dict:
+    today = datetime.now().date().isoformat()
+    today_events = [entry for entry in audit if entry.get("date") == today]
+    last_success = next((entry for entry in reversed(audit) if entry.get("delivered")), None)
+    last_error = next((entry for entry in reversed(audit) if entry.get("mode") == "error"), None)
+    last_run = next((entry for entry in reversed(audit) if entry.get("run_id")), None)
+    return {
+        "total_preferences": len(preferences),
+        "enabled_preferences": sum(1 for preference in preferences if preference.get("enabled")),
+        "today_delivered": sum(1 for entry in today_events if entry.get("delivered")),
+        "today_skipped": sum(1 for entry in today_events if entry.get("mode") == "skipped"),
+        "today_errors": sum(1 for entry in today_events if entry.get("mode") == "error"),
+        "last_run_id": last_run.get("run_id") if last_run else None,
+        "last_success_at": last_success.get("created_at") if last_success else None,
+        "last_error": last_error.get("reason") if last_error else None,
     }
 
 

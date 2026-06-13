@@ -2,7 +2,7 @@
 
 TideWindow is a marine-planning dashboard for kayaking and fly fishing around Puget Sound, South Hood Canal, and the Aberdeen area. It combines NOAA tide/current data, optional OpenWeather wind data, regional spot catalogs, and local scoring rules to show when conditions look usable, risky, or especially good.
 
-It runs as both a FastAPI web app and a terminal dashboard. The web app is the primary experience: map-first regional planning, Tomorrow's Best digest, daily heatmap, provider diagnostics, risk tolerance, shareable digest export, and daily digest delivery.
+It runs as both a FastAPI web app and a terminal dashboard. The web app is the primary experience: map-first regional planning, Tomorrow's Best digest, daily heatmap, provider diagnostics, risk tolerance, shareable digest export, daily digest delivery, and digest operations admin.
 
 ## Screenshots
 
@@ -24,6 +24,7 @@ It runs as both a FastAPI web app and a terminal dashboard. The web app is the p
 - Score each spot for kayaking and fly fishing using tide, current, wind, wind exposure, and risk tolerance.
 - Show a compact Daily Heatmap for the next 72 hours instead of a wall of hourly cards.
 - Highlight Tomorrow's Best kayak and fish windows with share, copy, `.ics` calendar export, and optional daily email delivery.
+- Review digest delivery health, readiness, saved preferences, and audit events from `/admin`.
 - Label data honestly as live, predicted, derived, fallback, seed, stale, or missing.
 - Explain provider fit by region, including NOAA tide/current station, bin/depth, active source, fallback path, and caveats.
 - Install as a PWA and keep the last app shell/state available offline.
@@ -93,6 +94,8 @@ TIDEWINDOW_SMTP_TLS=1
 The web dashboard starts with all spots for the selected region and offers Compact, Standard, and Full density controls when the map feels crowded. Place search accepts supported regions, city-style aliases, common launches, and marine-area names; nearby places such as Belfair, Union, Chico, and Gorst route to the closest supported region with a visible note.
 
 Tomorrow's Best summarizes the strongest kayak and fish windows for the next day. The digest can be opened as a shareable `/digest` page, copied as text, shared through the browser, exported as an `.ics` calendar file, or saved as a daily email preference. Region, activity filter, risk tolerance, and spot density carry through those links and saved preferences. Daily emails include a signed unsubscribe link, and delivery/test/unsubscribe events are recorded in a local audit log.
+
+Digest operations live at `/admin`. The admin view shows delivery health, scheduler readiness, saved preferences, recent audit rows, enable/disable controls, and send-test actions for saved preferences.
 
 ## Terminal Notes
 
@@ -168,6 +171,8 @@ curl -X POST "http://127.0.0.1:8000/api/digest-deliveries/run?run_id=$(date +%Y%
 ```
 
 The delivery runner uses a short-lived scheduler lock to avoid duplicate sends when overlapping workers fire. Delivery audit records are available at `/api/digest-deliveries/audit?limit=50`.
+
+Use `/admin` after enabling a scheduler to confirm readiness checks, subscription counts, last run id, delivery outcomes, and errors.
 
 ## Test
 

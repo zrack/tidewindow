@@ -47,6 +47,7 @@ Safety notes:
 - A short-lived `digest-delivery` lock prevents overlapping deployed workers from sending duplicates.
 - `run_id` is optional but recommended because it makes audit review easier.
 - Schedule the job at least once after the earliest supported delivery time. A 5-minute or 15-minute cadence is fine because already-delivered preferences are skipped.
+- Use `/admin` to review scheduler readiness, the last run id, delivered/skipped/error counts, and recent audit rows after the scheduler starts.
 
 ## Unsubscribe Flow
 
@@ -61,7 +62,7 @@ Validation checklist:
 
 ## Audit Review
 
-Recent events are available at:
+Recent events are visible in `/admin` and are also available at:
 
 ```bash
 curl "https://your-app.example/api/digest-deliveries/audit?limit=50"

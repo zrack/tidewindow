@@ -1,8 +1,10 @@
 import asyncio
+import os
 import tempfile
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 import web_app
 from digest_delivery import DigestEmailSender, DigestPreferenceStore, sign_unsubscribe_token
@@ -58,7 +60,7 @@ def live_forecast():
 
 
 def tomorrow_forecast():
-    start = datetime.now().replace(minute=0, second=0, microsecond=0) + timedelta(days=1, hours=5)
+    start = (datetime.now() + timedelta(days=1)).replace(hour=5, minute=0, second=0, microsecond=0)
     predictions = [
         {"time": start + timedelta(hours=hour), "tide_feet": 4.0 + hour * 0.4}
         for hour in range(10)
@@ -345,6 +347,113 @@ class WebAppTests(unittest.TestCase):
             self.assertTrue(payload["disabled"])
             self.assertFalse(loaded["preferences"]["enabled"])
             self.assertEqual(audit["audit"][0]["event"], "unsubscribe")
+
+    def test_digest_admin_lists_preferences_and_audit(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            web_app.digest_preference_store = DigestPreferenceStore(Path(temp_dir) / "preferences.json")
+            request = web_app.DigestPreferenceRequest(
+                enabled=True,
+                email="admin@example.com",
+                delivery_time="06:45",
+                region=DEFAULT_REGION_ID,
+                activity="Fish",
+                risk="standard",
+                density="compact",
+            )
+            asyncio.run(web_app.api_save_digest_preferences(request, client_id="admin-phone"))
+            web_app.digest_preference_store.append_audit({
+                "event": "delivery",
+                "client_id": "admin-phone",
+                "delivered": True,
+                "mode": "outbox",
+                "reason": "queued",
+                "date": "2026-06-13",
+                "recipient": "admin@example.com",
+                "run_id": "admin-run",
+            })
+
+            payload = asyncio.run(web_app.api_digest_admin())
+
+            self.assertEqual(payload["preferences"][0]["client_id"], "admin-phone")
+            self.assertEqual(payload["preferences"][0]["email"], "admin@example.com")
+            self.assertEqual(payload["audit"][0]["run_id"], "admin-run")
+
+    def test_digest_admin_reports_scheduler_readiness(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            web_app.digest_preference_store = DigestPreferenceStore(Path(temp_dir) / "preferences.json")
+            web_app.digest_email_sender = DigestEmailSender(Path(temp_dir) / "outbox.json", smtp_enabled=False)
+            env = {
+                **os.environ,
+                "TIDEWINDOW_PUBLIC_URL": "https://tidewindow.example",
+                "TIDEWINDOW_DIGEST_SIGNING_SECRET": "test-secret",
+                "TIDEWINDOW_SMTP_HOST": "smtp.example.com",
+                "TIDEWINDOW_SMTP_FROM": "digest@example.com",
+            }
+            with patch.dict(os.environ, env, clear=True):
+                payload = asyncio.run(web_app.api_digest_admin())
+
+            readiness = payload["readiness"]
+            self.assertTrue(readiness["ready"])
+            self.assertEqual(readiness["delivery_mode"], "smtp")
+            self.assertIn("https://tidewindow.example/api/digest-deliveries/run", readiness["scheduler_command"])
+
+    def test_digest_admin_can_disable_saved_preference(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            web_app.digest_preference_store = DigestPreferenceStore(Path(temp_dir) / "preferences.json")
+            request = web_app.DigestPreferenceRequest(
+                enabled=True,
+                email="admin@example.com",
+                delivery_time="06:45",
+                region=DEFAULT_REGION_ID,
+                activity="Fish",
+                risk="standard",
+                density="compact",
+            )
+            asyncio.run(web_app.api_save_digest_preferences(request, client_id="admin-phone"))
+
+            payload = asyncio.run(web_app.api_update_digest_admin_preference(
+                "admin-phone",
+                web_app.DigestAdminPreferenceRequest(enabled=False),
+            ))
+            loaded = asyncio.run(web_app.api_digest_preferences(client_id="admin-phone"))
+            audit = asyncio.run(web_app.api_digest_delivery_audit())
+
+            self.assertFalse(payload["preferences"][0]["enabled"])
+            self.assertFalse(loaded["preferences"]["enabled"])
+            self.assertEqual(audit["audit"][0]["event"], "preference_update")
+            self.assertEqual(audit["audit"][0]["reason"], "disabled")
+
+    def test_digest_admin_reports_delivery_health(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            web_app.digest_preference_store = DigestPreferenceStore(Path(temp_dir) / "preferences.json")
+            today = datetime.now().date().isoformat()
+            web_app.digest_preference_store.save(
+                web_app.DigestPreferences(
+                    enabled=True,
+                    email="admin@example.com",
+                    delivery_time="06:45",
+                    region=DEFAULT_REGION_ID,
+                    activity="Fish",
+                    risk="standard",
+                    density="compact",
+                ),
+                "admin-phone",
+            )
+            for event in (
+                {"event": "delivery", "client_id": "admin-phone", "delivered": True, "mode": "outbox", "reason": "queued", "date": today, "recipient": "admin@example.com", "run_id": "run-1"},
+                {"event": "delivery", "client_id": "admin-phone", "delivered": False, "mode": "skipped", "reason": "already delivered", "date": today, "recipient": "admin@example.com", "run_id": "run-2"},
+                {"event": "delivery", "client_id": "admin-phone", "delivered": False, "mode": "error", "reason": "smtp failed", "date": today, "recipient": "admin@example.com", "run_id": "run-3"},
+            ):
+                web_app.digest_preference_store.append_audit(event)
+
+            payload = asyncio.run(web_app.api_digest_admin())
+
+            self.assertEqual(payload["health"]["enabled_preferences"], 1)
+            self.assertEqual(payload["health"]["today_delivered"], 1)
+            self.assertEqual(payload["health"]["today_skipped"], 1)
+            self.assertEqual(payload["health"]["today_errors"], 1)
+            self.assertEqual(payload["health"]["last_run_id"], "run-3")
+            self.assertEqual(payload["health"]["last_error"], "smtp failed")
 
     def test_run_digest_deliveries_only_sends_due_preferences(self):
         self._use_cache(lambda: StubClient(live_telemetry(), tomorrow_forecast()))

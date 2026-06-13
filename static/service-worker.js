@@ -1,12 +1,14 @@
-const CACHE = "tidewindow-v28";
+const CACHE = "tidewindow-v29";
 const SHELL = [
   "/",
   "/digest",
   "/unsubscribe",
+  "/admin",
   "/static/styles.css",
   "/static/app.js",
   "/static/digest.js",
   "/static/unsubscribe.js",
+  "/static/admin.js",
   "/static/manifest.webmanifest",
   "/static/icon.svg",
 ];
@@ -40,6 +42,7 @@ self.addEventListener("fetch", (event) => {
     url.pathname === "/api/state"
     || url.pathname === "/api/regions"
     || url.pathname === "/api/digest"
+    || url.pathname === "/api/digest-admin"
     || url.pathname === "/api/digest-preferences"
   ) {
     event.respondWith(
