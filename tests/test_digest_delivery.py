@@ -12,8 +12,12 @@ from digest_delivery import (
     DigestScheduler,
     build_digest_params,
     build_digest_url,
+    build_unsubscribe_url,
     delivery_time_reached,
+    digest_email_body,
+    sign_unsubscribe_token,
     validate_preferences,
+    verify_unsubscribe_token,
 )
 
 
@@ -101,6 +105,22 @@ class DigestDeliveryTests(unittest.TestCase):
         self.assertIn("activity=Kayak", url)
         self.assertIn("risk=aggressive", url)
 
+    def test_unsubscribe_token_round_trips(self):
+        token = sign_unsubscribe_token("phone", "Test@Example.com")
+
+        self.assertTrue(verify_unsubscribe_token("phone", "test@example.com", token))
+        self.assertFalse(verify_unsubscribe_token("phone", "other@example.com", token))
+
+    def test_unsubscribe_url_and_email_body_include_disable_link(self):
+        preferences = DigestPreferences(email="test@example.com")
+        unsubscribe_url = build_unsubscribe_url(preferences, "phone", "https://example.test")
+        body = digest_email_body(sample_payload(), "https://example.test/digest", unsubscribe_url)
+
+        self.assertTrue(unsubscribe_url.startswith("https://example.test/unsubscribe?"))
+        self.assertIn("client_id=phone", unsubscribe_url)
+        self.assertIn("Stop daily email", body)
+        self.assertIn(unsubscribe_url, body)
+
     def test_delivery_time_reached_uses_local_clock_time(self):
         self.assertFalse(delivery_time_reached("06:30", datetime(2026, 6, 13, 6, 29)))
         self.assertTrue(delivery_time_reached("06:30", datetime(2026, 6, 13, 6, 30)))
@@ -141,6 +161,38 @@ class DigestDeliveryTests(unittest.TestCase):
 
             self.assertTrue(first[0].delivered)
             self.assertEqual(second[0].reason, "already delivered")
+            audit = store.audit()
+            self.assertEqual(audit[0]["event"], "delivery")
+            self.assertTrue(audit[0]["delivered"])
+            self.assertEqual(audit[1]["reason"], "already delivered")
+
+    def test_scheduler_lock_prevents_parallel_delivery(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = DigestPreferenceStore(Path(temp_dir) / "preferences.json")
+            sender = DigestEmailSender(Path(temp_dir) / "outbox.json", smtp_enabled=False)
+            store.save(
+                DigestPreferences(
+                    enabled=True,
+                    email="test@example.com",
+                    delivery_time="06:00",
+                    region="gig_harbor",
+                    activity="Kayak",
+                ),
+                "local",
+            )
+            now = datetime(2026, 6, 13, 6, 1)
+            self.assertTrue(store.acquire_lock("digest-delivery", "existing-run", now))
+
+            async def build_digest(_preferences):
+                return sample_payload(_preferences.activity)
+
+            scheduler = DigestScheduler(store, sender, build_digest, "https://example.test")
+            results = asyncio.run(scheduler.run_due(now, run_id="second-run"))
+
+            self.assertEqual(results[0].reason, "locked")
+            self.assertEqual(results[0].run_id, "second-run")
+            self.assertFalse((Path(temp_dir) / "outbox.json").exists())
+            self.assertEqual(store.audit()[0]["reason"], "locked")
 
 
 if __name__ == "__main__":

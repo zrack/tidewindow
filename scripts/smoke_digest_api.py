@@ -6,6 +6,11 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from digest_delivery import sign_unsubscribe_token
 
 
 BASE_URL = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8765"
@@ -38,12 +43,22 @@ def main() -> None:
     saved = request(f"/api/digest-preferences?{query}", "POST", preferences)
     loaded = request(f"/api/digest-preferences?{query}")
     test_delivery = request(f"/api/digest-deliveries/test?{query}", "POST")
-    run_due = request("/api/digest-deliveries/run?now=2026-06-13T06%3A01%3A00", "POST")
+    run_due = request("/api/digest-deliveries/run?now=2026-06-13T06%3A01%3A00&run_id=smoke-run", "POST")
+    audit = request("/api/digest-deliveries/audit?limit=10")
+    unsubscribe_query = urllib.parse.urlencode({
+        "client_id": client_id,
+        "email": "smoke@example.com",
+        "token": sign_unsubscribe_token(client_id, "smoke@example.com"),
+    })
+    unsubscribed = request(f"/api/digest-preferences/unsubscribe?{unsubscribe_query}", "POST")
 
     assert saved["preferences"]["email"] == "smoke@example.com", saved
     assert loaded["preferences"]["activity"] == "Kayak", loaded
     assert test_delivery["results"][0]["delivered"], test_delivery
+    assert run_due["run_id"] == "smoke-run", run_due
     assert any(result["client_id"] == client_id for result in run_due["results"]), run_due
+    assert any(entry["client_id"] == client_id for entry in audit["audit"]), audit
+    assert unsubscribed["disabled"], unsubscribed
 
     print("digest api smoke ok")
 

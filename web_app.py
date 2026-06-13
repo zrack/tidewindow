@@ -3,9 +3,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from digest_delivery import (
     DEFAULT_CLIENT_ID,
@@ -16,6 +16,7 @@ from digest_delivery import (
     DigestScheduler,
     build_digest_params,
     validate_preferences,
+    verify_unsubscribe_token,
 )
 from marine_config import (
     ALL_ZONES,
@@ -49,7 +50,7 @@ from sun_times import sun_events
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-APP_VERSION = "0.4.7"
+APP_VERSION = "0.4.8"
 
 app = FastAPI(title=WEB_APP_NAME, version=APP_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -98,6 +99,11 @@ async def index():
 @app.get("/digest")
 async def digest_page():
     return FileResponse(STATIC_DIR / "digest.html")
+
+
+@app.get("/unsubscribe")
+async def unsubscribe_page():
+    return FileResponse(STATIC_DIR / "unsubscribe.html")
 
 
 @app.get("/service-worker.js")
@@ -233,6 +239,28 @@ async def api_save_digest_preferences(
     return digest_preferences_response(client_id, preferences)
 
 
+@app.post("/api/digest-preferences/unsubscribe")
+async def api_unsubscribe_digest_preference(client_id: str, email: str, token: str):
+    if not verify_unsubscribe_token(client_id, email, token):
+        raise HTTPException(status_code=400, detail="Invalid unsubscribe link.")
+    preferences = digest_preference_store.get(client_id)
+    if preferences.email.strip().lower() != email.strip().lower():
+        raise HTTPException(status_code=404, detail="No matching digest preference was found.")
+    preferences.enabled = False
+    digest_preference_store.save(preferences, client_id)
+    digest_preference_store.append_audit({
+        "event": "unsubscribe",
+        "client_id": client_id,
+        "delivered": False,
+        "mode": "preference",
+        "reason": "disabled by unsubscribe link",
+        "date": datetime.now().date().isoformat(),
+        "recipient": preferences.email,
+        "run_id": None,
+    })
+    return {"disabled": True, "preferences": preferences.to_dict()}
+
+
 @app.post("/api/digest-deliveries/test")
 async def api_test_digest_delivery(client_id: str = DEFAULT_CLIENT_ID):
     preferences = digest_preference_store.get(client_id)
@@ -244,7 +272,7 @@ async def api_test_digest_delivery(client_id: str = DEFAULT_CLIENT_ID):
 
 
 @app.post("/api/digest-deliveries/run")
-async def api_run_digest_deliveries(now: str | None = None):
+async def api_run_digest_deliveries(now: str | None = None, run_id: str | None = None):
     scheduler = make_digest_scheduler()
     run_at = None
     if now:
@@ -252,8 +280,16 @@ async def api_run_digest_deliveries(now: str | None = None):
             run_at = datetime.fromisoformat(now)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail="now must be an ISO datetime") from exc
-    results = await scheduler.run_due(run_at)
-    return {"results": [result.to_dict() for result in results]}
+    results = await scheduler.run_due(run_at, run_id=run_id)
+    return {
+        "run_id": results[0].run_id if results else run_id,
+        "results": [result.to_dict() for result in results],
+    }
+
+
+@app.get("/api/digest-deliveries/audit")
+async def api_digest_delivery_audit(limit: int = 50):
+    return {"audit": digest_preference_store.audit(limit)}
 
 
 def build_state_payload(

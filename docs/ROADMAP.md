@@ -1,21 +1,22 @@
 # TideWindow Roadmap
 
-_Last updated: 2026-06-12._
+_Last updated: 2026-06-13._
 
 This roadmap is forward-looking. Shipped history lives in the [changelog](../CHANGELOG.md).
 
 ## Product Direction
 
-TideWindow already has the core planning foundation: regional spot catalogs, map-first exploration, 72-hour scoring, provider diagnostics, PWA/offline support, Tomorrow's Best, shareable digest export, and a daily digest delivery MVP.
+TideWindow already has the core planning foundation: regional spot catalogs, map-first exploration, 72-hour scoring, provider diagnostics, PWA/offline support, Tomorrow's Best, shareable digest export, and hardened daily digest delivery.
 
 The next phase should make the app more proactive, more locally accurate, and easier to trust. Effort is sized roughly as S (a few hours), M (a day or two), L (multi-day), XL (larger product bet).
 
 ## Next
 
-1. **Production digest delivery hardening (M-L).** Add unsubscribe/disable links, delivery audit metadata, duplicate-send protection across deployed workers, SMTP/provider setup docs, and a real hosted scheduler.
-2. **Physical-device PWA install QA (S).** Verify install prompt behavior, home-screen icon rendering, and offline behavior on actual iOS and Android devices.
+1. **Physical-device PWA install QA (S).** Verify install prompt behavior, home-screen icon rendering, and offline behavior on actual iOS and Android devices.
+2. **Production scheduler launch (S-M).** Choose the host scheduler, set production email credentials, set the signing secret, run the deployment checklist, and monitor the first live audit records.
 3. **Continue spot-level exposure review (M).** Expand reviewed wind-exposure bearings for exposed launches, bar/river-influenced areas, and the highest-use regional spots.
 4. **Search ranking refinements (S-M).** Add partial-match ranking, typo tolerance, and richer unsupported-place routing as the catalog grows.
+5. **Digest delivery admin view (M).** Add a small internal audit/preferences screen instead of relying on raw JSON/API responses during production checks.
 
 ## Later
 
@@ -24,6 +25,7 @@ The next phase should make the app more proactive, more locally accurate, and ea
 3. **Saved planning presets (M).** Let users save preferred region, activity, risk tolerance, and map density as named planning views.
 4. **Digest archive (M).** Keep recent generated digests locally or server-side so users can compare tomorrow's recommendation against previous days.
 5. **Provider comparison tools (M).** Add internal tooling to compare candidate NOAA stations against known regions before promoting a region into the app.
+6. **Additional delivery channels (L).** Explore push notifications or SMS only after email delivery has real-world reliability data.
 
 ## Moonshots
 

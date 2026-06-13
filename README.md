@@ -70,13 +70,14 @@ OPENWEATHER_API_KEY=your_api_key_here
 TIDEWINDOW_WEB_APP_NAME=TideWindow
 TIDEWINDOW_WEB_REFRESH_SECONDS=300
 TIDEWINDOW_PUBLIC_URL=https://your-app.example
+TIDEWINDOW_DIGEST_SIGNING_SECRET=replace_with_a_long_random_secret
 TIDEWINDOW_DIGEST_STORE=data/digest_preferences.json
 TIDEWINDOW_DIGEST_OUTBOX=data/digest_outbox.json
 ```
 
 Edit `marine_config.py` for core NOAA station defaults, refresh interval, forecast length, seeded fallback values, and local scoring thresholds. Edit `marine_regions.py` for regional catalogs, provider contexts, station candidates, aliases, and spot metadata.
 
-Daily digest delivery writes to a local JSON outbox by default so it is testable without email credentials. To send through SMTP, configure:
+Daily digest delivery writes to a local JSON outbox by default so it is testable without email credentials. Set `TIDEWINDOW_PUBLIC_URL` for hosted digest/unsubscribe links and keep `TIDEWINDOW_DIGEST_SIGNING_SECRET` stable so unsubscribe links remain valid. To send through SMTP, configure:
 
 ```bash
 TIDEWINDOW_SMTP_HOST=smtp.example.com
@@ -91,7 +92,7 @@ TIDEWINDOW_SMTP_TLS=1
 
 The web dashboard starts with all spots for the selected region and offers Compact, Standard, and Full density controls when the map feels crowded. Place search accepts supported regions, city-style aliases, common launches, and marine-area names; nearby places such as Belfair, Union, Chico, and Gorst route to the closest supported region with a visible note.
 
-Tomorrow's Best summarizes the strongest kayak and fish windows for the next day. The digest can be opened as a shareable `/digest` page, copied as text, shared through the browser, exported as an `.ics` calendar file, or saved as a daily email preference. Region, activity filter, risk tolerance, and spot density carry through those links and saved preferences.
+Tomorrow's Best summarizes the strongest kayak and fish windows for the next day. The digest can be opened as a shareable `/digest` page, copied as text, shared through the browser, exported as an `.ics` calendar file, or saved as a daily email preference. Region, activity filter, risk tolerance, and spot density carry through those links and saved preferences. Daily emails include a signed unsubscribe link, and delivery/test/unsubscribe events are recorded in a local audit log.
 
 ## Terminal Notes
 
@@ -124,6 +125,7 @@ The terminal dashboard focuses on the original Gig Harbor/Narrows planning set. 
 
 - [Changelog](CHANGELOG.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Digest delivery deployment checklist](docs/planning/DIGEST_DELIVERY_DEPLOYMENT.md)
 - [Regional spot selection brief](docs/planning/REGIONAL_SPOT_SELECTION_BRIEF.md)
 - [PWA/offline QA notes](docs/planning/PWA_OFFLINE_QA.md)
 - [NOAA station candidates](docs/reference/NOAA_STATION_CANDIDATES_SOUTH_PUGET_SOUND_HOOD_CANAL.md)
@@ -162,8 +164,10 @@ The `/health` endpoint reports app version, zone/region counts, forecast length,
 To run due digest deliveries from a platform scheduler or cron:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/digest-deliveries/run
+curl -X POST "http://127.0.0.1:8000/api/digest-deliveries/run?run_id=$(date +%Y%m%d%H%M%S)"
 ```
+
+The delivery runner uses a short-lived scheduler lock to avoid duplicate sends when overlapping workers fire. Delivery audit records are available at `/api/digest-deliveries/audit?limit=50`.
 
 ## Test
 

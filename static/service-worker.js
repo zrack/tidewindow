@@ -1,10 +1,12 @@
-const CACHE = "tidewindow-v27";
+const CACHE = "tidewindow-v28";
 const SHELL = [
   "/",
   "/digest",
+  "/unsubscribe",
   "/static/styles.css",
   "/static/app.js",
   "/static/digest.js",
+  "/static/unsubscribe.js",
   "/static/manifest.webmanifest",
   "/static/icon.svg",
 ];

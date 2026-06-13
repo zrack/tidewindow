@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import web_app
-from digest_delivery import DigestEmailSender, DigestPreferenceStore
+from digest_delivery import DigestEmailSender, DigestPreferenceStore, sign_unsubscribe_token
 from marine_cache import MarineStateCache
 from marine_config import ALL_ZONES, FORECAST_HOURS, OPTIONAL_ZONES, WEB_REFRESH_INTERVAL_SECONDS, ZONES
 from marine_regions import BREMERTON_TIDE_STATION, DEFAULT_REGION_ID, REGIONS, zone_configs_for_region
@@ -316,6 +316,35 @@ class WebAppTests(unittest.TestCase):
             self.assertTrue(payload["results"][0]["delivered"])
             self.assertEqual(payload["results"][0]["mode"], "outbox")
             self.assertEqual(payload["results"][0]["client_id"], "phone")
+            audit = asyncio.run(web_app.api_digest_delivery_audit())
+            self.assertEqual(audit["audit"][0]["event"], "test_delivery")
+
+    def test_unsubscribe_link_disables_saved_digest_preference(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            web_app.digest_preference_store = DigestPreferenceStore(Path(temp_dir) / "preferences.json")
+            request = web_app.DigestPreferenceRequest(
+                enabled=True,
+                email="test@example.com",
+                delivery_time="06:45",
+                region=DEFAULT_REGION_ID,
+                activity="Fish",
+                risk="standard",
+                density="compact",
+            )
+            asyncio.run(web_app.api_save_digest_preferences(request, client_id="phone"))
+            token = sign_unsubscribe_token("phone", "test@example.com")
+
+            payload = asyncio.run(web_app.api_unsubscribe_digest_preference(
+                client_id="phone",
+                email="test@example.com",
+                token=token,
+            ))
+            loaded = asyncio.run(web_app.api_digest_preferences(client_id="phone"))
+            audit = asyncio.run(web_app.api_digest_delivery_audit())
+
+            self.assertTrue(payload["disabled"])
+            self.assertFalse(loaded["preferences"]["enabled"])
+            self.assertEqual(audit["audit"][0]["event"], "unsubscribe")
 
     def test_run_digest_deliveries_only_sends_due_preferences(self):
         self._use_cache(lambda: StubClient(live_telemetry(), tomorrow_forecast()))
@@ -333,11 +362,14 @@ class WebAppTests(unittest.TestCase):
             )
             asyncio.run(web_app.api_save_digest_preferences(request, client_id="phone"))
 
-            payload = asyncio.run(web_app.api_run_digest_deliveries(now="2026-06-13T06:01:00"))
+            payload = asyncio.run(web_app.api_run_digest_deliveries(now="2026-06-13T06:01:00", run_id="web-run"))
             repeat = asyncio.run(web_app.api_run_digest_deliveries(now="2026-06-13T07:01:00"))
 
+            self.assertEqual(payload["run_id"], "web-run")
             self.assertTrue(payload["results"][0]["delivered"])
             self.assertEqual(repeat["results"][0]["reason"], "already delivered")
+            audit = asyncio.run(web_app.api_digest_delivery_audit(limit=5))
+            self.assertEqual(audit["audit"][0]["run_id"], "web-run")
 
     def test_api_state_applies_risk_tolerance(self):
         telemetry = live_telemetry()
