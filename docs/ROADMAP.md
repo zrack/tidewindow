@@ -6,13 +6,13 @@ This roadmap is forward-looking. Shipped history lives in the [changelog](../CHA
 
 ## Product Direction
 
-TideWindow already has the core planning foundation: regional spot catalogs, map-first exploration, 72-hour scoring, provider diagnostics, PWA/offline support, Tomorrow's Best, and shareable digest export.
+TideWindow already has the core planning foundation: regional spot catalogs, map-first exploration, 72-hour scoring, provider diagnostics, PWA/offline support, Tomorrow's Best, shareable digest export, and a daily digest delivery MVP.
 
 The next phase should make the app more proactive, more locally accurate, and easier to trust. Effort is sized roughly as S (a few hours), M (a day or two), L (multi-day), XL (larger product bet).
 
 ## Next
 
-1. **Scheduled digest delivery (M-L).** Add user preferences and delivery infrastructure for daily email, SMS, or push notifications. The share/copy/calendar foundation is in place; recurring delivery needs subscription storage, opt-in UX, and a scheduler.
+1. **Production digest delivery hardening (M-L).** Add unsubscribe/disable links, delivery audit metadata, duplicate-send protection across deployed workers, SMTP/provider setup docs, and a real hosted scheduler.
 2. **Physical-device PWA install QA (S).** Verify install prompt behavior, home-screen icon rendering, and offline behavior on actual iOS and Android devices.
 3. **Continue spot-level exposure review (M).** Expand reviewed wind-exposure bearings for exposed launches, bar/river-influenced areas, and the highest-use regional spots.
 4. **Search ranking refinements (S-M).** Add partial-match ranking, typo tolerance, and richer unsupported-place routing as the catalog grows.

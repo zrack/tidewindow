@@ -4,6 +4,7 @@ Notable project changes are listed here in reverse chronological order. This pro
 
 ## Current
 
+- Added daily digest delivery MVP with saved preferences, local outbox email fallback, optional SMTP sender, due-delivery endpoint, opt-in UI, and delivery smoke scripts.
 - Added shareable Tomorrow's Best digest exports: `/digest`, filtered `/api/digest`, `.ics` calendar export, copy/share actions, and refreshed docs/screenshots. _(9f5ba3c)_
 - Added Tomorrow's Best recommendations for the next day with spot, time, status, tide/current/wind, risk profile, and explanation. _(2ebbd38)_
 - Replaced the fixed region dropdown with place search/autocomplete backed by regions, aliases, city names, common launches, and marine-area terms. _(115fc13)_

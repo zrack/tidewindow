@@ -3,9 +3,20 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from digest_delivery import (
+    DEFAULT_CLIENT_ID,
+    DEFAULT_DELIVERY_TIME,
+    DigestEmailSender,
+    DigestPreferences,
+    DigestPreferenceStore,
+    DigestScheduler,
+    build_digest_params,
+    validate_preferences,
+)
 from marine_config import (
     ALL_ZONES,
     DEFAULT_RISK_TOLERANCE,
@@ -38,10 +49,12 @@ from sun_times import sun_events
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-APP_VERSION = "0.4.6"
+APP_VERSION = "0.4.7"
 
 app = FastAPI(title=WEB_APP_NAME, version=APP_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+digest_preference_store = DigestPreferenceStore()
+digest_email_sender = DigestEmailSender()
 
 # Cache upstream marine state so reloads and multiple tabs don't each hit
 # NOAA/OpenWeather, and so a brief upstream outage serves the last good
@@ -52,6 +65,16 @@ state_cache = MarineStateCache(
     lambda: NoaaMarineClient(provider_context_for_region(DEFAULT_REGION_ID)),
 )
 region_state_caches = {}
+
+
+class DigestPreferenceRequest(BaseModel):
+    enabled: bool = False
+    email: str = ""
+    delivery_time: str = DEFAULT_DELIVERY_TIME
+    region: str = DEFAULT_REGION_ID
+    activity: str = "All"
+    risk: str = DEFAULT_RISK_TOLERANCE
+    density: str = "full"
 
 
 def get_state_cache(region_id: str) -> MarineStateCache:
@@ -191,6 +214,48 @@ async def api_digest_ics(
     )
 
 
+@app.get("/api/digest-preferences")
+async def api_digest_preferences(client_id: str = DEFAULT_CLIENT_ID):
+    preferences = digest_preference_store.get(client_id)
+    return digest_preferences_response(client_id, preferences)
+
+
+@app.post("/api/digest-preferences")
+async def api_save_digest_preferences(
+    request: DigestPreferenceRequest,
+    client_id: str = DEFAULT_CLIENT_ID,
+):
+    try:
+        preferences = validate_preferences(request.model_dump(), require_email=request.enabled)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    digest_preference_store.save(preferences, client_id)
+    return digest_preferences_response(client_id, preferences)
+
+
+@app.post("/api/digest-deliveries/test")
+async def api_test_digest_delivery(client_id: str = DEFAULT_CLIENT_ID):
+    preferences = digest_preference_store.get(client_id)
+    if not preferences.email:
+        raise HTTPException(status_code=400, detail="Save an email address before sending a test digest.")
+    scheduler = make_digest_scheduler()
+    result = await scheduler.send_test(preferences, client_id)
+    return {"results": [result.to_dict()]}
+
+
+@app.post("/api/digest-deliveries/run")
+async def api_run_digest_deliveries(now: str | None = None):
+    scheduler = make_digest_scheduler()
+    run_at = None
+    if now:
+        try:
+            run_at = datetime.fromisoformat(now)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="now must be an ISO datetime") from exc
+    results = await scheduler.run_due(run_at)
+    return {"results": [result.to_dict() for result in results]}
+
+
 def build_state_payload(
     engine,
     telemetry: dict,
@@ -324,6 +389,31 @@ def build_state_payload(
         ),
         "alerts": forecast.get("alerts", []),
     }
+
+
+def digest_preferences_response(client_id: str, preferences: DigestPreferences) -> dict:
+    return {
+        "client_id": client_id,
+        "preferences": preferences.to_dict(),
+        "options": {
+            "activities": ["All", "Kayak", "Fish"],
+            "density": ["compact", "standard", "full"],
+            "risk": list(RISK_TOLERANCE_PROFILES.keys()),
+        },
+    }
+
+
+async def build_digest_for_preferences(preferences: DigestPreferences) -> dict:
+    return await api_digest(**build_digest_params(preferences))
+
+
+def make_digest_scheduler() -> DigestScheduler:
+    return DigestScheduler(
+        digest_preference_store,
+        digest_email_sender,
+        build_digest_for_preferences,
+        public_base_url=os.getenv("TIDEWINDOW_PUBLIC_URL", ""),
+    )
 
 
 def build_daily_digest(timeline: list, zones_config: dict, risk_tolerance: str) -> dict:

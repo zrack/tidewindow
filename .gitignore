@@ -25,3 +25,6 @@ build/
 
 # Backup files
 *.bak
+
+# Local app data
+data/

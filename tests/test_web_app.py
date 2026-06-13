@@ -1,8 +1,11 @@
 import asyncio
+import tempfile
 import unittest
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import web_app
+from digest_delivery import DigestEmailSender, DigestPreferenceStore
 from marine_cache import MarineStateCache
 from marine_config import ALL_ZONES, FORECAST_HOURS, OPTIONAL_ZONES, WEB_REFRESH_INTERVAL_SECONDS, ZONES
 from marine_regions import BREMERTON_TIDE_STATION, DEFAULT_REGION_ID, REGIONS, zone_configs_for_region
@@ -115,11 +118,15 @@ class WebAppTests(unittest.TestCase):
     def setUp(self):
         self._original_cache = web_app.state_cache
         self._original_region_caches = dict(web_app.region_state_caches)
+        self._original_digest_store = web_app.digest_preference_store
+        self._original_digest_sender = web_app.digest_email_sender
 
     def tearDown(self):
         web_app.state_cache = self._original_cache
         web_app.region_state_caches.clear()
         web_app.region_state_caches.update(self._original_region_caches)
+        web_app.digest_preference_store = self._original_digest_store
+        web_app.digest_email_sender = self._original_digest_sender
 
     def _use_cache(self, factory, ttl=WEB_REFRESH_INTERVAL_SECONDS):
         cache = MarineStateCache(ttl, factory)
@@ -266,6 +273,71 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("SUMMARY:TideWindow Fish:", body)
         self.assertNotIn("SUMMARY:TideWindow Kayak:", body)
         self.assertIn("END:VCALENDAR", body)
+
+    def test_digest_preferences_can_be_saved_and_loaded(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            web_app.digest_preference_store = DigestPreferenceStore(Path(temp_dir) / "preferences.json")
+            request = web_app.DigestPreferenceRequest(
+                enabled=True,
+                email="test@example.com",
+                delivery_time="06:45",
+                region=DEFAULT_REGION_ID,
+                activity="Kayak",
+                risk="standard",
+                density="compact",
+            )
+
+            saved = asyncio.run(web_app.api_save_digest_preferences(request, client_id="phone"))
+            loaded = asyncio.run(web_app.api_digest_preferences(client_id="phone"))
+
+            self.assertEqual(saved["preferences"]["email"], "test@example.com")
+            self.assertTrue(loaded["preferences"]["enabled"])
+            self.assertEqual(loaded["preferences"]["activity"], "Kayak")
+            self.assertEqual(loaded["options"]["activities"], ["All", "Kayak", "Fish"])
+
+    def test_test_digest_delivery_queues_outbox_message(self):
+        self._use_cache(lambda: StubClient(live_telemetry(), tomorrow_forecast()))
+        with tempfile.TemporaryDirectory() as temp_dir:
+            web_app.digest_preference_store = DigestPreferenceStore(Path(temp_dir) / "preferences.json")
+            web_app.digest_email_sender = DigestEmailSender(Path(temp_dir) / "outbox.json", smtp_enabled=False)
+            request = web_app.DigestPreferenceRequest(
+                enabled=True,
+                email="test@example.com",
+                delivery_time="06:45",
+                region=DEFAULT_REGION_ID,
+                activity="Fish",
+                risk="standard",
+                density="compact",
+            )
+            asyncio.run(web_app.api_save_digest_preferences(request, client_id="phone"))
+
+            payload = asyncio.run(web_app.api_test_digest_delivery(client_id="phone"))
+
+            self.assertTrue(payload["results"][0]["delivered"])
+            self.assertEqual(payload["results"][0]["mode"], "outbox")
+            self.assertEqual(payload["results"][0]["client_id"], "phone")
+
+    def test_run_digest_deliveries_only_sends_due_preferences(self):
+        self._use_cache(lambda: StubClient(live_telemetry(), tomorrow_forecast()))
+        with tempfile.TemporaryDirectory() as temp_dir:
+            web_app.digest_preference_store = DigestPreferenceStore(Path(temp_dir) / "preferences.json")
+            web_app.digest_email_sender = DigestEmailSender(Path(temp_dir) / "outbox.json", smtp_enabled=False)
+            request = web_app.DigestPreferenceRequest(
+                enabled=True,
+                email="test@example.com",
+                delivery_time="06:00",
+                region=DEFAULT_REGION_ID,
+                activity="Kayak",
+                risk="standard",
+                density="full",
+            )
+            asyncio.run(web_app.api_save_digest_preferences(request, client_id="phone"))
+
+            payload = asyncio.run(web_app.api_run_digest_deliveries(now="2026-06-13T06:01:00"))
+            repeat = asyncio.run(web_app.api_run_digest_deliveries(now="2026-06-13T07:01:00"))
+
+            self.assertTrue(payload["results"][0]["delivered"])
+            self.assertEqual(repeat["results"][0]["reason"], "already delivered")
 
     def test_api_state_applies_risk_tolerance(self):
         telemetry = live_telemetry()

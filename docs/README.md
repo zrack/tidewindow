@@ -8,3 +8,5 @@ This folder is organized by purpose:
 - `ROADMAP.md` - forward-looking product plan.
 
 Shipped history belongs in [`../CHANGELOG.md`](../CHANGELOG.md), not the roadmap.
+
+Smoke scripts live in `../scripts/` and cover repeatable checks such as digest delivery and delivery API behavior.

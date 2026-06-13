@@ -2,7 +2,7 @@
 
 TideWindow is a marine-planning dashboard for kayaking and fly fishing around Puget Sound, South Hood Canal, and the Aberdeen area. It combines NOAA tide/current data, optional OpenWeather wind data, regional spot catalogs, and local scoring rules to show when conditions look usable, risky, or especially good.
 
-It runs as both a FastAPI web app and a terminal dashboard. The web app is the primary experience: map-first regional planning, Tomorrow's Best digest, daily heatmap, provider diagnostics, risk tolerance, and shareable digest export.
+It runs as both a FastAPI web app and a terminal dashboard. The web app is the primary experience: map-first regional planning, Tomorrow's Best digest, daily heatmap, provider diagnostics, risk tolerance, shareable digest export, and daily digest delivery.
 
 ## Screenshots
 
@@ -23,7 +23,7 @@ It runs as both a FastAPI web app and a terminal dashboard. The web app is the p
 - Select a region or nearby place, then show the relevant fishing and kayak spots on a Leaflet/OpenStreetMap map.
 - Score each spot for kayaking and fly fishing using tide, current, wind, wind exposure, and risk tolerance.
 - Show a compact Daily Heatmap for the next 72 hours instead of a wall of hourly cards.
-- Highlight Tomorrow's Best kayak and fish windows with share, copy, and `.ics` calendar export.
+- Highlight Tomorrow's Best kayak and fish windows with share, copy, `.ics` calendar export, and optional daily email delivery.
 - Label data honestly as live, predicted, derived, fallback, seed, stale, or missing.
 - Explain provider fit by region, including NOAA tide/current station, bin/depth, active source, fallback path, and caveats.
 - Install as a PWA and keep the last app shell/state available offline.
@@ -69,15 +69,29 @@ Optional `.env`:
 OPENWEATHER_API_KEY=your_api_key_here
 TIDEWINDOW_WEB_APP_NAME=TideWindow
 TIDEWINDOW_WEB_REFRESH_SECONDS=300
+TIDEWINDOW_PUBLIC_URL=https://your-app.example
+TIDEWINDOW_DIGEST_STORE=data/digest_preferences.json
+TIDEWINDOW_DIGEST_OUTBOX=data/digest_outbox.json
 ```
 
 Edit `marine_config.py` for core NOAA station defaults, refresh interval, forecast length, seeded fallback values, and local scoring thresholds. Edit `marine_regions.py` for regional catalogs, provider contexts, station candidates, aliases, and spot metadata.
+
+Daily digest delivery writes to a local JSON outbox by default so it is testable without email credentials. To send through SMTP, configure:
+
+```bash
+TIDEWINDOW_SMTP_HOST=smtp.example.com
+TIDEWINDOW_SMTP_PORT=587
+TIDEWINDOW_SMTP_USER=your_user
+TIDEWINDOW_SMTP_PASSWORD=your_password
+TIDEWINDOW_SMTP_FROM=digest@example.com
+TIDEWINDOW_SMTP_TLS=1
+```
 
 ## Web App Notes
 
 The web dashboard starts with all spots for the selected region and offers Compact, Standard, and Full density controls when the map feels crowded. Place search accepts supported regions, city-style aliases, common launches, and marine-area names; nearby places such as Belfair, Union, Chico, and Gorst route to the closest supported region with a visible note.
 
-Tomorrow's Best summarizes the strongest kayak and fish windows for the next day. The digest can be opened as a shareable `/digest` page, copied as text, shared through the browser, or exported as an `.ics` calendar file. Region, activity filter, risk tolerance, and spot density carry through those links.
+Tomorrow's Best summarizes the strongest kayak and fish windows for the next day. The digest can be opened as a shareable `/digest` page, copied as text, shared through the browser, exported as an `.ics` calendar file, or saved as a daily email preference. Region, activity filter, risk tolerance, and spot density carry through those links and saved preferences.
 
 ## Terminal Notes
 
@@ -114,6 +128,13 @@ The terminal dashboard focuses on the original Gig Harbor/Narrows planning set. 
 - [PWA/offline QA notes](docs/planning/PWA_OFFLINE_QA.md)
 - [NOAA station candidates](docs/reference/NOAA_STATION_CANDIDATES_SOUTH_PUGET_SOUND_HOOD_CANAL.md)
 
+Useful smoke scripts:
+
+```bash
+.venv/bin/python scripts/smoke_digest_delivery.py
+.venv/bin/python scripts/smoke_digest_api.py http://127.0.0.1:8000
+```
+
 ## Deployment
 
 TideWindow can run on any Python host that supports ASGI apps, such as Render, Fly.io, Railway, or a small VPS.
@@ -137,6 +158,12 @@ curl http://127.0.0.1:8000/health
 ```
 
 The `/health` endpoint reports app version, zone/region counts, forecast length, refresh interval, provider metadata, and whether OpenWeather is configured. It does not call external providers.
+
+To run due digest deliveries from a platform scheduler or cron:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/digest-deliveries/run
+```
 
 ## Test
 

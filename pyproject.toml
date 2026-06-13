@@ -22,6 +22,7 @@ tidewindow = "main:main"
 [tool.setuptools]
 py-modules = [
     "main",
+    "digest_delivery",
     "marine_config",
     "marine_cache",
     "marine_engine",

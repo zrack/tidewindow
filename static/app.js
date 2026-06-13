@@ -3,6 +3,7 @@ const storageKeys = {
   region: "tidewindow.region",
   spotDensity: "tidewindow.spotDensity.v1",
   riskTolerance: "tidewindow.riskTolerance",
+  digestClientId: "tidewindow.digestClientId",
 };
 
 const densityPresets = {
@@ -21,6 +22,7 @@ const state = {
   spotDensity: localStorage.getItem(storageKeys.spotDensity) || "full",
   filter: localStorage.getItem(storageKeys.filter) || "All",
   riskTolerance: localStorage.getItem(storageKeys.riskTolerance) || "standard",
+  digestPreferences: null,
   autoRefreshMs: 5 * 60 * 1000,
   nextRefreshAt: null,
   refreshTimer: null,
@@ -203,6 +205,7 @@ async function loadState() {
     if (!response.ok) throw new Error(`API returned ${response.status}`);
     state.data = await response.json();
     state.autoRefreshMs = Math.max(30, Number(state.data.config?.refresh_seconds || 300)) * 1000;
+    await loadDigestPreferences();
     renderDashboard();
     scheduleAutoRefresh();
   } catch (error) {
@@ -554,6 +557,25 @@ function digestShareUrl() {
 
 function digestCalendarUrl() {
   return `/api/digest.ics?${digestParams().toString()}`;
+}
+
+function digestClientId() {
+  let clientId = localStorage.getItem(storageKeys.digestClientId);
+  if (clientId) return clientId;
+  const random = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  clientId = `browser-${random}`;
+  localStorage.setItem(storageKeys.digestClientId, clientId);
+  return clientId;
+}
+
+async function loadDigestPreferences() {
+  try {
+    const response = await fetch(`/api/digest-preferences?client_id=${encodeURIComponent(digestClientId())}`);
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
+    state.digestPreferences = await response.json();
+  } catch {
+    state.digestPreferences = null;
+  }
 }
 
 function renderMap() {
@@ -922,6 +944,7 @@ function renderDigest() {
       <a class="digest-action" href="${escapeHtml(digestCalendarUrl())}">Calendar</a>
       <span id="digest-copy-status" class="digest-copy-status" aria-live="polite"></span>
     </div>
+    ${digestDeliveryPanel()}
     ${items.map((item) => `
     <article class="digest-card status-border-${escapeHtml(item.color || "yellow")}">
       <header>
@@ -943,6 +966,7 @@ function renderDigest() {
   `).join("")}
   `;
   wireDigestActions(items);
+  wireDigestDeliveryPanel();
 }
 
 function wireDigestActions(items) {
@@ -1003,6 +1027,98 @@ function digestText(items) {
     );
   });
   return lines.join("\n");
+}
+
+function digestDeliveryPanel() {
+  const preferences = state.digestPreferences?.preferences || {};
+  const enabled = Boolean(preferences.enabled);
+  const email = preferences.email || "";
+  const deliveryTime = preferences.delivery_time || "06:00";
+  return `
+    <form id="digest-delivery-form" class="digest-delivery-form" aria-label="Daily digest delivery" novalidate>
+      <div class="digest-delivery-head">
+        <label class="digest-delivery-toggle">
+          <input id="digest-delivery-enabled" type="checkbox" ${enabled ? "checked" : ""}>
+          <span>Daily email</span>
+        </label>
+        <span id="digest-delivery-status" class="digest-delivery-status" aria-live="polite"></span>
+      </div>
+      <div class="digest-delivery-fields">
+        <label>
+          <span>Email</span>
+          <input id="digest-delivery-email" class="location-select" type="email" value="${escapeHtml(email)}" autocomplete="email" placeholder="you@example.com">
+        </label>
+        <label>
+          <span>Time</span>
+          <input id="digest-delivery-time" class="location-select" type="time" value="${escapeHtml(deliveryTime)}">
+        </label>
+        <button class="digest-action" type="submit">Save</button>
+        <button id="digest-delivery-test" class="digest-action" type="button">Send test</button>
+      </div>
+    </form>
+  `;
+}
+
+function wireDigestDeliveryPanel() {
+  const form = document.querySelector("#digest-delivery-form");
+  const testButton = document.querySelector("#digest-delivery-test");
+  const status = document.querySelector("#digest-delivery-status");
+  if (!form) return;
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await saveDigestPreferences(status);
+  });
+  testButton?.addEventListener("click", async () => {
+    if (!(await saveDigestPreferences(status))) return;
+    try {
+      const response = await fetch(`/api/digest-deliveries/test?client_id=${encodeURIComponent(digestClientId())}`, {
+        method: "POST",
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || `API returned ${response.status}`);
+      status.textContent = payload.results?.[0]?.mode === "outbox" ? "Queued" : "Sent";
+    } catch (error) {
+      status.textContent = error.message;
+    }
+  });
+}
+
+async function saveDigestPreferences(status) {
+  const enabled = document.querySelector("#digest-delivery-enabled")?.checked || false;
+  const email = document.querySelector("#digest-delivery-email")?.value || "";
+  const deliveryTime = document.querySelector("#digest-delivery-time")?.value || "06:00";
+  const body = {
+    enabled,
+    email,
+    delivery_time: deliveryTime,
+    region: state.regionId,
+    activity: state.filter,
+    risk: state.riskTolerance,
+    density: normalizeSpotDensity(state.spotDensity),
+  };
+  if ((enabled || email.trim()) && !validEmail(email)) {
+    if (status) status.textContent = "A valid email address is required";
+    return false;
+  }
+  try {
+    const response = await fetch(`/api/digest-preferences?client_id=${encodeURIComponent(digestClientId())}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || `API returned ${response.status}`);
+    state.digestPreferences = payload;
+    if (status) status.textContent = "Saved";
+    return true;
+  } catch (error) {
+    if (status) status.textContent = error.message;
+    return false;
+  }
+}
+
+function validEmail(email) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email || "").trim());
 }
 
 function renderWindows() {

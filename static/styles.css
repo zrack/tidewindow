@@ -1119,6 +1119,66 @@ h2 {
   text-transform: uppercase;
 }
 
+.digest-delivery-form {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.digest-delivery-head,
+.digest-delivery-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.digest-delivery-head {
+  justify-content: space-between;
+}
+
+.digest-delivery-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.digest-delivery-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--cyan);
+}
+
+.digest-delivery-fields label {
+  display: grid;
+  gap: 5px;
+  min-width: min(220px, 100%);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.digest-delivery-fields .digest-action {
+  align-self: end;
+}
+
+.digest-delivery-status {
+  min-height: 18px;
+  color: var(--green);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
 .windows-grid,
 .zones-grid {
   display: grid;
@@ -1432,6 +1492,8 @@ h2 {
 .tool-button:focus-visible,
 .filter-button:focus-visible,
 .location-select:focus-visible,
+.digest-action:focus-visible,
+.digest-delivery-toggle input:focus-visible,
 .dialog-close:focus-visible {
   outline: none;
   box-shadow: var(--ring);
@@ -1652,6 +1714,16 @@ h2 {
 
   .digest-metrics {
     grid-template-columns: 1fr;
+  }
+
+  .digest-delivery-fields {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .digest-delivery-fields label,
+  .digest-delivery-fields .digest-action {
+    width: 100%;
   }
 
   .digest-time {
