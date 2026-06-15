@@ -1183,6 +1183,26 @@ h2 {
   gap: 28px;
 }
 
+.admin-auth-panel {
+  border: 1px solid rgba(246, 207, 87, 0.36);
+  border-radius: var(--r-md);
+  padding: 14px;
+  background: rgba(246, 207, 87, 0.055);
+}
+
+.admin-auth-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+
+.admin-auth-form label {
+  display: grid;
+  gap: 6px;
+  min-width: min(320px, 100%);
+}
+
 .admin-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);

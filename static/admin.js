@@ -1,4 +1,8 @@
 const adminElements = {
+  authPanel: document.querySelector("#admin-auth-panel"),
+  authForm: document.querySelector("#admin-auth-form"),
+  authToken: document.querySelector("#admin-token"),
+  authStatus: document.querySelector("#admin-auth-status"),
   audit: document.querySelector("#admin-audit"),
   auditCount: document.querySelector("#admin-audit-count"),
   preferences: document.querySelector("#admin-preferences"),
@@ -9,12 +13,18 @@ const adminElements = {
   health: document.querySelector("#admin-health"),
   healthStatus: document.querySelector("#admin-health-status"),
 };
+const adminTokenKey = "tidewindow.adminToken";
 
 async function loadDigestAdmin() {
   try {
-    const response = await fetch("/api/digest-admin?limit=50");
+    const response = await adminFetch("/api/digest-admin?limit=50");
     const payload = await response.json();
+    if (response.status === 401) {
+      showAuthPanel(payload.detail || "Admin token is required.");
+      return;
+    }
     if (!response.ok) throw new Error(payload.detail || `API returned ${response.status}`);
+    hideAuthPanel();
     renderHealth(payload.health || {});
     renderReadiness(payload.readiness || {});
     renderAudit(payload.audit || []);
@@ -26,6 +36,45 @@ async function loadDigestAdmin() {
     adminElements.audit.innerHTML = `<div class="empty">${message}</div>`;
     adminElements.preferences.innerHTML = `<div class="empty">${message}</div>`;
   }
+}
+
+function wireAdminAuth() {
+  const query = new URLSearchParams(window.location.search);
+  const token = query.get("admin_token");
+  if (token) {
+    sessionStorage.setItem(adminTokenKey, token);
+    query.delete("admin_token");
+    const clean = `${window.location.pathname}${query.toString() ? `?${query.toString()}` : ""}`;
+    window.history.replaceState({}, "", clean);
+  }
+  adminElements.authForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const value = adminElements.authToken.value.trim();
+    if (!value) {
+      adminElements.authStatus.textContent = "Token required";
+      return;
+    }
+    sessionStorage.setItem(adminTokenKey, value);
+    adminElements.authStatus.textContent = "Checking...";
+    await loadDigestAdmin();
+  });
+}
+
+function showAuthPanel(message) {
+  adminElements.authPanel.hidden = false;
+  adminElements.authStatus.textContent = message;
+}
+
+function hideAuthPanel() {
+  adminElements.authPanel.hidden = true;
+  adminElements.authStatus.textContent = "";
+}
+
+function adminFetch(path, options = {}) {
+  const headers = new Headers(options.headers || {});
+  const token = sessionStorage.getItem(adminTokenKey);
+  if (token) headers.set("X-TideWindow-Admin-Token", token);
+  return fetch(path, { ...options, headers });
 }
 
 function renderHealth(health) {
@@ -174,12 +223,16 @@ function wirePreferenceActions() {
 async function updatePreference(clientId, enabled) {
   adminElements.actionStatus.textContent = enabled ? "Enabling..." : "Disabling...";
   try {
-    const response = await fetch(`/api/digest-admin/preferences/${encodeURIComponent(clientId)}`, {
+    const response = await adminFetch(`/api/digest-admin/preferences/${encodeURIComponent(clientId)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled }),
     });
     const payload = await response.json();
+    if (response.status === 401) {
+      showAuthPanel(payload.detail || "Admin token is required.");
+      throw new Error("Admin token is required");
+    }
     if (!response.ok) throw new Error(payload.detail || `API returned ${response.status}`);
     adminElements.actionStatus.textContent = enabled ? "Enabled" : "Disabled";
     await loadDigestAdmin();
@@ -191,10 +244,14 @@ async function updatePreference(clientId, enabled) {
 async function sendPreferenceTest(clientId) {
   adminElements.actionStatus.textContent = "Sending test...";
   try {
-    const response = await fetch(`/api/digest-deliveries/test?client_id=${encodeURIComponent(clientId)}`, {
+    const response = await adminFetch(`/api/digest-admin/preferences/${encodeURIComponent(clientId)}/test`, {
       method: "POST",
     });
     const payload = await response.json();
+    if (response.status === 401) {
+      showAuthPanel(payload.detail || "Admin token is required.");
+      throw new Error("Admin token is required");
+    }
     if (!response.ok) throw new Error(payload.detail || `API returned ${response.status}`);
     adminElements.actionStatus.textContent = payload.results?.[0]?.mode === "outbox" ? "Test queued" : "Test sent";
     await loadDigestAdmin();
@@ -225,4 +282,5 @@ function escapeHtml(value) {
   }[character]));
 }
 
+wireAdminAuth();
 loadDigestAdmin();

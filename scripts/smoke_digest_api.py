@@ -1,6 +1,7 @@
 """Smoke-test digest delivery API routes against a running local server."""
 
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -43,7 +44,13 @@ def main() -> None:
     saved = request(f"/api/digest-preferences?{query}", "POST", preferences)
     loaded = request(f"/api/digest-preferences?{query}")
     test_delivery = request(f"/api/digest-deliveries/test?{query}", "POST")
-    run_due = request("/api/digest-deliveries/run?now=2026-06-13T06%3A01%3A00&run_id=smoke-run", "POST")
+    run_query = {
+        "now": "2026-06-13T06:01:00",
+        "run_id": "smoke-run",
+    }
+    if os.getenv("TIDEWINDOW_SCHEDULER_TOKEN"):
+        run_query["scheduler_token"] = os.environ["TIDEWINDOW_SCHEDULER_TOKEN"]
+    run_due = request(f"/api/digest-deliveries/run?{urllib.parse.urlencode(run_query)}", "POST")
     audit = request("/api/digest-deliveries/audit?limit=10")
     unsubscribe_query = urllib.parse.urlencode({
         "client_id": client_id,

@@ -72,6 +72,8 @@ TIDEWINDOW_WEB_APP_NAME=TideWindow
 TIDEWINDOW_WEB_REFRESH_SECONDS=300
 TIDEWINDOW_PUBLIC_URL=https://your-app.example
 TIDEWINDOW_DIGEST_SIGNING_SECRET=replace_with_a_long_random_secret
+TIDEWINDOW_ADMIN_TOKEN=replace_with_a_long_random_admin_token
+TIDEWINDOW_SCHEDULER_TOKEN=replace_with_a_long_random_scheduler_token
 TIDEWINDOW_DIGEST_STORE=data/digest_preferences.json
 TIDEWINDOW_DIGEST_OUTBOX=data/digest_outbox.json
 ```
@@ -95,7 +97,7 @@ The web dashboard starts with all spots for the selected region and offers Compa
 
 Tomorrow's Best summarizes the strongest kayak and fish windows for the next day. The digest can be opened as a shareable `/digest` page, copied as text, shared through the browser, exported as an `.ics` calendar file, or saved as a daily email preference. Region, activity filter, risk tolerance, and spot density carry through those links and saved preferences. Daily emails include a signed unsubscribe link, and delivery/test/unsubscribe events are recorded in a local audit log.
 
-Digest operations live at `/admin`. The admin view shows delivery health, scheduler readiness, saved preferences, recent audit rows, enable/disable controls, and send-test actions for saved preferences.
+Digest operations live at `/admin`. The admin view shows delivery health, scheduler readiness, saved preferences, recent audit rows, enable/disable controls, and send-test actions for saved preferences. Set `TIDEWINDOW_ADMIN_TOKEN` before exposing the app publicly; the admin page will prompt for that token before loading operational data or running admin actions.
 
 ## Terminal Notes
 
@@ -167,10 +169,10 @@ The `/health` endpoint reports app version, zone/region counts, forecast length,
 To run due digest deliveries from a platform scheduler or cron:
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/digest-deliveries/run?run_id=$(date +%Y%m%d%H%M%S)"
+curl -X POST "http://127.0.0.1:8000/api/digest-deliveries/run?run_id=$(date +%Y%m%d%H%M%S)&scheduler_token=$TIDEWINDOW_SCHEDULER_TOKEN"
 ```
 
-The delivery runner uses a short-lived scheduler lock to avoid duplicate sends when overlapping workers fire. Delivery audit records are available at `/api/digest-deliveries/audit?limit=50`.
+The delivery runner uses a short-lived scheduler lock to avoid duplicate sends when overlapping workers fire. Set `TIDEWINDOW_SCHEDULER_TOKEN` before enabling hosted cron. Delivery audit records are available at `/api/digest-deliveries/audit?limit=50`.
 
 Use `/admin` after enabling a scheduler to confirm readiness checks, subscription counts, last run id, delivery outcomes, and errors.
 

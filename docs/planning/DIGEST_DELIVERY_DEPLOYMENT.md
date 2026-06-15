@@ -7,11 +7,13 @@ This checklist covers the hosted daily digest path: saved preferences, email del
 ```bash
 TIDEWINDOW_PUBLIC_URL=https://your-app.example
 TIDEWINDOW_DIGEST_SIGNING_SECRET=replace_with_a_long_random_secret
+TIDEWINDOW_ADMIN_TOKEN=replace_with_a_long_random_admin_token
+TIDEWINDOW_SCHEDULER_TOKEN=replace_with_a_long_random_scheduler_token
 TIDEWINDOW_DIGEST_STORE=data/digest_preferences.json
 TIDEWINDOW_DIGEST_OUTBOX=data/digest_outbox.json
 ```
 
-`TIDEWINDOW_PUBLIC_URL` is used for the digest and unsubscribe links in email. Keep `TIDEWINDOW_DIGEST_SIGNING_SECRET` stable across deploys; changing it invalidates previously sent unsubscribe links.
+`TIDEWINDOW_PUBLIC_URL` is used for the digest and unsubscribe links in email. Keep `TIDEWINDOW_DIGEST_SIGNING_SECRET` stable across deploys; changing it invalidates previously sent unsubscribe links. Set separate admin and scheduler tokens before exposing `/admin` or hosted cron.
 
 ## Email Provider Setup
 
@@ -38,7 +40,7 @@ Recommended provider checks:
 Run due deliveries from one hosted scheduler, cron job, or platform worker:
 
 ```bash
-curl -X POST "https://your-app.example/api/digest-deliveries/run?run_id=$(date +%Y%m%d%H%M%S)"
+curl -X POST "https://your-app.example/api/digest-deliveries/run?run_id=$(date +%Y%m%d%H%M%S)&scheduler_token=$TIDEWINDOW_SCHEDULER_TOKEN"
 ```
 
 Safety notes:
@@ -46,8 +48,19 @@ Safety notes:
 - The runner skips preferences already delivered for the local calendar date.
 - A short-lived `digest-delivery` lock prevents overlapping deployed workers from sending duplicates.
 - `run_id` is optional but recommended because it makes audit review easier.
+- `scheduler_token` is required when `TIDEWINDOW_SCHEDULER_TOKEN` is configured.
 - Schedule the job at least once after the earliest supported delivery time. A 5-minute or 15-minute cadence is fine because already-delivered preferences are skipped.
 - Use `/admin` to review scheduler readiness, the last run id, delivered/skipped/error counts, and recent audit rows after the scheduler starts.
+
+## Admin Access
+
+When `TIDEWINDOW_ADMIN_TOKEN` is set, `/admin` loads an unlock prompt before operational data is fetched. Enter the token in the page or open `/admin?admin_token=...` once; the browser stores it in session storage for that tab session.
+
+Protected admin actions include:
+
+- Loading `/api/digest-admin`
+- Enabling or disabling saved preferences
+- Sending test digests from the admin table
 
 ## Unsubscribe Flow
 

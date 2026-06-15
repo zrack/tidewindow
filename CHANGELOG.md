@@ -4,6 +4,7 @@ Notable project changes are listed here in reverse chronological order. This pro
 
 ## Current
 
+- Added token guards for digest admin operations and hosted scheduler runs, plus an admin unlock flow for production use.
 - Added a digest operations admin view with delivery health, scheduler readiness, saved preference controls, send-test actions, and audit review.
 - Hardened daily digest delivery with signed unsubscribe links, delivery/test/unsubscribe audit records, scheduler run ids, duplicate-run locking, and deployment documentation.
 - Added daily digest delivery MVP with saved preferences, local outbox email fallback, optional SMTP sender, due-delivery endpoint, opt-in UI, and delivery smoke scripts.

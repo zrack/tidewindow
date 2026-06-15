@@ -122,6 +122,12 @@ class WebAppTests(unittest.TestCase):
         self._original_region_caches = dict(web_app.region_state_caches)
         self._original_digest_store = web_app.digest_preference_store
         self._original_digest_sender = web_app.digest_email_sender
+        self._original_auth_env = {
+            "TIDEWINDOW_ADMIN_TOKEN": os.environ.get("TIDEWINDOW_ADMIN_TOKEN"),
+            "TIDEWINDOW_SCHEDULER_TOKEN": os.environ.get("TIDEWINDOW_SCHEDULER_TOKEN"),
+        }
+        os.environ.pop("TIDEWINDOW_ADMIN_TOKEN", None)
+        os.environ.pop("TIDEWINDOW_SCHEDULER_TOKEN", None)
 
     def tearDown(self):
         web_app.state_cache = self._original_cache
@@ -129,6 +135,11 @@ class WebAppTests(unittest.TestCase):
         web_app.region_state_caches.update(self._original_region_caches)
         web_app.digest_preference_store = self._original_digest_store
         web_app.digest_email_sender = self._original_digest_sender
+        for key, value in self._original_auth_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
     def _use_cache(self, factory, ttl=WEB_REFRESH_INTERVAL_SECONDS):
         cache = MarineStateCache(ttl, factory)
@@ -386,16 +397,28 @@ class WebAppTests(unittest.TestCase):
                 **os.environ,
                 "TIDEWINDOW_PUBLIC_URL": "https://tidewindow.example",
                 "TIDEWINDOW_DIGEST_SIGNING_SECRET": "test-secret",
+                "TIDEWINDOW_ADMIN_TOKEN": "admin-secret",
+                "TIDEWINDOW_SCHEDULER_TOKEN": "scheduler-secret",
                 "TIDEWINDOW_SMTP_HOST": "smtp.example.com",
                 "TIDEWINDOW_SMTP_FROM": "digest@example.com",
             }
             with patch.dict(os.environ, env, clear=True):
-                payload = asyncio.run(web_app.api_digest_admin())
+                payload = asyncio.run(web_app.api_digest_admin(admin_token="admin-secret"))
 
             readiness = payload["readiness"]
             self.assertTrue(readiness["ready"])
             self.assertEqual(readiness["delivery_mode"], "smtp")
             self.assertIn("https://tidewindow.example/api/digest-deliveries/run", readiness["scheduler_command"])
+
+    def test_digest_admin_requires_configured_token(self):
+        with patch.dict(os.environ, {"TIDEWINDOW_ADMIN_TOKEN": "admin-secret"}):
+            with self.assertRaises(web_app.HTTPException) as missing:
+                asyncio.run(web_app.api_digest_admin())
+
+            payload = asyncio.run(web_app.api_digest_admin(admin_token="admin-secret"))
+
+        self.assertEqual(missing.exception.status_code, 401)
+        self.assertIn("preferences", payload)
 
     def test_digest_admin_can_disable_saved_preference(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -422,6 +445,32 @@ class WebAppTests(unittest.TestCase):
             self.assertFalse(loaded["preferences"]["enabled"])
             self.assertEqual(audit["audit"][0]["event"], "preference_update")
             self.assertEqual(audit["audit"][0]["reason"], "disabled")
+
+    def test_digest_admin_test_delivery_requires_token(self):
+        self._use_cache(lambda: StubClient(live_telemetry(), tomorrow_forecast()))
+        with tempfile.TemporaryDirectory() as temp_dir:
+            web_app.digest_preference_store = DigestPreferenceStore(Path(temp_dir) / "preferences.json")
+            web_app.digest_email_sender = DigestEmailSender(Path(temp_dir) / "outbox.json", smtp_enabled=False)
+            request = web_app.DigestPreferenceRequest(
+                enabled=True,
+                email="admin@example.com",
+                delivery_time="06:45",
+                region=DEFAULT_REGION_ID,
+                activity="Fish",
+                risk="standard",
+                density="compact",
+            )
+            asyncio.run(web_app.api_save_digest_preferences(request, client_id="admin-phone"))
+            with patch.dict(os.environ, {"TIDEWINDOW_ADMIN_TOKEN": "admin-secret"}):
+                with self.assertRaises(web_app.HTTPException) as missing:
+                    asyncio.run(web_app.api_test_digest_admin_preference("admin-phone"))
+                payload = asyncio.run(web_app.api_test_digest_admin_preference(
+                    "admin-phone",
+                    admin_token="admin-secret",
+                ))
+
+            self.assertEqual(missing.exception.status_code, 401)
+            self.assertTrue(payload["results"][0]["delivered"])
 
     def test_digest_admin_reports_delivery_health(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -479,6 +528,20 @@ class WebAppTests(unittest.TestCase):
             self.assertEqual(repeat["results"][0]["reason"], "already delivered")
             audit = asyncio.run(web_app.api_digest_delivery_audit(limit=5))
             self.assertEqual(audit["audit"][0]["run_id"], "web-run")
+
+    def test_run_digest_deliveries_requires_scheduler_token_when_configured(self):
+        with patch.dict(os.environ, {"TIDEWINDOW_SCHEDULER_TOKEN": "scheduler-secret"}):
+            with self.assertRaises(web_app.HTTPException) as missing:
+                asyncio.run(web_app.api_run_digest_deliveries(now="2026-06-13T06:01:00"))
+
+            payload = asyncio.run(web_app.api_run_digest_deliveries(
+                now="2026-06-13T06:01:00",
+                run_id="scheduler-run",
+                scheduler_token="scheduler-secret",
+            ))
+
+        self.assertEqual(missing.exception.status_code, 401)
+        self.assertEqual(payload["run_id"], "scheduler-run")
 
     def test_api_state_applies_risk_tolerance(self):
         telemetry = live_telemetry()

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>TideWindow Admin</title>
-    <link rel="stylesheet" href="/static/styles.css?v=digest-admin-20260613b">
+    <link rel="stylesheet" href="/static/styles.css?v=admin-auth-20260615b">
   </head>
   <body>
     <main class="app-shell admin-shell">
@@ -15,6 +15,17 @@
         </div>
         <a class="digest-action" href="/">Dashboard</a>
       </header>
+
+      <section id="admin-auth-panel" class="admin-auth-panel" hidden>
+        <form id="admin-auth-form" class="admin-auth-form" aria-label="Admin unlock" novalidate>
+          <label>
+            <span class="label">Admin token</span>
+            <input id="admin-token" class="location-select" type="password" autocomplete="current-password">
+          </label>
+          <button class="digest-action" type="submit">Unlock</button>
+          <span id="admin-auth-status" class="digest-delivery-status" aria-live="polite"></span>
+        </form>
+      </section>
 
       <section>
         <div class="section-heading">
@@ -50,6 +61,6 @@
       </section>
     </main>
 
-    <script src="/static/admin.js?v=digest-admin-20260613b" defer></script>
+    <script src="/static/admin.js?v=admin-auth-20260615b" defer></script>
   </body>
 </html>

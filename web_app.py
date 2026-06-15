@@ -1,8 +1,10 @@
+import hmac
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -51,7 +53,7 @@ from sun_times import sun_events
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-APP_VERSION = "0.4.9"
+APP_VERSION = "0.5.0"
 
 app = FastAPI(title=WEB_APP_NAME, version=APP_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -282,7 +284,13 @@ async def api_test_digest_delivery(client_id: str = DEFAULT_CLIENT_ID):
 
 
 @app.post("/api/digest-deliveries/run")
-async def api_run_digest_deliveries(now: str | None = None, run_id: str | None = None):
+async def api_run_digest_deliveries(
+    now: str | None = None,
+    run_id: str | None = None,
+    scheduler_token: str | None = None,
+    x_tidewindow_scheduler_token: Annotated[str | None, Header(alias="X-TideWindow-Scheduler-Token")] = None,
+):
+    require_scheduler_token(scheduler_token or x_tidewindow_scheduler_token)
     scheduler = make_digest_scheduler()
     run_at = None
     if now:
@@ -303,7 +311,12 @@ async def api_digest_delivery_audit(limit: int = 50):
 
 
 @app.get("/api/digest-admin")
-async def api_digest_admin(limit: int = 50):
+async def api_digest_admin(
+    limit: int = 50,
+    admin_token: str | None = None,
+    x_tidewindow_admin_token: Annotated[str | None, Header(alias="X-TideWindow-Admin-Token")] = None,
+):
+    require_admin_token(admin_token or x_tidewindow_admin_token)
     preferences = digest_admin_preferences()
     audit = digest_preference_store.audit(limit)
     return {
@@ -315,7 +328,13 @@ async def api_digest_admin(limit: int = 50):
 
 
 @app.post("/api/digest-admin/preferences/{client_id}")
-async def api_update_digest_admin_preference(client_id: str, request: DigestAdminPreferenceRequest):
+async def api_update_digest_admin_preference(
+    client_id: str,
+    request: DigestAdminPreferenceRequest,
+    admin_token: str | None = None,
+    x_tidewindow_admin_token: Annotated[str | None, Header(alias="X-TideWindow-Admin-Token")] = None,
+):
+    require_admin_token(admin_token or x_tidewindow_admin_token)
     preferences = digest_preference_store.get(client_id)
     if not preferences.email:
         raise HTTPException(status_code=404, detail="No saved digest preference was found.")
@@ -334,6 +353,16 @@ async def api_update_digest_admin_preference(client_id: str, request: DigestAdmi
         "run_id": None,
     })
     return {"preferences": digest_admin_preferences()}
+
+
+@app.post("/api/digest-admin/preferences/{client_id}/test")
+async def api_test_digest_admin_preference(
+    client_id: str,
+    admin_token: str | None = None,
+    x_tidewindow_admin_token: Annotated[str | None, Header(alias="X-TideWindow-Admin-Token")] = None,
+):
+    require_admin_token(admin_token or x_tidewindow_admin_token)
+    return await api_test_digest_delivery(client_id)
 
 
 def build_state_payload(
@@ -496,8 +525,11 @@ def digest_admin_preferences() -> list[dict]:
 def digest_admin_readiness() -> dict:
     public_url = os.getenv("TIDEWINDOW_PUBLIC_URL", "").strip()
     signing_secret_set = bool(os.getenv("TIDEWINDOW_DIGEST_SIGNING_SECRET", "").strip())
+    admin_token_set = bool(configured_admin_token())
+    scheduler_token_set = bool(configured_scheduler_token())
     smtp_ready = smtp_configured()
     base_url = public_url or "http://127.0.0.1:8000"
+    scheduler_token_suffix = "&scheduler_token=$TIDEWINDOW_SCHEDULER_TOKEN"
     checks = [
         {
             "id": "public_url",
@@ -510,6 +542,18 @@ def digest_admin_readiness() -> dict:
             "label": "Signing secret",
             "ok": signing_secret_set,
             "detail": "Configured" if signing_secret_set else "Set TIDEWINDOW_DIGEST_SIGNING_SECRET so unsubscribe links stay stable.",
+        },
+        {
+            "id": "admin_token",
+            "label": "Admin token",
+            "ok": admin_token_set,
+            "detail": "Configured" if admin_token_set else "Set TIDEWINDOW_ADMIN_TOKEN before exposing /admin.",
+        },
+        {
+            "id": "scheduler_token",
+            "label": "Scheduler token",
+            "ok": scheduler_token_set,
+            "detail": "Configured" if scheduler_token_set else "Set TIDEWINDOW_SCHEDULER_TOKEN before enabling hosted cron.",
         },
         {
             "id": "email_provider",
@@ -533,9 +577,32 @@ def digest_admin_readiness() -> dict:
     return {
         "ready": all(check["ok"] for check in checks),
         "delivery_mode": "smtp" if smtp_ready else "local_outbox",
-        "scheduler_command": f'curl -X POST "{base_url.rstrip("/")}/api/digest-deliveries/run?run_id=$(date +%Y%m%d%H%M%S)"',
+        "scheduler_command": f'curl -X POST "{base_url.rstrip("/")}/api/digest-deliveries/run?run_id=$(date +%Y%m%d%H%M%S){scheduler_token_suffix}"',
         "checks": checks,
     }
+
+
+def configured_admin_token() -> str:
+    return os.getenv("TIDEWINDOW_ADMIN_TOKEN", "").strip()
+
+
+def configured_scheduler_token() -> str:
+    return os.getenv("TIDEWINDOW_SCHEDULER_TOKEN", "").strip()
+
+
+def require_admin_token(token: str | None) -> None:
+    require_configured_token(configured_admin_token(), token, "Admin token is required.")
+
+
+def require_scheduler_token(token: str | None) -> None:
+    require_configured_token(configured_scheduler_token(), token, "Scheduler token is required.")
+
+
+def require_configured_token(expected: str, provided: str | None, message: str) -> None:
+    if not expected:
+        return
+    if not provided or not hmac.compare_digest(expected, provided):
+        raise HTTPException(status_code=401, detail=message)
 
 
 def path_writable(path: Path) -> bool:

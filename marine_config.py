@@ -1,11 +1,12 @@
 """Editable station, weather, and zone configuration for TideWindow."""
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().with_name(".env"))
 
 NOAA_TIDE_STATION = "9446484"     # Tacoma Narrows Bridge
 NOAA_CURRENT_STATION = "PUG1527"  # The Narrows, 0.3 mi N of bridge (current predictions)
