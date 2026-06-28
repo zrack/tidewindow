@@ -52,6 +52,19 @@ Safety notes:
 - Schedule the job at least once after the earliest supported delivery time. A 5-minute or 15-minute cadence is fine because already-delivered preferences are skipped.
 - Use `/admin` to review scheduler readiness, the last run id, delivered/skipped/error counts, and recent audit rows after the scheduler starts.
 
+## Launch Simulation
+
+_Last checked: 2026-06-27._
+
+A local production-style launch simulation passed against `http://127.0.0.1:8770` with admin and scheduler tokens enabled, a temporary preference store, and a temporary local outbox.
+
+- `scripts/smoke_digest_api.py` passed with `TIDEWINDOW_SCHEDULER_TOKEN` and `TIDEWINDOW_DIGEST_SIGNING_SECRET` configured.
+- The tokenized scheduler path wrote delivery, test, and unsubscribe audit rows.
+- `/api/digest-admin` accepted the admin token and reported `last_run_id: smoke-run`, `today_delivered: 2`, and `today_errors: 0`.
+- Scheduler readiness correctly reported `ready: false` only because no SMTP provider was configured in this workspace; delivery mode stayed `local_outbox`.
+
+Remaining hosted activation work: configure SMTP credentials, choose the hosted cron/platform scheduler, point both at persistent storage, and monitor the first live `/admin` audit rows after deployment.
+
 ## Admin Access
 
 When `TIDEWINDOW_ADMIN_TOKEN` is set, `/admin` loads an unlock prompt before operational data is fetched. Enter the token in the page or open `/admin?admin_token=...` once; the browser stores it in session storage for that tab session.

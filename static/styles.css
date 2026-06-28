@@ -1218,7 +1218,7 @@ h2 {
 .admin-readiness-grid,
 .admin-health-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: 12px;
 }
 
@@ -1239,7 +1239,8 @@ h2 {
 }
 
 .admin-command-card {
-  grid-column: span 3;
+  grid-column: 1 / -1;
+  min-width: 0;
 }
 
 .admin-command-card code {
@@ -1253,7 +1254,7 @@ h2 {
 
 .admin-checks {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
   gap: 12px;
 }
 

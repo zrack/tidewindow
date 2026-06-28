@@ -1,4 +1,4 @@
-const CACHE = "tidewindow-v30";
+const CACHE = "tidewindow-v31";
 const SHELL = [
   "/",
   "/digest",

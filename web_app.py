@@ -47,7 +47,6 @@ from marine_regions import (
     region_summaries,
     zone_configs_for_region,
 )
-from noaa_client import NoaaMarineClient
 from sun_times import sun_events
 
 
@@ -62,11 +61,11 @@ digest_email_sender = DigestEmailSender()
 
 # Cache upstream marine state so reloads and multiple tabs don't each hit
 # NOAA/OpenWeather, and so a brief upstream outage serves the last good
-# reading instead of static seed data. Resolves NoaaMarineClient lazily so
-# tests can patch it.
+# reading instead of static seed data. The NOAA client is resolved lazily so
+# admin and scheduler imports do not pay the heavier provider startup cost.
 state_cache = MarineStateCache(
     WEB_REFRESH_INTERVAL_SECONDS,
-    lambda: NoaaMarineClient(provider_context_for_region(DEFAULT_REGION_ID)),
+    lambda: create_noaa_client(provider_context_for_region(DEFAULT_REGION_ID)),
 )
 region_state_caches = {}
 
@@ -93,9 +92,15 @@ def get_state_cache(region_id: str) -> MarineStateCache:
         provider_context = provider_context_for_region(region_id)
         region_state_caches[region_id] = MarineStateCache(
             WEB_REFRESH_INTERVAL_SECONDS,
-            lambda provider_context=provider_context: NoaaMarineClient(provider_context),
+            lambda provider_context=provider_context: create_noaa_client(provider_context),
         )
     return region_state_caches[region_id]
+
+
+def create_noaa_client(provider_context: dict):
+    from noaa_client import NoaaMarineClient
+
+    return NoaaMarineClient(provider_context)
 
 
 @app.get("/")
