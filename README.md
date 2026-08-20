@@ -131,7 +131,9 @@ The terminal dashboard focuses on the original Gig Harbor/Narrows planning set. 
 - [Changelog](CHANGELOG.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Digest delivery deployment checklist](docs/planning/DIGEST_DELIVERY_DEPLOYMENT.md)
+- [Launch readiness checklist](docs/planning/LAUNCH_READINESS_CHECKLIST.md)
 - [Regional spot selection brief](docs/planning/REGIONAL_SPOT_SELECTION_BRIEF.md)
+- [Station quality review workflow](docs/planning/STATION_QUALITY_REVIEW.md)
 - [PWA/offline QA notes](docs/planning/PWA_OFFLINE_QA.md)
 - [NOAA station candidates](docs/reference/NOAA_STATION_CANDIDATES_SOUTH_PUGET_SOUND_HOOD_CANAL.md)
 
@@ -140,6 +142,8 @@ Useful smoke scripts:
 ```bash
 .venv/bin/python scripts/smoke_digest_delivery.py
 .venv/bin/python scripts/smoke_digest_api.py http://127.0.0.1:8000
+.venv/bin/python scripts/check_launch_readiness.py http://127.0.0.1:8000
+.venv/bin/python scripts/report_provider_contexts.py
 ```
 
 ## Deployment
@@ -175,6 +179,8 @@ curl -X POST "http://127.0.0.1:8000/api/digest-deliveries/run?run_id=$(date +%Y%
 The delivery runner uses a short-lived scheduler lock to avoid duplicate sends when overlapping workers fire. Set `TIDEWINDOW_SCHEDULER_TOKEN` before enabling hosted cron. Delivery audit records are available at `/api/digest-deliveries/audit?limit=50`.
 
 Use `/admin` after enabling a scheduler to confirm readiness checks, subscription counts, last run id, delivery outcomes, and errors.
+
+Before public launch, run the [launch readiness checklist](docs/planning/LAUNCH_READINESS_CHECKLIST.md). The checker can treat missing SMTP as a local warning, or as a hosted failure with `--require-email-provider`.
 
 ## Test
 

@@ -128,4 +128,4 @@ Phase 4: Accuracy upgrades — started
 
 ## Recommended Next Step
 
-Build regional search/autocomplete next. The app now supports enough regions that users should be able to search by town, launch, or marine area instead of scanning a fixed dropdown.
+Regional search/autocomplete has shipped. The next regional-planning step is spot confidence and local accuracy: continue spot-level exposure review, formalize station-quality review, and add provider comparison tooling before expanding to broader Puget Sound catalogs.

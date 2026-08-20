@@ -2,6 +2,8 @@
 
 This checklist covers the hosted daily digest path: saved preferences, email delivery, unsubscribe links, audit review, and scheduled runs.
 
+For the full launch gate, including PWA device checks and hosted readiness verification, see [Launch Readiness Checklist](LAUNCH_READINESS_CHECKLIST.md).
+
 ## Required Environment
 
 ```bash

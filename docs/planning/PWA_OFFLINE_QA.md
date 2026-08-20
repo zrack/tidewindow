@@ -2,6 +2,8 @@
 
 _Last checked: 2026-06-27._
 
+For the full launch gate, including hosted digest delivery and scheduler activation, see [Launch Readiness Checklist](LAUNCH_READINESS_CHECKLIST.md).
+
 ## Scope
 
 This pass verified the install/offline foundation in a mobile browser context:
