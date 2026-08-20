@@ -4,6 +4,7 @@ Notable project changes are listed here in reverse chronological order. This pro
 
 ## Current
 
+- Reworked the README visual story with a map-first TideWindow infographic and refreshed desktop/mobile dashboard screenshots.
 - Added launch-readiness and station-quality review checklists, local launch/provider checker scripts, refreshed the roadmap around launch blockers versus next product work, and retired stale regional planning guidance.
 - Ran production-style local scheduler/admin/PWA launch QA, fixed mobile admin overflow, bumped PWA shell assets, and lazy-loaded the NOAA client for admin/scheduler startup.
 - Added token guards for digest admin operations and hosted scheduler runs, plus an admin unlock flow for production use.

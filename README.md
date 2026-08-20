@@ -1,22 +1,32 @@
 # TideWindow
 
-TideWindow is a marine-planning dashboard for kayaking and fly fishing around Puget Sound, South Hood Canal, and the Aberdeen area. It combines NOAA tide/current data, optional OpenWeather wind data, regional spot catalogs, and local scoring rules to show when conditions look usable, risky, or especially good.
+<p align="center">
+  <img src="docs/assets/tidewindow-infographic.svg" alt="TideWindow map-first marine planning flow from place selection to a source-backed window">
+</p>
 
-It runs as both a FastAPI web app and a terminal dashboard. The web app is the primary experience: map-first regional planning, Tomorrow's Best digest, daily heatmap, provider diagnostics, risk tolerance, shareable digest export, daily digest delivery, and digest operations admin.
+TideWindow is a marine-planning dashboard for kayaking and fly fishing around Puget Sound, South Hood Canal, and the Aberdeen area. Pick a region, city, launch, or marine-area alias and the app moves the map, loads nearby spots, scores the next planning windows, and shows exactly which NOAA and weather sources are driving the call.
 
-## Screenshots
+The FastAPI web app is the primary experience: map-first regional planning, activity-aware spot scoring, a daily heatmap, Tomorrow's Best digest, provider diagnostics, risk tolerance, shareable exports, daily digest delivery, and an operations admin view. A terminal dashboard is included for the original Gig Harbor/Narrows workflow.
 
-### Web dashboard
+## Visual Tour
+
+### Map-first dashboard
 
 ![TideWindow desktop web dashboard](docs/assets/web-dashboard-desktop.png)
 
-### Mobile layout
+### Mobile and terminal views
 
-<img src="docs/assets/web-dashboard-mobile.png" alt="TideWindow mobile web dashboard" width="320">
+| Mobile web app | Terminal dashboard |
+| --- | --- |
+| <img src="docs/assets/web-dashboard-mobile.png" alt="TideWindow mobile web dashboard" width="310"> | ![TideWindow terminal dashboard](docs/assets/terminal-dashboard.svg) |
 
-### Terminal dashboard
+## Highlights
 
-![TideWindow terminal dashboard](docs/assets/terminal-dashboard.svg)
+- **Map-first planning:** selected regions default to all available spots, with compact density controls when the map gets crowded.
+- **Activity-aware reads:** kayak, fish, and all modes carry through the map, heatmap, best windows, shared links, and saved digest preferences.
+- **Honest provider context:** every region explains station fit, tide/current source, fallback path, weather source, NWS office, and caveats.
+- **72-hour heatmap:** the busy hourly card wall is replaced by a visual day-by-hour scan for safe, caution, poor, and optimal windows.
+- **Daily routine support:** Tomorrow's Best can be shared, copied, exported to calendar, delivered by email, and monitored from `/admin`.
 
 ## What It Does
 

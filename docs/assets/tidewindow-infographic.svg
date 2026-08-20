@@ -1,0 +1,234 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">TideWindow marine planning at a glance</title>
+  <desc id="desc">Choose a Puget Sound place, compare nearby kayak and fishing spots on the map, and select a source-backed marine window from the 72-hour outlook.</desc>
+  <defs>
+    <clipPath id="map-clip">
+      <rect x="430" y="250" width="710" height="430" rx="8"/>
+    </clipPath>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000" flood-opacity="0.32"/>
+    </filter>
+    <style>
+      text { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; }
+      .eyebrow { fill: #7f969b; font-size: 15px; font-weight: 800; letter-spacing: 3px; }
+      .brand { fill: #f2f7f7; font-size: 46px; font-weight: 800; }
+      .headline { fill: #f2f7f7; font-size: 38px; font-weight: 760; }
+      .subhead { fill: #9aadb1; font-size: 20px; font-weight: 500; }
+      .step { fill: #6ad0da; font-size: 14px; font-weight: 800; letter-spacing: 2px; }
+      .panel-title { fill: #f1f6f6; font-size: 25px; font-weight: 750; }
+      .label { fill: #809398; font-size: 13px; font-weight: 800; letter-spacing: 2px; }
+      .body { fill: #a7b7ba; font-size: 16px; font-weight: 500; }
+      .body-strong { fill: #eef5f5; font-size: 16px; font-weight: 700; }
+      .metric { fill: #f3f8f8; font-size: 29px; font-weight: 800; }
+      .metric-label { fill: #819499; font-size: 12px; font-weight: 800; letter-spacing: 1px; }
+      .tiny { fill: #71868b; font-size: 12px; font-weight: 700; }
+      .pill { font-size: 13px; font-weight: 800; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" fill="#071012"/>
+  <rect x="0" y="0" width="1600" height="8" fill="#55c9d4"/>
+  <circle cx="1468" cy="88" r="92" fill="#0c2024"/>
+  <circle cx="1518" cy="39" r="40" fill="#10292d"/>
+
+  <g transform="translate(60 58)">
+    <text class="eyebrow" x="0" y="0">MARINE WINDOWS FOR THE SOUTH SOUND</text>
+    <text class="brand" x="0" y="58">TideWindow</text>
+  </g>
+
+  <g transform="translate(520 62)">
+    <text class="headline" x="0" y="24">From a place name to a confident window.</text>
+    <text class="subhead" x="0" y="62">Nearby water, honest source context, and the best time to go.</text>
+  </g>
+
+  <g transform="translate(1274 54)">
+    <rect x="0" y="0" width="266" height="48" rx="8" fill="#0c171a" stroke="#24363b"/>
+    <rect x="5" y="5" width="78" height="38" rx="6" fill="#57cbd5"/>
+    <text class="pill" x="31" y="30" fill="#092126">ALL</text>
+    <text class="pill" x="103" y="30" fill="#91a4a8">KAYAK</text>
+    <text class="pill" x="190" y="30" fill="#91a4a8">FISH</text>
+  </g>
+
+  <path d="M60 170 H1540" stroke="#1b2a2e" stroke-width="1"/>
+
+  <g transform="translate(60 196)">
+    <rect x="0" y="0" width="28" height="28" rx="6" fill="#163238" stroke="#55c9d4"/>
+    <text x="10" y="20" fill="#8ce1e8" font-size="15" font-weight="800">1</text>
+    <text class="step" x="42" y="20">CHOOSE WATER</text>
+  </g>
+  <g transform="translate(430 196)">
+    <rect x="0" y="0" width="28" height="28" rx="6" fill="#163238" stroke="#55c9d4"/>
+    <text x="9" y="20" fill="#8ce1e8" font-size="15" font-weight="800">2</text>
+    <text class="step" x="42" y="20">SEE EVERY NEARBY SPOT</text>
+  </g>
+  <g transform="translate(1170 196)">
+    <rect x="0" y="0" width="28" height="28" rx="6" fill="#163238" stroke="#55c9d4"/>
+    <text x="9" y="20" fill="#8ce1e8" font-size="15" font-weight="800">3</text>
+    <text class="step" x="42" y="20">PICK THE WINDOW</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="60" y="250" width="340" height="430" rx="8" fill="#111b1f" stroke="#27383d" stroke-width="2"/>
+    <rect x="430" y="250" width="710" height="430" rx="8" fill="#b8d7dc" stroke="#27383d" stroke-width="2"/>
+    <rect x="1170" y="250" width="370" height="430" rx="8" fill="#111b1f" stroke="#27383d" stroke-width="2"/>
+  </g>
+
+  <g transform="translate(88 282)">
+    <text class="label" x="0" y="0">SEARCH A REGION, CITY, OR LAUNCH</text>
+    <rect x="0" y="24" width="284" height="58" rx="8" fill="#091113" stroke="#55c9d4" stroke-width="2"/>
+    <circle cx="26" cy="53" r="9" fill="none" stroke="#6ad0da" stroke-width="2"/>
+    <path d="M32 60 L39 67" stroke="#6ad0da" stroke-width="2" stroke-linecap="round"/>
+    <text class="body-strong" x="52" y="59">Gig Harbor</text>
+    <path d="M258 47 L266 55 L274 47" fill="none" stroke="#91a3a7" stroke-width="2" stroke-linecap="round"/>
+
+    <text class="label" x="0" y="126">NEARBY CATALOG</text>
+    <g transform="translate(0 150)">
+      <circle cx="8" cy="8" r="7" fill="#64dc91"/>
+      <text class="body-strong" x="26" y="13">Inside Gig Harbor</text>
+      <text class="tiny" x="26" y="34">KAYAK &#8226; SHELTERED</text>
+    </g>
+    <g transform="translate(0 210)">
+      <circle cx="8" cy="8" r="7" fill="#e1c650"/>
+      <text class="body-strong" x="26" y="13">Purdy Bridge</text>
+      <text class="tiny" x="26" y="34">FISH &#8226; CURRENT</text>
+    </g>
+    <g transform="translate(0 270)">
+      <circle cx="8" cy="8" r="7" fill="#64dc91"/>
+      <text class="body-strong" x="26" y="13">Fox Island</text>
+      <text class="tiny" x="26" y="34">KAYAK &#8226; EXPOSED</text>
+    </g>
+    <path d="M0 330 H284" stroke="#233338"/>
+    <text class="body" x="0" y="360">All matching spots start visible.</text>
+    <text class="body" x="0" y="384">Compact the map only when needed.</text>
+  </g>
+
+  <g clip-path="url(#map-clip)">
+    <rect x="430" y="250" width="710" height="430" fill="#b9d9df"/>
+    <path d="M430 250 H675 C644 290 650 325 681 353 C708 378 706 407 676 443 C642 483 665 524 706 554 C744 582 739 626 702 680 H430 Z" fill="#e7ece7"/>
+    <path d="M1140 250 H986 C1014 288 1005 329 966 358 C932 383 935 420 977 451 C1025 487 1012 531 975 559 C942 584 947 626 991 680 H1140 Z" fill="#edf0ea"/>
+    <path d="M799 291 C836 268 881 282 894 314 C905 344 873 366 838 360 C806 355 776 320 799 291 Z" fill="#e8ece7"/>
+    <path d="M788 500 C826 474 874 482 889 517 C903 550 869 578 829 570 C790 562 758 524 788 500 Z" fill="#e9eee8"/>
+    <path d="M913 404 C940 387 968 397 974 421 C980 446 954 461 929 454 C905 448 893 418 913 404 Z" fill="#e5ebe5"/>
+
+    <g opacity="0.65" fill="none" stroke="#a9b9ad" stroke-width="2">
+      <path d="M456 304 C520 336 576 302 642 334"/>
+      <path d="M455 465 C525 430 590 462 654 430"/>
+      <path d="M1024 312 C1060 356 1093 372 1137 380"/>
+      <path d="M991 545 C1040 518 1081 529 1138 502"/>
+    </g>
+    <g opacity="0.42" fill="none" stroke="#6caab3" stroke-width="2" stroke-dasharray="8 10">
+      <path d="M717 260 C744 328 738 396 714 468 C695 523 715 599 753 668"/>
+      <path d="M949 263 C917 334 924 391 947 462 C965 519 949 600 914 673"/>
+    </g>
+
+    <g>
+      <circle cx="731" cy="335" r="10" fill="#64dc91" stroke="#f3fff7" stroke-width="3"/>
+      <circle cx="773" cy="397" r="10" fill="#64dc91" stroke="#f3fff7" stroke-width="3"/>
+      <circle cx="839" cy="425" r="10" fill="#e1c650" stroke="#fff8db" stroke-width="3"/>
+      <circle cx="931" cy="488" r="10" fill="#64dc91" stroke="#f3fff7" stroke-width="3"/>
+      <circle cx="726" cy="565" r="10" fill="#e1c650" stroke="#fff8db" stroke-width="3"/>
+      <circle cx="916" cy="600" r="10" fill="#64dc91" stroke="#f3fff7" stroke-width="3"/>
+      <circle cx="1012" cy="367" r="10" fill="#64dc91" stroke="#f3fff7" stroke-width="3"/>
+      <circle cx="658" cy="492" r="10" fill="#64dc91" stroke="#f3fff7" stroke-width="3"/>
+    </g>
+
+    <g>
+      <circle cx="839" cy="425" r="25" fill="none" stroke="#e1c650" stroke-width="3" opacity="0.42"/>
+      <path d="M847 421 L903 382" stroke="#0e2226" stroke-width="2"/>
+      <rect x="883" y="294" width="225" height="96" rx="8" fill="#0b1518" stroke="#2e444a"/>
+      <text class="tiny" x="900" y="318">SELECTED SPOT</text>
+      <text class="body-strong" x="900" y="344">Purdy Bridge</text>
+      <rect x="900" y="355" width="55" height="21" rx="5" fill="#183325"/>
+      <text class="pill" x="911" y="370" fill="#69dc91">FISH</text>
+      <text class="tiny" x="967" y="370">OPTIMAL &#8226; 12 PM</text>
+    </g>
+
+    <g transform="translate(448 268)">
+      <rect x="0" y="0" width="110" height="30" rx="6" fill="#0c171a" opacity="0.94"/>
+      <circle cx="16" cy="15" r="5" fill="#55c9d4"/>
+      <text class="tiny" x="28" y="19" fill="#c7d6d8">NOAA TIDE</text>
+      <rect x="118" y="0" width="132" height="30" rx="6" fill="#0c171a" opacity="0.94"/>
+      <circle cx="134" cy="15" r="5" fill="#55c9d4"/>
+      <text class="tiny" x="146" y="19" fill="#c7d6d8">NOAA CURRENT</text>
+      <rect x="258" y="0" width="96" height="30" rx="6" fill="#0c171a" opacity="0.94"/>
+      <circle cx="274" cy="15" r="5" fill="#64dc91"/>
+      <text class="tiny" x="286" y="19" fill="#c7d6d8">WIND</text>
+    </g>
+
+    <g transform="translate(448 626)">
+      <rect x="0" y="0" width="674" height="38" rx="6" fill="#0c171a" opacity="0.93"/>
+      <text class="tiny" x="14" y="24">MAP FIRST</text>
+      <text class="body-strong" x="102" y="25">Every dot carries activity status and provider context.</text>
+      <circle cx="545" cy="19" r="6" fill="#64dc91"/>
+      <text class="tiny" x="557" y="23">SAFE</text>
+      <circle cx="602" cy="19" r="6" fill="#e1c650"/>
+      <text class="tiny" x="614" y="23">CAUTION</text>
+    </g>
+  </g>
+
+  <g transform="translate(1198 282)">
+    <text class="label" x="0" y="0">TOMORROW'S BEST</text>
+    <rect x="238" y="-17" width="88" height="30" rx="6" fill="#183325" stroke="#2e6948"/>
+    <text class="pill" x="256" y="4" fill="#69dc91">SAFE</text>
+    <text class="metric" x="0" y="57">7:00&#8211;8:00 AM</text>
+    <text class="panel-title" x="0" y="93">Inside Gig Harbor</text>
+    <text class="body" x="0" y="121">Sheltered kayak window</text>
+
+    <g transform="translate(0 154)">
+      <text class="metric-label" x="0" y="0">CURRENT</text>
+      <text class="body-strong" x="0" y="26">0.1 kt</text>
+      <text class="metric-label" x="108" y="0">WIND</text>
+      <text class="body-strong" x="108" y="26">4 kt</text>
+      <text class="metric-label" x="216" y="0">TIDE</text>
+      <text class="body-strong" x="216" y="26">6.2 ft</text>
+    </g>
+
+    <rect x="0" y="215" width="326" height="62" rx="8" fill="#172226"/>
+    <text class="tiny" x="16" y="237">WHY THIS WINDOW</text>
+    <text class="body" x="16" y="261">Light wind &#8226; slack-ish current &#8226; high fit</text>
+
+    <text class="label" x="0" y="319">72 HOURS AT A GLANCE</text>
+    <g transform="translate(0 340)">
+      <g fill="#64dc91">
+        <rect x="0" y="0" width="22" height="22" rx="4"/><rect x="26" y="0" width="22" height="22" rx="4"/><rect x="52" y="0" width="22" height="22" rx="4"/><rect x="104" y="0" width="22" height="22" rx="4"/><rect x="130" y="0" width="22" height="22" rx="4"/><rect x="208" y="0" width="22" height="22" rx="4"/><rect x="234" y="0" width="22" height="22" rx="4"/><rect x="260" y="0" width="22" height="22" rx="4"/>
+        <rect x="26" y="31" width="22" height="22" rx="4"/><rect x="52" y="31" width="22" height="22" rx="4"/><rect x="78" y="31" width="22" height="22" rx="4"/><rect x="104" y="31" width="22" height="22" rx="4"/><rect x="182" y="31" width="22" height="22" rx="4"/><rect x="208" y="31" width="22" height="22" rx="4"/><rect x="286" y="31" width="22" height="22" rx="4"/>
+      </g>
+      <g fill="#e1c650">
+        <rect x="78" y="0" width="22" height="22" rx="4"/><rect x="156" y="0" width="22" height="22" rx="4"/><rect x="182" y="0" width="22" height="22" rx="4"/><rect x="286" y="0" width="22" height="22" rx="4"/>
+        <rect x="0" y="31" width="22" height="22" rx="4"/><rect x="130" y="31" width="22" height="22" rx="4"/><rect x="156" y="31" width="22" height="22" rx="4"/><rect x="234" y="31" width="22" height="22" rx="4"/>
+      </g>
+      <rect x="260" y="31" width="22" height="22" rx="4" fill="#df776b"/>
+    </g>
+  </g>
+
+  <path d="M405 465 H421" stroke="#55c9d4" stroke-width="3" stroke-linecap="round"/>
+  <path d="M415 459 L421 465 L415 471" fill="none" stroke="#55c9d4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M1145 465 H1161" stroke="#55c9d4" stroke-width="3" stroke-linecap="round"/>
+  <path d="M1155 459 L1161 465 L1155 471" fill="none" stroke="#55c9d4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <g transform="translate(60 734)">
+    <rect x="0" y="0" width="1480" height="110" rx="8" fill="#0d181b" stroke="#233439"/>
+    <rect x="0" y="0" width="5" height="110" fill="#55c9d4"/>
+    <text class="label" x="28" y="33">THE SOURCE TRAIL STAYS ATTACHED</text>
+    <text class="body-strong" x="28" y="65">Confidence is useful only when you can see what produced it.</text>
+    <text class="body" x="28" y="89">Live, predicted, derived, fallback, stale, and missing data remain explicit.</text>
+
+    <g transform="translate(780 26)">
+      <rect x="0" y="0" width="176" height="56" rx="8" fill="#132226"/>
+      <text class="tiny" x="16" y="21">TIDE STATION</text>
+      <text class="body-strong" x="16" y="43">9446484 &#8226; Tacoma</text>
+      <rect x="188" y="0" width="205" height="56" rx="8" fill="#132226"/>
+      <text class="tiny" x="204" y="21">CURRENT STATION</text>
+      <text class="body-strong" x="204" y="43">PUG1527 &#8226; Harmonic</text>
+      <rect x="405" y="0" width="155" height="56" rx="8" fill="#132226"/>
+      <text class="tiny" x="421" y="21">PROVIDER FIT</text>
+      <text class="body-strong" x="421" y="43" fill="#69dc91">High</text>
+      <rect x="572" y="0" width="100" height="56" rx="8" fill="#132226"/>
+      <text class="tiny" x="588" y="21">NWS</text>
+      <text class="body-strong" x="588" y="43">PZZ135</text>
+    </g>
+  </g>
+
+  <text x="60" y="878" fill="#60757a" font-size="13" font-weight="700">PUGET SOUND &#8226; SOUTH HOOD CANAL &#8226; ABERDEEN</text>
+  <text x="1540" y="878" text-anchor="end" fill="#60757a" font-size="13" font-weight="700">MAP &#8226; HEATMAP &#8226; TOMORROW'S BEST</text>
+</svg>
